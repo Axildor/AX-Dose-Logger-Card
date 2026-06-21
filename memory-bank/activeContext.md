@@ -1,49 +1,47 @@
-# Active Context — Pill Logger Card (Frontend)
+# Active Context — AX Dose Logger Card (Frontend)
 
 ## Current Status
-**Complete**: Hide Navigation Bar toggle — added `hide_nav_bar` config option to the card configurator that hides the bottom Daily/Graphs/Stats/Tools navigation bar. Intended for dashboards that only need the Daily pane.
-
-### Config Option: `hide_nav_bar`
-- New `hide_nav_bar?: boolean` field on `PillLoggerCardConfig` interface (line 28).
-- Defaults to `false` (undefined → bar shown). Uses `!== true` opt-in pattern so existing dashboards are unaffected.
-- When `true`, `_renderPaneSelector()` is replaced with `nothing` in `render()`, completely removing the bottom nav bar.
-- Card stays on the Daily pane (the `connectedCallback` already resets `_activePane = 'daily'`).
-- Added to `getConfigForm()` schema as a top-level boolean toggle after `stats_3_columns`.
-- Localization: `config.hide_nav_bar` label ("Hide Navigation Bar") and `config.helper.hide_nav_bar` helper text.
-- README Configuration table updated with the new option.
-
-**Previous**: Graph timescale options — added 30D and 60D timescales to the taken bar graph, and 12H timescale to the Amount in Body line graph (still defaults to 48H).
+**Complete**: Tracking Scale & Override Fix (v2) — fixed two remaining issues: (1) tick mark scale alignment — "0" was at ~0.5 position (too far right) and "10" needed to shift right ~1/4 spacing; (2) override button closed dialog but didn't actually change the value — root cause was the `set_metric` service requiring `entry_id` + `metric_key` which the frontend couldn't reliably resolve from a Lovelace card context. Fixed by changing the service to accept `entity_id` directly (the effectiveness number entity), with the backend resolving entity_id → coordinator + metric_key via the entity registry.
 
 ## What Was Changed
 
-### Hide Navigation Bar Toggle (2026-06-20)
-- **`src/pill-logger-card.ts`** — added `hide_nav_bar?: boolean` to config interface; gated `_renderPaneSelector()` in `render()` with `this.config?.hide_nav_bar !== true ? … : nothing`; added `hide_nav_bar` boolean selector to `getConfigForm()` schema after `stats_3_columns`.
-- **`src/localize.ts`** — added `config.hide_nav_bar` and `config.helper.hide_nav_bar` strings.
-- **`README.md`** — added `hide_nav_bar` row to Configuration Options table.
-- **`dist/pill-logger-card.js`** — rebuilt via `yarn run build`, clean compilation.
-- **`memory-bank/activeContext.md`** — this file.
-- **`memory-bank/progress.md`** — appended section with checklist.
+### Tracking Scale & Override Fix v2 (2026-06-21)
+- **`src/ax-dose-logger-card.ts`** — (1) Scale alignment: changed `.tracking-scale` from symmetric `padding: 0 12px` to asymmetric `padding-left: 6px; padding-right: 2px` with `box-sizing: border-box`; removed `min-width: 14px` from `.tracking-scale-tick` so ticks size to content width for precise center alignment with slider thumb positions. (2) Override fix: override button handler now calls `ax_dose_logger.set_metric` with `entity_id` + `value` + `override: true` (no more `entry_id` or `metric_key` — the backend resolves these from the entity). Removed `configEntryId` from `ResolvedEntities` interface and `_computeEntities()` (no longer needed). Removed dead `_getEntryId()` method.
+- **`dist/ax-dose-logger-card.js`** — rebuilt via `yarn run build`, clean compilation (exit 0).
+
+### Backend Changes (2026-06-21)
+- **`custom_components/ax_dose_logger/services.py`** — Changed `set_metric` service schema from `entry_id` + `metric_key` to `entity_id`. Added `_get_coordinator_for_entity()` helper that resolves `entity_id` → entity registry → `config_entry_id` → coordinator, and reads `metric_key` from the entity's state attributes. Added `ATTR_ENTITY_ID` constant. Added `entity_registry as er` import and `HomeAssistantError` import.
+- **`custom_components/ax_dose_logger/services.yaml`** — Updated `set_metric` fields: replaced `entry_id` (config_entry selector) + `metric_key` (text selector) with `entity_id` (entity selector filtered to number domain + ax_dose_logger integration).
+- **`custom_components/ax_dose_logger/strings.json`** + **`translations/en.json`** — Updated `set_metric` service field labels: replaced `entry_id` ("Medication") + `metric_key` ("Metric Key") with `entity_id` ("Tracking Entity").
 
 ## Files Modified
-- `src/pill-logger-card.ts` — config interface, render() gate, getConfigForm() schema.
-- `src/localize.ts` — two new localization keys.
-- `README.md` — Configuration Options table.
-- `dist/pill-logger-card.js` — rebuilt.
-- `memory-bank/activeContext.md` — this file.
-- `memory-bank/progress.md` — appended section.
+- `src/ax-dose-logger-card.ts` (frontend)
+- `dist/ax-dose-logger-card.js` (frontend, rebuilt)
+- `custom_components/ax_dose_logger/services.py` (backend)
+- `custom_components/ax_dose_logger/services.yaml` (backend)
+- `custom_components/ax_dose_logger/strings.json` (backend)
+- `custom_components/ax_dose_logger/translations/en.json` (backend)
 
 ## Key Design Decisions
-1. **Default = shown** — `hide_nav_bar` defaults to `false` (undefined → bar shown). Hiding is the opt-in direction, so existing dashboards are unaffected.
-2. **Hide the whole bar** — when hidden, the card stays on the Daily pane. Users who hide the bar are explicitly opting into a Daily-only experience. No need for alternative pane-switching mechanisms.
-3. **No stub-config change** — `getStubConfig()` only seeds `device_id` and `show_amount_in_body`. The new optional toggle needs no stub value.
-4. **Top-level schema placement** — added after `stats_3_columns` to keep simple boolean toggles grouped; expandable groups (Custom Chips, Graph) stay nested.
+1. **Scale alignment via asymmetric padding** — The ha-slider thumb sits ~10px from each track edge at min/max. Single-digit ticks are ~8px wide (center at 4px), so `padding-left: 6px` places "0" center at 10px. The "10" tick is two digits (~14px, center at 7px), so `padding-right: 2px` shifts it right to match the thumb at max. Removed `min-width: 14px` so ticks don't add extra offset.
+2. **Entity-based service (the real fix)** — The first attempt (configEntryId in ResolvedEntities) failed because `hass.entities[entityId].config_entry_id` is not reliably available in a Lovelace card context. The correct fix is to change the `set_metric` service to accept `entity_id` directly — the frontend already knows the entity_id (it's the slider's entity). The backend resolves entity_id → coordinator + metric_key via the entity registry (`er.async_get(hass).async_get(entity_id)`) and state attributes (`hass.states.get(entity_id).attributes['metric_key']`). This is the same pattern used by `number.set_value` and `button.press` — entity-targeted services that don't require the caller to resolve config entries.
+3. **Why the first attempt failed** — `hass.entities` in the HA frontend is populated via a websocket subscription, but `config_entry_id` may not be present in all contexts or may be undefined for entities created via certain mechanisms. The entity-based approach eliminates this fragility entirely — the frontend just passes the entity_id it already has.
 
 ## Previous Context
-### Graph Timescale Options (2026-06-20)
-- New `@state _activeBarTimeframe` field; new `_getBarTimeframeDays()` helper; `_bucketByDay(dayCount)` parameterized; new `_renderBarTimeframeChips()` and `_handleBarTimeframeChange()`; bar graph renders timeframe chips; bar title uses `{days}` interpolation; label decimation; `_getTimeframeHours()` gains `'12h' → 12`; `_renderTimeframeChips()` adds `'12h'`; line graph time-label branch for 12h with 3h step.
+### Tracking Dialog & Scale Fixes (2026-06-21)
+- Added `_trackingOverrideDialog` to `shouldUpdate()` key list (root cause of dialog buttons not working). Restructured tick marks into `.tracking-slider-wrapper`.
 
-### Shared Fetch-Token Race Fix (2026-06-20)
-- Replaced single `_fetchToken` with per-fetch-type counters `_amountFetchToken` and `_doseFetchToken`.
+### Tracking Pane Fixes (2026-06-21)
+- Label derivation via `metric_label` attribute; `_pendingTracking` Set for race condition; 0-10 tick marks; "Today's {metric}" dialog format.
 
-### Batch 1–9 (2026-05 to 2026-06)
-- See `memory-bank/progress.md` for full history.
+### Metrics → Tracking Rename (2026-06-21)
+- Renamed pane ID, CSS classes, localize keys. "Tracking" is standard clinical terminology.
+
+### Overdue Display Fix (2026-06-21)
+- Added `overdue` sensor support; rewrote `_computeOverTime()`.
+
+### Line Graph Gap-Bridging Fix (2026-06-21)
+- Added `_bridgeGaps()` helper to eliminate misleading diagonal slopes.
+
+### Rebrand to AX Dose Logger Card (2026-06-21)
+- Full rename from "Pill Logger Card" to "AX Dose Logger Card".

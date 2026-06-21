@@ -2,9 +2,9 @@ import typescript from '@rollup/plugin-typescript';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 
 export default {
-  input: 'src/pill-logger-card.ts',
+  input: 'src/ax-dose-logger-card.ts',
   output: {
-    file: 'dist/pill-logger-card.js',
+    file: 'dist/ax-dose-logger-card.js',
     format: 'es',
     sourcemap: false,
   },

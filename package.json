@@ -1,8 +1,8 @@
 {
-  "name": "lovelace-pill-logger-card",
+  "name": "ax-dose-logger-card",
   "version": "1.0.0",
-  "description": "A custom Lovelace card for the Pill Logger Home Assistant integration",
-  "main": "dist/pill-logger-card.js",
+  "description": "A custom Lovelace card for the AX Dose Logger Home Assistant integration",
+  "main": "dist/ax-dose-logger-card.js",
   "type": "module",
   "scripts": {
     "build": "rollup -c",

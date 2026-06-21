@@ -1,4 +1,4 @@
-// Lightweight localization helper for the Pill Logger card.
+// Lightweight localization helper for the AX Dose Logger card.
 // Currently English-only; adding a new language is just adding
 // another key to the `translations` object.
 
@@ -6,7 +6,7 @@ const translations: Record<string, Record<string, string>> = {
   en: {
     // ── Card-level ──
     'card.loading': 'Loading...',
-    'card.placeholder_title': 'Pill Logger Card',
+    'card.placeholder_title': 'AX Dose Logger Card',
     'card.placeholder_subtitle': 'Please select a device in the visual editor to begin.',
 
     // ── Pane tabs ──
@@ -20,7 +20,7 @@ const translations: Record<string, Record<string, string>> = {
     'daily.limit_reached': 'LIMIT REACHED',
     'daily.last': 'Last',
     'daily.next': 'Next',
-    'daily.over': 'over',
+    'daily.overdue': 'Overdue',
     'daily.safe_to_take': 'Safe to take',
     'daily.pills_left': 'Pills left',
     'daily.na': 'N/A',
@@ -70,6 +70,16 @@ const translations: Record<string, Record<string, string>> = {
     'averages.adh_30_day': '30d Adh',
     'averages.adh_365_day': '365d Adh',
     'averages.adh_running': '{days}d Adh',
+
+    // ── Tracking pane ──
+    'pane.tracking': 'Tracking',
+    'tracking.today_label': "Today's {metric}",
+    'tracking.not_set': 'Not set',
+    'tracking.set_today': 'Set for today',
+    'tracking.already_set_title': 'Already Set Today',
+    'tracking.already_set_body': "You already set {metric} to {oldValue} today. Change to {newValue}?",
+    'tracking.override': 'Override',
+    'tracking.cancel': 'Cancel',
 
     // ── Tools pane ──
     'tools.adherence_header': 'Adherence Tools',
@@ -121,7 +131,7 @@ const translations: Record<string, Record<string, string>> = {
     'config.hide_nav_bar': 'Hide Navigation Bar',
 
     // ── Config form helpers ──
-    'config.helper.device_id': 'Select your Pill Logger medication device.',
+    'config.helper.device_id': 'Select your AX Dose Logger medication device.',
     'config.helper.big_text': 'When off, all text is 2px smaller. Daily pane shrinks further for compact view.',
     'config.helper.color_scheme': 'Sets the accent color for buttons, icons, and highlights across the card.',
     'config.helper.name': 'Custom name for this medication. Leave empty to use the device name.',
@@ -150,7 +160,7 @@ const translations: Record<string, Record<string, string>> = {
     'color.grey': 'Grey',
 
     // ── setConfig error ──
-    'setconfig.error.device_required': 'A device is required for the Pill Logger card.',
+    'setconfig.error.device_required': 'A device is required for the AX Dose Logger card.',
 
     // ── aria-labels ──
     'aria.take_pill_safe': 'Take pill',

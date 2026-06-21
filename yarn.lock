@@ -318,6 +318,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ax-dose-logger-card@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "ax-dose-logger-card@workspace:."
+  dependencies:
+    "@rollup/plugin-node-resolve": "npm:^15.3.1"
+    "@rollup/plugin-typescript": "npm:^11.1.6"
+    custom-card-helpers: "npm:^2.0.0"
+    lit: "npm:^3.3.2"
+    rollup: "npm:^4.59.0"
+    tslib: "npm:^2.8.1"
+    typescript: "npm:^5.9.3"
+  languageName: unknown
+  linkType: soft
+
 "chownr@npm:^3.0.0":
   version: 3.0.0
   resolution: "chownr@npm:3.0.0"
@@ -505,20 +519,6 @@ __metadata:
   checksum: 10c0/11b6175ebffce92f4cf835ddd8a198d49707c27f34b0a7c538d2cb294f6c2fb7ff40aabd3589fcf0c2ed162404faaf2bb7c966fad9024bb9e02d013e2d5aa0b5
   languageName: node
   linkType: hard
-
-"lovelace-pill-logger-card@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "lovelace-pill-logger-card@workspace:."
-  dependencies:
-    "@rollup/plugin-node-resolve": "npm:^15.3.1"
-    "@rollup/plugin-typescript": "npm:^11.1.6"
-    custom-card-helpers: "npm:^2.0.0"
-    lit: "npm:^3.3.2"
-    rollup: "npm:^4.59.0"
-    tslib: "npm:^2.8.1"
-    typescript: "npm:^5.9.3"
-  languageName: unknown
-  linkType: soft
 
 "minipass@npm:^7.0.4, minipass@npm:^7.1.2":
   version: 7.1.3

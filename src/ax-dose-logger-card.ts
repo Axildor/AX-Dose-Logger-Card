@@ -8,7 +8,7 @@ import { localize } from './localize.js';
 // Interfaces
 // ──────────────────────────────────────────────
 
-interface PillLoggerCardConfig extends LovelaceCardConfig {
+interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   device_id?: string;
   name?: string;
   color_scheme?: string;
@@ -34,13 +34,20 @@ interface PillLoggerCardConfig extends LovelaceCardConfig {
 // home-assistant-js-websocket protocol that custom-card-helpers' type is based on.
 // All other fields (states, callService, callApi, language, config, etc.) are
 // inherited from HomeAssistant — no need to re-declare them.
-interface PillLoggerHass extends HomeAssistant {
+interface AxDoseLoggerHass extends HomeAssistant {
   entities: Record<string, {
     device_id?: string;
     platform?: string;
     name?: string;
+    config_entry_id?: string;
   }>;
   devices?: Record<string, { name?: string }>;
+}
+
+interface MetricEntity {
+  entityId: string;
+  label: string;
+  metricKey: string;
 }
 
 interface ResolvedEntities {
@@ -61,6 +68,7 @@ interface ResolvedEntities {
   daysSinceFirstDose?: string;
   steadyState?: string;
   strength?: string;
+  overdue?: string;
   takeButton?: string;
   resetButton?: string;
   undoButton?: string;
@@ -68,6 +76,7 @@ interface ResolvedEntities {
   adherenceCoverButton?: string;
   pillsLeft?: string;
   addRefill?: string;
+  metrics: MetricEntity[];
 }
 
 interface DayBucket {
@@ -77,14 +86,14 @@ interface DayBucket {
 }
 
 // ──────────────────────────────────────────────
-// PillLoggerCard — Main Card Class
+// AxDoseLoggerCard — Main Card Class
 // ──────────────────────────────────────────────
 
-export class PillLoggerCard extends LitElement implements LovelaceCard {
-  @property({ attribute: false }) hass?: PillLoggerHass;
-  @property({ attribute: false }) config?: PillLoggerCardConfig;
+export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
+  @property({ attribute: false }) hass?: AxDoseLoggerHass;
+  @property({ attribute: false }) config?: AxDoseLoggerCardConfig;
 
-  @state() private _activePane: 'daily' | 'graphs' | 'stats' | 'tools' = 'daily';
+  @state() private _activePane: 'daily' | 'graphs' | 'stats' | 'tools' | 'tracking' = 'daily';
   @state() private _activeGraph: number = 0;
   @state() private _amountHistory: Array<{timestamp: string; value: number}> = [];
   @state() private _doseHistory: Array<[string, number]> = [];
@@ -98,6 +107,14 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
   // confirm() box. When non-null, _renderOverrideDialog() shows an ha-dialog
   // asking the user to confirm taking a pill past the safe limit.
   @state() private _overrideDialog: { windowExpiry: string; entities: ResolvedEntities } | null = null;
+  // Tracking override warning dialog: when user tries to change a daily-locked
+  // tracking value that has already been set today, this dialog asks for confirmation.
+  @state() private _trackingOverrideDialog: { metricKey: string; metricLabel: string; oldValue: number; newValue: number; entityId: string } | null = null;
+  // Tracks entity IDs that have been set but whose HA state hasn't propagated yet.
+  // Prevents the override-dialog race condition: without this, a second drag before
+  // the first set_value completes would read stale logged_today=false and bypass
+  // the override dialog. Cleared in updated() once HA confirms logged_today=true.
+  private _pendingTracking: Set<string> = new Set();
 
   // ── Render-performance optimization ─────────
   // _tick: bumped every 30s by a timer so time-relative panes (daily/stats)
@@ -127,7 +144,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
 
   // ── Configuration ──────────────────────────
 
-  setConfig(config: PillLoggerCardConfig) {
+  setConfig(config: AxDoseLoggerCardConfig) {
     // Backward compat: convert legacy chips[] array to flat chip_N fields
     const raw = config as any;
     if (Array.isArray(raw.chips)) {
@@ -173,7 +190,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
    */
   private _resolveEntities(): ResolvedEntities {
     if (!this.hass || !this.config) {
-      return { medicationName: 'Medication' };
+      return { medicationName: 'Medication', metrics: [] };
     }
     const deviceId = this.config.device_id;
     const entitiesRef = this.hass.entities;
@@ -198,7 +215,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
   }
 
   private _computeEntities(deviceId: string): ResolvedEntities {
-    const result: ResolvedEntities = { medicationName: 'Medication' };
+    const result: ResolvedEntities = { medicationName: 'Medication', metrics: [] };
     if (!this.hass) return result;
 
     // Extract medication name from device registry
@@ -222,6 +239,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
         else if (entityId.endsWith('_pills_safe_to_take')) result.pillsSafeToTake = entityId;
         else if (entityId.endsWith('_amount_in_body')) result.amountInBody = entityId;
         else if (entityId.endsWith('_next_dose')) result.nextDose = entityId;
+        else if (entityId.endsWith('_overdue')) result.overdue = entityId;
         else if (entityId.endsWith('_avg_daily_doses_7_days')) result.avg7Days = entityId;
         else if (entityId.endsWith('_avg_daily_doses_14_days')) result.avg14Days = entityId;
         else if (entityId.endsWith('_avg_daily_doses_30_days')) result.avg30Days = entityId;
@@ -242,6 +260,16 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       } else if (entityId.startsWith('number.')) {
         if (entityId.endsWith('_pills_left')) result.pillsLeft = entityId;
         else if (entityId.endsWith('_add_refill')) result.addRefill = entityId;
+        else if (entityId.endsWith('_effectiveness')) {
+          // Effectiveness tracking slider — collect for the Tracking pane
+          // Entity ID pattern: number.{device}_{metric_slug}_effectiveness
+          // metric_label is the clean metric name (e.g. "Pain") exposed by the backend
+          // — friendly_name includes the device prefix (e.g. "Ibuprofen Pain Effectiveness")
+          const metricLabel = this._getAttr(entityId, 'metric_label') as string | undefined;
+          const label = metricLabel || entityInfo.name?.replace(/\s+Effectiveness$/i, '') || entityId;
+          const metricKey = this._getAttr(entityId, 'metric_key') || '';
+          result.metrics.push({ entityId, label, metricKey });
+        }
       }
     }
 
@@ -256,7 +284,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     for (const key of ['chip_1', 'chip_2', 'chip_3', 'chip_4'] as const) {
       const val = this.config[key];
       if (val) {
-        const labelKey = `${key}_label` as keyof PillLoggerCardConfig;
+        const labelKey = `${key}_label` as keyof AxDoseLoggerCardConfig;
         chips.push({ entityId: val, label: this.config[labelKey] as string | undefined });
       }
     }
@@ -367,14 +395,14 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       const now = new Date();
       if (isNaN(next.getTime()) || next <= now) return 'now';
 
-      const diffMs = next.getTime() - now.getTime();
+      const diffMs = Math.max(0, next.getTime() - now.getTime());
       const hours = Math.floor(diffMs / 3600000);
       const minutes = Math.floor((diffMs % 3600000) / 60000);
 
       if (hours > 0) return `${hours}h ${minutes}m`;
       return `${minutes}m`;
     } catch (e) {
-      console.warn('[pill-logger-card] _computeNextDose failed:', e);
+      console.warn('[ax-dose-logger-card] _computeNextDose failed:', e);
       return 'Unavailable';
     }
   }
@@ -390,24 +418,16 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     const trackingType = this._getAttr(entities.nextDose, 'tracking_type');
     if (trackingType === 'As Needed') return null;
 
-    const state = this._getState(entities.nextDose);
+    const state = this._getState(entities.overdue);
     if (state === 'unavailable' || state === 'unknown' || !state) return null;
 
-    try {
-      const next = new Date(state);
-      const now = new Date();
-      if (isNaN(next.getTime())) return null;
-      if (next > now) return null; // not overdue yet
+    const seconds = parseFloat(state);
+    if (isNaN(seconds) || seconds <= 0) return null;
 
-      const diffMs = now.getTime() - next.getTime();
-      const hours = Math.floor(diffMs / 3600000);
-      const minutes = Math.floor((diffMs % 3600000) / 60000);
-      if (hours > 0) return `${hours}h ${minutes}m`;
-      return `${minutes}m`;
-    } catch (e) {
-      console.warn('[pill-logger-card] _computeOverTime failed:', e);
-      return null;
-    }
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
   }
 
   /**
@@ -431,7 +451,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
           return `${minutes}m`;
         }
       } catch (e) {
-        console.warn('[pill-logger-card] _computeWindowExpiry failed:', e);
+        console.warn('[ax-dose-logger-card] _computeWindowExpiry failed:', e);
         // fall through to next_dose fallback
       }
     }
@@ -449,14 +469,14 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       const now = new Date();
       if (isNaN(last.getTime())) return 'Never';
 
-      const diffMs = now.getTime() - last.getTime();
+      const diffMs = Math.max(0, now.getTime() - last.getTime());
       const hours = Math.floor(diffMs / 3600000);
       const minutes = Math.floor((diffMs % 3600000) / 60000);
 
       if (hours > 0) return `${hours}h ${minutes}m`;
       return `${minutes}m`;
     } catch (e) {
-      console.warn('[pill-logger-card] _computeTimeSinceLastDose failed:', e);
+      console.warn('[ax-dose-logger-card] _computeTimeSinceLastDose failed:', e);
       return 'Never';
     }
   }
@@ -593,7 +613,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
 
   // ── Pane Switching ─────────────────────────
 
-  private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'tools'): void {
+  private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'tools' | 'tracking'): void {
     if (paneId === this._activePane) return; // Guard: skip redundant execution
     this._activePane = paneId;
     // Tell HA's layout engine to re-measure the card height. card-resize is
@@ -751,10 +771,12 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
             <ha-icon icon="${isLimitReached ? 'mdi:alert' : 'mdi:pill'}"></ha-icon>
             <span class="take-label">${isLimitReached ? localize(this._lang, 'daily.limit_reached') : localize(this._lang, 'daily.take_pill')}</span>
             <span class="take-sub">${isLimitReached
-              ? html`${localize(this._lang, 'daily.last')}: ${timeSince} \u2022 ${localize(this._lang, 'daily.next')}: ${nextDose}`
+              ? (overTime
+                ? html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
+                : html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`)
               : (overTime
-                ? html`${localize(this._lang, 'daily.over')}: ${overTime}`
-                : html`${localize(this._lang, 'daily.last')}: ${timeSince}`)}</span>
+                ? html`<span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
+                : html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>`)}</span>
           </button>
 
           <div class="stats-column">
@@ -980,7 +1002,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       }
     } catch (e) {
       // callApi throws on non-2xx; log for debuggability without breaking UX.
-      console.warn('[pill-logger-card] amount history fetch failed:', e);
+      console.warn('[ax-dose-logger-card] amount history fetch failed:', e);
     }
   }
 
@@ -993,7 +1015,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     const token = ++this._doseFetchToken;
 
     try {
-      const data = await this.hass.callApi('GET', `pill_logger/history/${deviceId}`);
+      const data = await this.hass.callApi('GET', `ax_dose_logger/history/${deviceId}`);
 
       // Discard if a newer fetch started or the card was disconnected mid-flight.
       if (token !== this._doseFetchToken) return;
@@ -1004,7 +1026,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       }
     } catch (e) {
       // Custom endpoint may not be available on older backends; log for debug.
-      console.warn('[pill-logger-card] dose history fetch failed:', e);
+      console.warn('[ax-dose-logger-card] dose history fetch failed:', e);
     }
   }
 
@@ -1045,9 +1067,36 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     this._activeBarTimeframe = timeframe;
   }
 
+  private _bridgeGaps(history: Array<{timestamp: string | number | Date; value: number}>, gapMs: number = 3 * 60 * 1000): Array<{timestamp: number; value: number}> {
+    if (history.length < 2) {
+      return history.map(p => ({
+        timestamp: new Date(p.timestamp).getTime(),
+        value: p.value,
+      }));
+    }
+    const bridged: Array<{timestamp: number; value: number}> = [];
+    for (let i = 0; i < history.length; i++) {
+      const current = {
+        timestamp: new Date(history[i].timestamp).getTime(),
+        value: history[i].value,
+      };
+      if (i > 0) {
+        const prev = bridged[bridged.length - 1];
+        if (current.timestamp - prev.timestamp > gapMs) {
+          bridged.push({
+            timestamp: current.timestamp - 1000,
+            value: prev.value,
+          });
+        }
+      }
+      bridged.push(current);
+    }
+    return bridged;
+  }
+
   private _renderLineGraph(entities: ResolvedEntities) {
     const amountInBody = this._getState(entities.amountInBody);
-    const history = this._amountHistory;
+    const rawHistory = this._amountHistory;
 
     const w = 320;
     const h = 180;
@@ -1058,7 +1107,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     const chartW = w - padLeft - padRight;
     const chartH = h - padTop - padBottom;
 
-    if (history.length === 0) {
+    if (rawHistory.length === 0) {
       return html`
         <div class="line-graph-wrapper">
           <div class="timeframe-chips">
@@ -1077,14 +1126,17 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     const timeframeHours = this._getTimeframeHours();
     const startTime = new Date(now.getTime() - timeframeHours * 60 * 60 * 1000);
 
+    // Bridge gaps in history so the polyline renders flat holds + vertical
+    // steps instead of diagonal slopes across sparse recorder data.
+    const bridgedHistory = this._bridgeGaps(rawHistory);
+
     // Find max value for Y-axis scaling
-    const values = history.map(p => p.value);
+    const values = bridgedHistory.map(p => p.value);
     const maxAmount = Math.max(...values, 1);
 
-    // Build polyline points from actual history
-    const polylinePoints = history.map(p => {
-      const t = new Date(p.timestamp);
-      const fraction = Math.max(0, Math.min(1, (t.getTime() - startTime.getTime()) / (timeframeHours * 60 * 60 * 1000)));
+    // Build polyline points from gap-bridged history
+    const polylinePoints = bridgedHistory.map(p => {
+      const fraction = Math.max(0, Math.min(1, (p.timestamp - startTime.getTime()) / (timeframeHours * 60 * 60 * 1000)));
       const x = padLeft + fraction * chartW;
       const y = padTop + chartH * (1 - p.value / maxAmount);
       return `${x},${y}`;
@@ -1384,13 +1436,151 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     `;
   }
 
+
+  // ── Pane 5: Metrics ──────────────────────────
+
+  private _renderPane5(entities: ResolvedEntities) {
+    const metrics = entities.metrics;
+    if (!metrics.length) {
+      return html`
+        <div class="tracking-panel">
+          <div class="tracking-empty">${localize(this._lang, 'tools.empty')}</div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="tracking-panel">
+        ${metrics.map(m => {
+          const state = this._getState(m.entityId);
+          const attrs = this._getAttr(m.entityId, 'logged_today');
+          const isLogged = attrs === true || attrs === 'True' || attrs === 'true';
+          const currentValue = state === 'unavailable' || state === 'unknown' ? null : parseFloat(state);
+          const displayValue = currentValue !== null ? currentValue : 0;
+          const todayLabel = localize(this._lang, 'tracking.today_label', { metric: m.label });
+
+          return html`
+            <div class="tracking-row">
+              <div class="tracking-header">
+                <span class="tracking-label">${todayLabel}</span>
+                ${isLogged
+                  ? html`<span class="tracking-badge tracking-badge--set">${localize(this._lang, 'tracking.set_today')}</span>`
+                  : html`<span class="tracking-badge tracking-badge--unset">${localize(this._lang, 'tracking.not_set')}</span>`
+                }
+              </div>
+              <div class="tracking-slider-row">
+                <div class="tracking-slider-wrapper">
+                  <ha-slider
+                    .value=${displayValue}
+                    .min=${0}
+                    .max=${10}
+                    .step=${1}
+                    .disabled=${false}
+                    pin
+                    @change=${(e: Event) => this._handleTrackingChange(m, (e.target as HTMLInputElement).value)}
+                  ></ha-slider>
+                  <div class="tracking-scale">
+                    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => html`
+                      <span class="tracking-scale-tick">${n}</span>
+                    `)}
+                  </div>
+                </div>
+                <span class="tracking-value">${currentValue !== null ? currentValue : '—'}</span>
+              </div>
+            </div>
+          `;
+        })}
+      </div>
+    `;
+  }
+
+  private _handleTrackingChange(metric: MetricEntity, rawValue: string): void {
+    const newValue = parseFloat(rawValue);
+    if (isNaN(newValue)) return;
+
+    const state = this._getState(metric.entityId);
+    const attrs = this._getAttr(metric.entityId, 'logged_today');
+    const isLogged = attrs === true || attrs === 'True' || attrs === 'true'
+      || this._pendingTracking.has(metric.entityId);
+
+    if (isLogged) {
+      // Already logged today (or pending) — show override dialog
+      const oldValue = parseFloat(state);
+      this._trackingOverrideDialog = {
+        metricKey: metric.metricKey,
+        metricLabel: metric.label,
+        oldValue: isNaN(oldValue) ? 0 : oldValue,
+        newValue,
+        entityId: metric.entityId,
+      };
+    } else {
+      // Not yet logged — set directly via the number entity
+      // Track locally to prevent race condition before HA state propagates
+      this._pendingTracking.add(metric.entityId);
+      if (this.hass) {
+        this.hass.callService('number', 'set_value', {
+          entity_id: metric.entityId,
+          value: newValue,
+        });
+      }
+    }
+  }
+
+  private _renderTrackingOverrideDialog() {
+    const dlg = this._trackingOverrideDialog;
+    if (!dlg) return nothing;
+
+    return html`
+      <ha-dialog
+        open
+        width="small"
+        @closed=${() => { this._trackingOverrideDialog = null; }}
+      >
+        <div slot="header" class="dialog-header dialog-header--warning">
+          <ha-icon icon="mdi:alert"></ha-icon>
+          ${localize(this._lang, 'tracking.already_set_title')}
+        </div>
+        <div class="dialog-body">
+          <div class="tools-dialog-descriptor">
+            ${localize(this._lang, 'tracking.already_set_body', {
+              metric: localize(this._lang, 'tracking.today_label', { metric: dlg.metricLabel }),
+              oldValue: String(dlg.oldValue),
+              newValue: String(dlg.newValue),
+            })}
+          </div>
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn dialog-btn--muted"
+                  @click=${() => { this._trackingOverrideDialog = null; }}>
+            ${localize(this._lang, 'tracking.cancel')}
+          </button>
+          <button class="dialog-btn"
+                  @click=${() => {
+                    if (this.hass) {
+                      this.hass.callService('ax_dose_logger', 'set_metric', {
+                        entity_id: dlg.entityId,
+                        value: dlg.newValue,
+                        override: true,
+                      });
+                    }
+                    this._trackingOverrideDialog = null;
+                  }}>
+            ${localize(this._lang, 'tracking.override')}
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+  }
+
   // ── Pane Selector ──────────────────────────
 
-  private _renderPaneSelector() {
-    const panes: Array<{ id: 'daily' | 'graphs' | 'stats' | 'tools'; labelKey: string; icon: string }> = [
+  private _renderPaneSelector(entities: ResolvedEntities) {
+    const hasMetrics = entities.metrics.length > 0;
+    const panes: Array<{ id: 'daily' | 'graphs' | 'stats' | 'tools' | 'tracking'; labelKey: string; icon: string }> = [
       { id: 'daily', labelKey: 'pane.daily', icon: 'mdi:pill' },
       { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
       { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
+      ...(hasMetrics ? [{ id: 'tracking' as const, labelKey: 'pane.tracking', icon: 'mdi:chart-sankey' }] : []),
       { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
     ];
 
@@ -1436,6 +1626,12 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
 
     const entities = this._resolveEntities();
 
+    // Auto-fallback: if the user is on the tracking pane but no tracking items exist
+    // (e.g. they were removed in the options flow), fall back to the daily pane.
+    if (this._activePane === 'tracking' && entities.metrics.length === 0) {
+      this._activePane = 'daily';
+    }
+
     return html`
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text !== false ? '0px' : '-2px'};">
         <div class="card-content">
@@ -1443,12 +1639,14 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
           ${this._activePane === 'graphs' ? this._renderPane2(entities) : nothing}
           ${this._activePane === 'stats' ? this._renderPane3(entities) : nothing}
           ${this._activePane === 'tools' ? this._renderPane4(entities) : nothing}
+          ${this._activePane === 'tracking' ? this._renderPane5(entities) : nothing}
         </div>
-        ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector() : nothing}
+        ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector(entities) : nothing}
         ${this._showDeviceInfo ? this._renderDeviceInfoDialog(entities) : nothing}
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : nothing}
         ${this._toolsDialog ? this._renderToolsDialog() : nothing}
         ${this._overrideDialog ? this._renderOverrideDialog() : nothing}
+        ${this._trackingOverrideDialog ? this._renderTrackingOverrideDialog() : nothing}
       </ha-card>
     `;
   }
@@ -1541,6 +1739,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       '_refillAmount',
       '_toolsDialog',
       '_overrideDialog',
+      '_trackingOverrideDialog',
     ] as const) {
       if (changedProps.has(key)) return true;
     }
@@ -1553,7 +1752,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
     }
 
     if (changedProps.has('hass')) {
-      const oldHass = changedProps.get('hass') as PillLoggerHass | undefined;
+      const oldHass = changedProps.get('hass') as AxDoseLoggerHass | undefined;
       return this._relevantStateChanged(oldHass);
     }
     return false;
@@ -1565,7 +1764,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
    * snapshot. Returns true if any of them changed (by state object reference,
    * which HA replaces on every state update).
    */
-  private _relevantStateChanged(oldHass: PillLoggerHass | undefined): boolean {
+  private _relevantStateChanged(oldHass: AxDoseLoggerHass | undefined): boolean {
     if (!this.hass) return false;
     if (!oldHass) return true;
     const entities = this._resolveEntities();
@@ -1602,6 +1801,15 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
         this._fetchAmountHistory(entities);
       }
     }
+    // Clean up _pendingTracking: once HA confirms logged_today=true for an
+    // entity, remove it from the pending set so future changes use the real
+    // attribute instead of the optimistic local flag.
+    if (this.hass && this._pendingTracking.size > 0) {
+      for (const entityId of this._pendingTracking) {
+        const isLogged = this._getAttr(entityId, 'logged_today') === true;
+        if (isLogged) this._pendingTracking.delete(entityId);
+      }
+    }
   }
 
   // ── Sizing ─────────────────────────────────
@@ -1612,6 +1820,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       case 'graphs': return 8;
       case 'stats': return 7;
       case 'tools': return 6;
+      case 'tracking': return 6;
       default: return 5; // daily
     }
   }
@@ -1639,7 +1848,7 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
           required: true,
           selector: {
             device: {
-              filter: { integration: 'pill_logger' },
+              filter: { integration: 'ax_dose_logger' },
             },
           },
         },
@@ -1935,6 +2144,10 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 450;
       opacity: 0.9;
+    }
+
+    .take-sub-segment {
+      white-space: nowrap;
     }
 
     .stat-pill {
@@ -2386,6 +2599,102 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
       border-color: var(--error-color, #db4437);
     }
 
+    /* ── Tracking Pane ─────────────────────────── */
+
+    .tracking-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 4px 0;
+    }
+
+    .tracking-empty {
+      text-align: center;
+      color: var(--secondary-text-color, #666);
+      font-size: calc(14px + var(--pill-text-offset, 0px));
+      padding: 24px 0;
+    }
+
+    .tracking-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tracking-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tracking-label {
+      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-weight: 500;
+      color: var(--primary-text-color, #222);
+    }
+
+    .tracking-badge {
+      font-size: calc(11px + var(--pill-text-offset, 0px));
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+
+    .tracking-badge--set {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+
+    .tracking-badge--unset {
+      background: rgba(var(--rgb-secondary-text-color, 102, 102, 102), 0.12);
+      color: var(--secondary-text-color, #666);
+    }
+
+    .tracking-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tracking-slider-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tracking-slider-wrapper ha-slider {
+      width: 100%;
+    }
+
+    .tracking-value {
+      min-width: 28px;
+      text-align: center;
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
+    }
+
+    .tracking-scale {
+      display: flex;
+      justify-content: space-between;
+      /* Asymmetric padding aligns tick centers with slider thumb centers.
+         The ha-slider thumb sits about 10px from each track edge at min and
+         max. Single-digit ticks are about 8px wide (center at 4px), so
+         padding-left 6px places the 0 center at 10px. The 10 tick is two
+         digits (about 14px, center at 7px), so padding-right 2px shifts it
+         right to match the thumb at max. */
+      padding-left: 6px;
+      padding-right: 2px;
+      margin-top: -2px;
+      box-sizing: border-box;
+    }
+
+    .tracking-scale-tick {
+      font-size: calc(10px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #888);
+      text-align: center;
+    }
+
     .tools-dialog-descriptor {
       font-size: calc(14px + var(--pill-text-offset, 0px));
       color: var(--primary-text-color, #222);
@@ -2412,13 +2721,13 @@ export class PillLoggerCard extends LitElement implements LovelaceCard {
 // Registrations
 // ──────────────────────────────────────────────
 
-customElements.define('pill-logger-card', PillLoggerCard);
+customElements.define('ax-dose-logger-card', AxDoseLoggerCard);
 
 (window as any).customCards = (window as any).customCards || [];
 (window as any).customCards.push({
-  type: 'pill-logger-card',
-  name: 'Pill Logger',
+  type: 'ax-dose-logger-card',
+  name: 'AX Dose Logger Card',
   preview: true,
-  description: 'A custom card for the Pill Logger integration — track medications, view dose graphs, and monitor statistics.',
-  documentationURL: 'https://github.com/adix992/Home-Assistant-Pill-Logger',
+  description: 'A custom card for the AX Dose Logger integration — track medications, view dose graphs, and monitor statistics.',
+  documentationURL: 'https://github.com/Axildor/AX-Dose-Logger-Card',
 });

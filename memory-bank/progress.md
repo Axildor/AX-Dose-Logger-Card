@@ -1403,3 +1403,160 @@ Batches 1–9 complete. The Pill Logger Card has been audited against HA best pr
 - [x] Updated `README.md` — Configuration Options table with `hide_nav_bar` row
 - [x] Updated `memory-bank/activeContext.md`
 - [x] Updated `memory-bank/progress.md` (this section)
+
+## Rebrand to AX Dose Logger Card
+
+### Planning
+- [x] Read backend rebrand follow-up plan (plans/frontend-card-rebrand-followup.md)
+- [x] Verify current state of frontend repo (package.json, hacs.json, rollup.config.js, src/)
+- [x] Confirm naming convention: spaces for user-facing labels, hyphens for GitHub/folder syntax
+
+### Implementation
+- [x] `git mv src/pill-logger-card.ts src/ax-dose-logger-card.ts`
+- [x] Update `rollup.config.js` — input/output paths
+- [x] Update `package.json` — name, description, main
+- [x] Update `src/ax-dose-logger-card.ts`:
+  - [x] HTTP endpoint: `pill_logger/history/` → `ax_dose_logger/history/`
+  - [x] Device picker filter: `integration: 'pill_logger'` → `integration: 'ax_dose_logger'`
+  - [x] customElements.define: `'pill-logger-card'` → `'ax-dose-logger-card'`
+  - [x] customCards registration: type, name ("AX Dose Logger Card"), description, documentationURL (→ card repo)
+  - [x] Console prefixes: `[pill-logger-card]` → `[ax-dose-logger-card]`
+  - [x] Class rename: `PillLoggerCard` → `AxDoseLoggerCard`
+  - [x] Interface rename: `PillLoggerCardConfig` → `AxDoseLoggerCardConfig`, `PillLoggerHass` → `AxDoseLoggerHass`
+- [x] Update `src/localize.ts` — "Pill Logger" strings → "AX Dose Logger"
+- [x] Update `hacs.json` — name: "AX Dose Logger Card", filename: "ax-dose-logger-card.js"
+- [x] Rewrite `README.md` — branding, GitHub URLs, YAML examples
+- [x] Update `LICENSE` — copyright holder adix992 → Axildor
+
+### Verification
+- [x] `yarn install` — clean install after package name change (cleared .yarn/install-state.gz)
+- [x] `yarn run build` — clean compilation, zero errors
+- [x] Verify `dist/ax-dose-logger-card.js` exists
+- [x] Delete old `dist/pill-logger-card.js`
+- [x] Grep for remnants — no unintended references remain
+
+### Documentation
+- [x] Updated `memory-bank/activeContext.md`
+- [x] Updated `memory-bank/progress.md` (this section)
+- [x] Updated `memory-bank/projectstructure.md`
+
+## Take-Pill Button UX Fix — Negative Time & Line Wrapping
+
+### Planning
+- [x] Identified `_computeTimeSinceLastDose()` producing `-1m` when `diffMs` is slightly negative (clock skew or just-taken dose)
+- [x] Identified `_renderPane1()` limit-reached branch rendering `Last: X • Next: Y` as flat inline text, allowing browser to split "Next:" from its value
+
+### Implementation
+- [x] `_computeNextDose()`: clamped `diffMs` with `Math.max(0, next.getTime() - now.getTime())`
+- [x] `_computeOverTime()`: clamped `diffMs` with `Math.max(0, now.getTime() - next.getTime())`
+- [x] `_computeTimeSinceLastDose()`: clamped `diffMs` with `Math.max(0, now.getTime() - last.getTime())`
+- [x] `_renderPane1()`: wrapped each `Label: value` segment in `<span class="take-sub-segment">` for nowrap behavior
+- [x] CSS: added `.take-sub-segment { white-space: nowrap; }` rule after `.take-sub`
+
+### Verification
+- [x] `yarn run build` — clean compilation, zero errors
+
+### Documentation
+- [x] Updated `memory-bank/activeContext.md`
+- [x] Updated `memory-bank/progress.md` (this section)
+
+## Line Graph Gap-Bridging Fix — Slope from Past Zero
+
+### Diagnosis
+- [x] Read backend concentration sensor + coordinator source
+- [x] Inspected HA Core `async_set_internal` — confirmed state dedup: same state + attributes → `EVENT_STATE_REPORTED` only, no `last_changed` advance
+- [x] Inspected HA Core recorder `significant_changes_only` filter — confirmed `sensor` domain NOT in `SIGNIFICANT_DOMAINS`, so same-value state reports are discarded
+- [x] Inspected frontend `_fetchAmountHistory()` — confirmed `significant_changes_only=1` query parameter
+- [x] Inspected frontend `_renderLineGraph()` — confirmed SVG polyline linearly interpolates between sparse points
+- [x] Root cause confirmed: three mechanisms combine — (1) rounding suppresses state changes during decay, (2) recorder discards same-value reports, (3) polyline linearly interpolates across gaps → diagonal slope artifact
+- [x] Confirmed this is NOT a reset-button edge case — occurs any time the rounded value plateaus for >3 min then changes
+
+### Implementation
+- [x] Added `_bridgeGaps()` private method — detects gaps > 3 min between consecutive history points, inserts hold points (prev value at nextTimestamp − 1s)
+- [x] Updated `_renderLineGraph()` — renamed `history` → `rawHistory`, added `bridgedHistory = this._bridgeGaps(rawHistory)`, updated polyline point building to use pre-computed ms timestamps
+
+### Verification
+- [x] `yarn run build` — clean compilation, zero errors
+
+### Documentation
+- [x] Updated `memory-bank/activeContext.md`
+- [x] Updated `memory-bank/progress.md` (this section)
+
+## Overdue Display Fix (Backend + Frontend)
+- [x] Step 1: Context grounding (read next_dose.py, frontend card _computeOverTime/_computeNextDose/_renderPane1, schedule.py)
+- [x] Step 2: Trace scenario — confirmed next_dose always future-pointing after schedule-anchor fix, so _computeOverTime always returns null for missed slots
+- [x] Step 3: Create architecture plan (plans/overdue-display-fix.md) — dedicated PillOverdueSensor + frontend rewrite
+- [x] Step 4: Backend — create sensors/overdue.py (PillOverdueSensor, DURATION seconds, 0 when not overdue, overdue_since attribute, per tracking type logic)
+- [x] Step 5: Backend — register PillOverdueSensor in sensor.py (gated for scheduled medications, not As Needed)
+- [x] Step 6: Backend — add entity cleanup in __init__.py (overdue removal alongside steady_state when tracking_type → As Needed)
+- [x] Step 7: Backend — add translation keys in strings.json + translations/en.json (entity.sensor.overdue)
+- [x] Step 8: Frontend — add `overdue` to ResolvedEntities, `_overdue` suffix resolution in _computeEntities, rewrite _computeOverTime to read overdue sensor state (seconds), update _renderPane1 to show "Last: X • Overdue: Y" when limit reached AND overdue
+- [x] Step 9: Frontend — rename localize key `daily.over` → `daily.overdue` with label "Overdue"
+- [x] Step 10: Verify backend (py_compile OK, hass check_config exit 0, JSON validation OK)
+- [x] Step 11: Verify frontend (yarn run build OK)
+- [x] Step 12: Update memory-bank files (activeContext, progress)
+
+## Daily-Locked Metrics Pane
+- [x] Step 1: Context grounding (read ax-dose-logger-card.ts interfaces, _computeEntities, _renderPaneSelector, render, localize.ts, CSS section)
+- [x] Step 2: Add MetricEntity interface, metrics to ResolvedEntities, config_entry_id to AxDoseLoggerHass, _metricOverrideDialog state variable
+- [x] Step 3: Add _eff_ entity collection in _computeEntities (suffix → label conversion, push to metrics array)
+- [x] Step 4: Add _renderPane5() — ha-slider per metric, badge (Set for today / Not set), value display (— for unknown)
+- [x] Step 5: Add _handleMetricChange() — check logged_today attribute, direct set_value if not logged, open override dialog if logged
+- [x] Step 6: Add _renderMetricOverrideDialog() — show old/new values, Cancel + Override buttons, Override calls ax_dose_logger.set_metric with override:true
+- [x] Step 7: Add _getEntryId() helper — resolve config_entry_id from hass.entities
+- [x] Step 8: Update _handlePaneChange type to include 'metrics'
+- [x] Step 9: Update _renderPaneSelector — add 5th Metrics tab (mdi:chart-sankey icon)
+- [x] Step 10: Update render() — add metrics pane rendering + metric override dialog
+- [x] Step 11: Update getCardSize() — add metrics case (6)
+- [x] Step 12: Add CSS — metrics-panel, metric-row, metric-header, metric-label, metric-badge (--set/--unset), metric-slider-row, metric-value
+- [x] Step 13: Add localize strings — pane.metrics, metrics.not_set, metrics.set_today, metrics.already_set_title/body, metrics.override/cancel
+- [x] Step 14: Fix TypeScript warning — add metrics: [] to fallback return in _resolveEntities
+- [x] Step 15: Verify — yarn run build (exit 0, no errors or warnings)
+- [x] Step 16: Update memory-bank files (activeContext, progress)
+- Key decisions: (1) 5th pane "Metrics" between Stats and Tools; (2) Daily-lock enforcement via logged_today attribute check; (3) Override dialog calls ax_dose_logger.set_metric service with override:true; (4) Entry ID resolved from entity registry config_entry_id; (5) Badge shows Set/Not set status; (6) Unknown state displayed as — (em dash) with slider at position 0.
+
+## Metrics → Tracking Rename
+- [x] Step 1: Frontend localize.ts — rename pane.metrics→pane.tracking (value "Tracking"), metrics.*→tracking.*, add tracking.today_label = "Today's {metric}"
+- [x] Step 2: Frontend ax-dose-logger-card.ts — rename pane ID 'metrics'→'tracking' in all type unions (_activePane, _handlePaneChange, _renderPaneSelector, render, getCardSize)
+- [x] Step 3: Frontend ax-dose-logger-card.ts — rename _metricOverrideDialog→_trackingOverrideDialog, _handleMetricChange→_handleTrackingChange, _renderMetricOverrideDialog→_renderTrackingOverrideDialog
+- [x] Step 4: Frontend ax-dose-logger-card.ts — use localize('tracking.today_label', { metric }) for "Today's Pain" label format
+- [x] Step 5: Frontend ax-dose-logger-card.ts — rename CSS classes metrics-panel→tracking-panel, metric-row→tracking-row, metric-badge→tracking-badge, etc.
+- [x] Step 6: Frontend ax-dose-logger-card.ts — update all localize() calls from metrics.*→tracking.*
+- [x] Step 7: Frontend verification — yarn run build (exit 0, no errors or warnings)
+- [x] Step 8: Update memory-bank files (activeContext, progress)
+- Key decisions: (1) "Tracking" is medically more appropriate than "Metrics" — standard clinical terminology; (2) "Today's {metric}" label format eliminates pill-name repetitiveness; (3) Internal MetricEntity interface and metrics field in ResolvedEntities kept unchanged (internal TypeScript types); (4) All CSS classes renamed for consistency.
+
+## Tracking Pane Fixes
+- [x] Step 1: Backend number.py — expose metric_label in extra_state_attributes (clean name without device prefix)
+- [x] Step 2: Frontend — read metric_label from attributes instead of stripping friendly_name
+- [x] Step 3: Frontend — add _pendingTracking Set to fix override dialog race condition (no extra clicks)
+- [x] Step 4: Frontend — use "Today's {metric}" label in override dialog body
+- [x] Step 5: Frontend — add 0-10 tick marks below slider for number visibility (no confirm button)
+- [x] Step 6: Frontend — add CSS for tracking-scale / tracking-scale-tick
+- [x] Step 7: Frontend — cleanup _pendingTracking in updated() lifecycle
+- [x] Step 8: Verification — yarn run build (exit 0), hass check_config (exit 0)
+- [x] Step 9: Update memory-bank files (activeContext, progress)
+- Key decisions: (1) metric_label exposed by backend to avoid friendly_name device-prefix contamination; (2) _pendingTracking Set prevents race condition without extra clicks — tracks entity IDs locally, cleaned up in updated() once HA confirms logged_today=true; (3) Tick marks (0-10 NRS scale) below slider — clinically standard, no confirm button needed (one click per item); (4) Override dialog uses "Today's {metric}" format for consistency with pane labels.
+
+## Tracking Dialog & Scale Fixes
+- [x] Step 1: Add `_trackingOverrideDialog` to `shouldUpdate` key list (ROOT CAUSE of dialog buttons not working — shouldUpdate blocked re-render when state changed)
+- [x] Step 2: Restructure tick marks — wrap slider + scale in `.tracking-slider-wrapper` so scale aligns with slider track only (not the value span)
+- [x] Step 3: Update CSS — `.tracking-slider-wrapper` flex column, `.tracking-scale` padding 0 12px to match ha-slider internal padding
+- [x] Step 4: Verification — yarn run build (exit 0)
+- Key decisions: (1) shouldUpdate was missing `_trackingOverrideDialog` — this is why the dialog appeared rarely (only on coincidental hass changes) and buttons didn't work (setting state to null didn't trigger re-render); (2) Scale wrapped inside slider-wrapper to align with slider track, not the full row including value span.
+
+## Tracking Scale Alignment & Override Value Fix
+- [x] Step 1: Fix scale alignment — changed `.tracking-scale` from symmetric `padding: 0 12px` to asymmetric `padding-left: 6px; padding-right: 2px` with `box-sizing: border-box`; removed `min-width: 14px` from `.tracking-scale-tick` so ticks size to content width for precise center alignment with slider thumb positions
+- [x] Step 2: Fix override not changing value — added `configEntryId?: string` to `ResolvedEntities` interface; populated in `_computeEntities()` by capturing `config_entry_id` from first entity on device (all entities on a device share one config entry)
+- [x] Step 3: Override button handler now reads `entities.configEntryId` via `_resolveEntities()` instead of calling `_getEntryId()`; added `console.warn` diagnostic if configEntryId is undefined
+- [x] Step 4: Removed dead `_getEntryId()` method
+- [x] Step 5: Verification — yarn run build (exit 0)
+- Key decisions: (1) Scale offset root cause — `justify-content: space-between` with `padding: 0 12px` and `min-width: 14px` placed "0" center at 19px (12px padding + 7px half-width), but slider thumb at 0 sits at ~10px; asymmetric padding (6px left, 2px right) with content-width ticks aligns tick centers with thumb centers. (2) Override root cause — `_getEntryId()` returned `undefined` because `config_entry_id` wasn't reliably available via per-entity lookup, causing `if (entryId)` guard to silently skip the service call; capturing `configEntryId` in `ResolvedEntities` during `_computeEntities()` is the HA best-practice pattern (synchronous, no WS calls, all entities on a device share one config entry).
+
+## Tracking Override — Entity-Based Service Fix (v2)
+- [x] Step 1: Backend `services.py` — changed `set_metric` schema from `entry_id` + `metric_key` to `entity_id`; added `_get_coordinator_for_entity()` helper that resolves entity_id → entity registry → config_entry_id → coordinator, and reads metric_key from state attributes; added `ATTR_ENTITY_ID`, `er` import, `HomeAssistantError` import
+- [x] Step 2: Backend `services.yaml` — replaced `entry_id` (config_entry selector) + `metric_key` (text selector) with `entity_id` (entity selector: number domain + ax_dose_logger integration)
+- [x] Step 3: Backend `strings.json` + `translations/en.json` — replaced `entry_id` ("Medication") + `metric_key` ("Metric Key") field labels with `entity_id` ("Tracking Entity")
+- [x] Step 4: Frontend `ax-dose-logger-card.ts` — override handler now calls `set_metric` with `entity_id` + `value` + `override: true` (no entry_id/metric_key); removed `configEntryId` from `ResolvedEntities` and `_computeEntities()`; removed dead `_getEntryId()` method
+- [x] Step 5: Verification — yarn run build (exit 0), python3 -m py_compile (OK), hass check_config (exit 0)
+- Key decision: The first attempt (configEntryId in ResolvedEntities) failed because `hass.entities[entityId].config_entry_id` is not reliably available in a Lovelace card context. The correct fix is to change the `set_metric` service to accept `entity_id` directly — the frontend already knows the entity_id (it's the slider's entity). The backend resolves entity_id → coordinator + metric_key via the entity registry and state attributes. This is the same pattern used by `number.set_value` and `button.press` — entity-targeted services that don't require the caller to resolve config entries.

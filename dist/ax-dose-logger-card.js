@@ -65,14 +65,14 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
  * SPDX-License-Identifier: BSD-3-Clause
  */function r(r){return n({...r,state:true,attribute:false})}
 
-// Lightweight localization helper for the Pill Logger card.
+// Lightweight localization helper for the AX Dose Logger card.
 // Currently English-only; adding a new language is just adding
 // another key to the `translations` object.
 const translations = {
     en: {
         // ── Card-level ──
         'card.loading': 'Loading...',
-        'card.placeholder_title': 'Pill Logger Card',
+        'card.placeholder_title': 'AX Dose Logger Card',
         'card.placeholder_subtitle': 'Please select a device in the visual editor to begin.',
         // ── Pane tabs ──
         'pane.daily': 'Daily',
@@ -84,7 +84,7 @@ const translations = {
         'daily.limit_reached': 'LIMIT REACHED',
         'daily.last': 'Last',
         'daily.next': 'Next',
-        'daily.over': 'over',
+        'daily.overdue': 'Overdue',
         'daily.safe_to_take': 'Safe to take',
         'daily.pills_left': 'Pills left',
         'daily.na': 'N/A',
@@ -131,6 +131,15 @@ const translations = {
         'averages.adh_30_day': '30d Adh',
         'averages.adh_365_day': '365d Adh',
         'averages.adh_running': '{days}d Adh',
+        // ── Tracking pane ──
+        'pane.tracking': 'Tracking',
+        'tracking.today_label': "Today's {metric}",
+        'tracking.not_set': 'Not set',
+        'tracking.set_today': 'Set for today',
+        'tracking.already_set_title': 'Already Set Today',
+        'tracking.already_set_body': "You already set {metric} to {oldValue} today. Change to {newValue}?",
+        'tracking.override': 'Override',
+        'tracking.cancel': 'Cancel',
         // ── Tools pane ──
         'tools.adherence_header': 'Adherence Tools',
         'tools.general_header': 'General Tools',
@@ -177,7 +186,7 @@ const translations = {
         'config.stats_3_columns': '3-Column Stats',
         'config.hide_nav_bar': 'Hide Navigation Bar',
         // ── Config form helpers ──
-        'config.helper.device_id': 'Select your Pill Logger medication device.',
+        'config.helper.device_id': 'Select your AX Dose Logger medication device.',
         'config.helper.big_text': 'When off, all text is 2px smaller. Daily pane shrinks further for compact view.',
         'config.helper.color_scheme': 'Sets the accent color for buttons, icons, and highlights across the card.',
         'config.helper.name': 'Custom name for this medication. Leave empty to use the device name.',
@@ -204,7 +213,7 @@ const translations = {
         'color.gold': 'Gold',
         'color.grey': 'Grey',
         // ── setConfig error ──
-        'setconfig.error.device_required': 'A device is required for the Pill Logger card.',
+        'setconfig.error.device_required': 'A device is required for the AX Dose Logger card.',
         // ── aria-labels ──
         'aria.take_pill_safe': 'Take pill',
         'aria.take_pill_limit': 'Limit reached, override available',
@@ -234,9 +243,9 @@ function localize(lang, key, params) {
 }
 
 // ──────────────────────────────────────────────
-// PillLoggerCard — Main Card Class
+// AxDoseLoggerCard — Main Card Class
 // ──────────────────────────────────────────────
-class PillLoggerCard extends i {
+class AxDoseLoggerCard extends i {
     constructor() {
         super(...arguments);
         this._activePane = 'daily';
@@ -253,6 +262,14 @@ class PillLoggerCard extends i {
         // confirm() box. When non-null, _renderOverrideDialog() shows an ha-dialog
         // asking the user to confirm taking a pill past the safe limit.
         this._overrideDialog = null;
+        // Tracking override warning dialog: when user tries to change a daily-locked
+        // tracking value that has already been set today, this dialog asks for confirmation.
+        this._trackingOverrideDialog = null;
+        // Tracks entity IDs that have been set but whose HA state hasn't propagated yet.
+        // Prevents the override-dialog race condition: without this, a second drag before
+        // the first set_value completes would read stale logged_today=false and bypass
+        // the override dialog. Cleared in updated() once HA confirms logged_today=true.
+        this._pendingTracking = new Set();
         // ── Render-performance optimization ─────────
         // _tick: bumped every 30s by a timer so time-relative panes (daily/stats)
         // refresh their "Xh XXm" countdowns without re-rendering on every system-wide
@@ -323,7 +340,7 @@ class PillLoggerCard extends i {
      */
     _resolveEntities() {
         if (!this.hass || !this.config) {
-            return { medicationName: 'Medication' };
+            return { medicationName: 'Medication', metrics: [] };
         }
         const deviceId = this.config.device_id;
         const entitiesRef = this.hass.entities;
@@ -344,7 +361,7 @@ class PillLoggerCard extends i {
         this._resolvedEntitiesRef = null;
     }
     _computeEntities(deviceId) {
-        const result = { medicationName: 'Medication' };
+        const result = { medicationName: 'Medication', metrics: [] };
         if (!this.hass)
             return result;
         // Extract medication name from device registry
@@ -371,6 +388,8 @@ class PillLoggerCard extends i {
                     result.amountInBody = entityId;
                 else if (entityId.endsWith('_next_dose'))
                     result.nextDose = entityId;
+                else if (entityId.endsWith('_overdue'))
+                    result.overdue = entityId;
                 else if (entityId.endsWith('_avg_daily_doses_7_days'))
                     result.avg7Days = entityId;
                 else if (entityId.endsWith('_avg_daily_doses_14_days'))
@@ -411,6 +430,16 @@ class PillLoggerCard extends i {
                     result.pillsLeft = entityId;
                 else if (entityId.endsWith('_add_refill'))
                     result.addRefill = entityId;
+                else if (entityId.endsWith('_effectiveness')) {
+                    // Effectiveness tracking slider — collect for the Tracking pane
+                    // Entity ID pattern: number.{device}_{metric_slug}_effectiveness
+                    // metric_label is the clean metric name (e.g. "Pain") exposed by the backend
+                    // — friendly_name includes the device prefix (e.g. "Ibuprofen Pain Effectiveness")
+                    const metricLabel = this._getAttr(entityId, 'metric_label');
+                    const label = metricLabel || entityInfo.name?.replace(/\s+Effectiveness$/i, '') || entityId;
+                    const metricKey = this._getAttr(entityId, 'metric_key') || '';
+                    result.metrics.push({ entityId, label, metricKey });
+                }
             }
         }
         return result;
@@ -523,7 +552,7 @@ class PillLoggerCard extends i {
             const now = new Date();
             if (isNaN(next.getTime()) || next <= now)
                 return 'now';
-            const diffMs = next.getTime() - now.getTime();
+            const diffMs = Math.max(0, next.getTime() - now.getTime());
             const hours = Math.floor(diffMs / 3600000);
             const minutes = Math.floor((diffMs % 3600000) / 60000);
             if (hours > 0)
@@ -531,7 +560,7 @@ class PillLoggerCard extends i {
             return `${minutes}m`;
         }
         catch (e) {
-            console.warn('[pill-logger-card] _computeNextDose failed:', e);
+            console.warn('[ax-dose-logger-card] _computeNextDose failed:', e);
             return 'Unavailable';
         }
     }
@@ -546,27 +575,17 @@ class PillLoggerCard extends i {
         const trackingType = this._getAttr(entities.nextDose, 'tracking_type');
         if (trackingType === 'As Needed')
             return null;
-        const state = this._getState(entities.nextDose);
+        const state = this._getState(entities.overdue);
         if (state === 'unavailable' || state === 'unknown' || !state)
             return null;
-        try {
-            const next = new Date(state);
-            const now = new Date();
-            if (isNaN(next.getTime()))
-                return null;
-            if (next > now)
-                return null; // not overdue yet
-            const diffMs = now.getTime() - next.getTime();
-            const hours = Math.floor(diffMs / 3600000);
-            const minutes = Math.floor((diffMs % 3600000) / 60000);
-            if (hours > 0)
-                return `${hours}h ${minutes}m`;
-            return `${minutes}m`;
-        }
-        catch (e) {
-            console.warn('[pill-logger-card] _computeOverTime failed:', e);
+        const seconds = parseFloat(state);
+        if (isNaN(seconds) || seconds <= 0)
             return null;
-        }
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (hours > 0)
+            return `${hours}h ${minutes}m`;
+        return `${minutes}m`;
     }
     /**
      * Compute a human-readable label for when the pill-limit rolling window
@@ -591,7 +610,7 @@ class PillLoggerCard extends i {
                 }
             }
             catch (e) {
-                console.warn('[pill-logger-card] _computeWindowExpiry failed:', e);
+                console.warn('[ax-dose-logger-card] _computeWindowExpiry failed:', e);
                 // fall through to next_dose fallback
             }
         }
@@ -607,7 +626,7 @@ class PillLoggerCard extends i {
             const now = new Date();
             if (isNaN(last.getTime()))
                 return 'Never';
-            const diffMs = now.getTime() - last.getTime();
+            const diffMs = Math.max(0, now.getTime() - last.getTime());
             const hours = Math.floor(diffMs / 3600000);
             const minutes = Math.floor((diffMs % 3600000) / 60000);
             if (hours > 0)
@@ -615,7 +634,7 @@ class PillLoggerCard extends i {
             return `${minutes}m`;
         }
         catch (e) {
-            console.warn('[pill-logger-card] _computeTimeSinceLastDose failed:', e);
+            console.warn('[ax-dose-logger-card] _computeTimeSinceLastDose failed:', e);
             return 'Never';
         }
     }
@@ -876,10 +895,12 @@ class PillLoggerCard extends i {
             <ha-icon icon="${isLimitReached ? 'mdi:alert' : 'mdi:pill'}"></ha-icon>
             <span class="take-label">${isLimitReached ? localize(this._lang, 'daily.limit_reached') : localize(this._lang, 'daily.take_pill')}</span>
             <span class="take-sub">${isLimitReached
-            ? b `${localize(this._lang, 'daily.last')}: ${timeSince} \u2022 ${localize(this._lang, 'daily.next')}: ${nextDose}`
+            ? (overTime
+                ? b `<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
+                : b `<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`)
             : (overTime
-                ? b `${localize(this._lang, 'daily.over')}: ${overTime}`
-                : b `${localize(this._lang, 'daily.last')}: ${timeSince}`)}</span>
+                ? b `<span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
+                : b `<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>`)}</span>
           </button>
 
           <div class="stats-column">
@@ -1091,7 +1112,7 @@ class PillLoggerCard extends i {
         }
         catch (e) {
             // callApi throws on non-2xx; log for debuggability without breaking UX.
-            console.warn('[pill-logger-card] amount history fetch failed:', e);
+            console.warn('[ax-dose-logger-card] amount history fetch failed:', e);
         }
     }
     async _fetchDoseHistory(entities) {
@@ -1102,7 +1123,7 @@ class PillLoggerCard extends i {
         // pane entry; a new pane/timeframe change invalidates both via the token).
         const token = ++this._doseFetchToken;
         try {
-            const data = await this.hass.callApi('GET', `pill_logger/history/${deviceId}`);
+            const data = await this.hass.callApi('GET', `ax_dose_logger/history/${deviceId}`);
             // Discard if a newer fetch started or the card was disconnected mid-flight.
             if (token !== this._doseFetchToken)
                 return;
@@ -1113,7 +1134,7 @@ class PillLoggerCard extends i {
         }
         catch (e) {
             // Custom endpoint may not be available on older backends; log for debug.
-            console.warn('[pill-logger-card] dose history fetch failed:', e);
+            console.warn('[ax-dose-logger-card] dose history fetch failed:', e);
         }
     }
     _renderTimeframeChips() {
@@ -1151,9 +1172,35 @@ class PillLoggerCard extends i {
             return;
         this._activeBarTimeframe = timeframe;
     }
+    _bridgeGaps(history, gapMs = 3 * 60 * 1000) {
+        if (history.length < 2) {
+            return history.map(p => ({
+                timestamp: new Date(p.timestamp).getTime(),
+                value: p.value,
+            }));
+        }
+        const bridged = [];
+        for (let i = 0; i < history.length; i++) {
+            const current = {
+                timestamp: new Date(history[i].timestamp).getTime(),
+                value: history[i].value,
+            };
+            if (i > 0) {
+                const prev = bridged[bridged.length - 1];
+                if (current.timestamp - prev.timestamp > gapMs) {
+                    bridged.push({
+                        timestamp: current.timestamp - 1000,
+                        value: prev.value,
+                    });
+                }
+            }
+            bridged.push(current);
+        }
+        return bridged;
+    }
     _renderLineGraph(entities) {
         const amountInBody = this._getState(entities.amountInBody);
-        const history = this._amountHistory;
+        const rawHistory = this._amountHistory;
         const w$1 = 320;
         const h = 180;
         const padLeft = 36;
@@ -1162,7 +1209,7 @@ class PillLoggerCard extends i {
         const padBottom = 28;
         const chartW = w$1 - padLeft - padRight;
         const chartH = h - padTop - padBottom;
-        if (history.length === 0) {
+        if (rawHistory.length === 0) {
             return b `
         <div class="line-graph-wrapper">
           <div class="timeframe-chips">
@@ -1179,13 +1226,15 @@ class PillLoggerCard extends i {
         const now = new Date();
         const timeframeHours = this._getTimeframeHours();
         const startTime = new Date(now.getTime() - timeframeHours * 60 * 60 * 1000);
+        // Bridge gaps in history so the polyline renders flat holds + vertical
+        // steps instead of diagonal slopes across sparse recorder data.
+        const bridgedHistory = this._bridgeGaps(rawHistory);
         // Find max value for Y-axis scaling
-        const values = history.map(p => p.value);
+        const values = bridgedHistory.map(p => p.value);
         const maxAmount = Math.max(...values, 1);
-        // Build polyline points from actual history
-        const polylinePoints = history.map(p => {
-            const t = new Date(p.timestamp);
-            const fraction = Math.max(0, Math.min(1, (t.getTime() - startTime.getTime()) / (timeframeHours * 60 * 60 * 1000)));
+        // Build polyline points from gap-bridged history
+        const polylinePoints = bridgedHistory.map(p => {
+            const fraction = Math.max(0, Math.min(1, (p.timestamp - startTime.getTime()) / (timeframeHours * 60 * 60 * 1000)));
             const x = padLeft + fraction * chartW;
             const y = padTop + chartH * (1 - p.value / maxAmount);
             return `${x},${y}`;
@@ -1487,12 +1536,142 @@ class PillLoggerCard extends i {
       </ha-dialog>
     `;
     }
+    // ── Pane 5: Metrics ──────────────────────────
+    _renderPane5(entities) {
+        const metrics = entities.metrics;
+        if (!metrics.length) {
+            return b `
+        <div class="tracking-panel">
+          <div class="tracking-empty">${localize(this._lang, 'tools.empty')}</div>
+        </div>
+      `;
+        }
+        return b `
+      <div class="tracking-panel">
+        ${metrics.map(m => {
+            const state = this._getState(m.entityId);
+            const attrs = this._getAttr(m.entityId, 'logged_today');
+            const isLogged = attrs === true || attrs === 'True' || attrs === 'true';
+            const currentValue = state === 'unavailable' || state === 'unknown' ? null : parseFloat(state);
+            const displayValue = currentValue !== null ? currentValue : 0;
+            const todayLabel = localize(this._lang, 'tracking.today_label', { metric: m.label });
+            return b `
+            <div class="tracking-row">
+              <div class="tracking-header">
+                <span class="tracking-label">${todayLabel}</span>
+                ${isLogged
+                ? b `<span class="tracking-badge tracking-badge--set">${localize(this._lang, 'tracking.set_today')}</span>`
+                : b `<span class="tracking-badge tracking-badge--unset">${localize(this._lang, 'tracking.not_set')}</span>`}
+              </div>
+              <div class="tracking-slider-row">
+                <div class="tracking-slider-wrapper">
+                  <ha-slider
+                    .value=${displayValue}
+                    .min=${0}
+                    .max=${10}
+                    .step=${1}
+                    .disabled=${false}
+                    pin
+                    @change=${(e) => this._handleTrackingChange(m, e.target.value)}
+                  ></ha-slider>
+                  <div class="tracking-scale">
+                    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => b `
+                      <span class="tracking-scale-tick">${n}</span>
+                    `)}
+                  </div>
+                </div>
+                <span class="tracking-value">${currentValue !== null ? currentValue : '—'}</span>
+              </div>
+            </div>
+          `;
+        })}
+      </div>
+    `;
+    }
+    _handleTrackingChange(metric, rawValue) {
+        const newValue = parseFloat(rawValue);
+        if (isNaN(newValue))
+            return;
+        const state = this._getState(metric.entityId);
+        const attrs = this._getAttr(metric.entityId, 'logged_today');
+        const isLogged = attrs === true || attrs === 'True' || attrs === 'true'
+            || this._pendingTracking.has(metric.entityId);
+        if (isLogged) {
+            // Already logged today (or pending) — show override dialog
+            const oldValue = parseFloat(state);
+            this._trackingOverrideDialog = {
+                metricKey: metric.metricKey,
+                metricLabel: metric.label,
+                oldValue: isNaN(oldValue) ? 0 : oldValue,
+                newValue,
+                entityId: metric.entityId,
+            };
+        }
+        else {
+            // Not yet logged — set directly via the number entity
+            // Track locally to prevent race condition before HA state propagates
+            this._pendingTracking.add(metric.entityId);
+            if (this.hass) {
+                this.hass.callService('number', 'set_value', {
+                    entity_id: metric.entityId,
+                    value: newValue,
+                });
+            }
+        }
+    }
+    _renderTrackingOverrideDialog() {
+        const dlg = this._trackingOverrideDialog;
+        if (!dlg)
+            return A;
+        return b `
+      <ha-dialog
+        open
+        width="small"
+        @closed=${() => { this._trackingOverrideDialog = null; }}
+      >
+        <div slot="header" class="dialog-header dialog-header--warning">
+          <ha-icon icon="mdi:alert"></ha-icon>
+          ${localize(this._lang, 'tracking.already_set_title')}
+        </div>
+        <div class="dialog-body">
+          <div class="tools-dialog-descriptor">
+            ${localize(this._lang, 'tracking.already_set_body', {
+            metric: localize(this._lang, 'tracking.today_label', { metric: dlg.metricLabel }),
+            oldValue: String(dlg.oldValue),
+            newValue: String(dlg.newValue),
+        })}
+          </div>
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn dialog-btn--muted"
+                  @click=${() => { this._trackingOverrideDialog = null; }}>
+            ${localize(this._lang, 'tracking.cancel')}
+          </button>
+          <button class="dialog-btn"
+                  @click=${() => {
+            if (this.hass) {
+                this.hass.callService('ax_dose_logger', 'set_metric', {
+                    entity_id: dlg.entityId,
+                    value: dlg.newValue,
+                    override: true,
+                });
+            }
+            this._trackingOverrideDialog = null;
+        }}>
+            ${localize(this._lang, 'tracking.override')}
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+    }
     // ── Pane Selector ──────────────────────────
-    _renderPaneSelector() {
+    _renderPaneSelector(entities) {
+        const hasMetrics = entities.metrics.length > 0;
         const panes = [
             { id: 'daily', labelKey: 'pane.daily', icon: 'mdi:pill' },
             { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
             { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
+            ...(hasMetrics ? [{ id: 'tracking', labelKey: 'pane.tracking', icon: 'mdi:chart-sankey' }] : []),
             { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
         ];
         return b `
@@ -1532,6 +1711,11 @@ class PillLoggerCard extends i {
       `;
         }
         const entities = this._resolveEntities();
+        // Auto-fallback: if the user is on the tracking pane but no tracking items exist
+        // (e.g. they were removed in the options flow), fall back to the daily pane.
+        if (this._activePane === 'tracking' && entities.metrics.length === 0) {
+            this._activePane = 'daily';
+        }
         return b `
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text !== false ? '0px' : '-2px'};">
         <div class="card-content">
@@ -1539,12 +1723,14 @@ class PillLoggerCard extends i {
           ${this._activePane === 'graphs' ? this._renderPane2(entities) : A}
           ${this._activePane === 'stats' ? this._renderPane3(entities) : A}
           ${this._activePane === 'tools' ? this._renderPane4(entities) : A}
+          ${this._activePane === 'tracking' ? this._renderPane5(entities) : A}
         </div>
-        ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector() : A}
+        ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector(entities) : A}
         ${this._showDeviceInfo ? this._renderDeviceInfoDialog(entities) : A}
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : A}
         ${this._toolsDialog ? this._renderToolsDialog() : A}
         ${this._overrideDialog ? this._renderOverrideDialog() : A}
+        ${this._trackingOverrideDialog ? this._renderTrackingOverrideDialog() : A}
       </ha-card>
     `;
     }
@@ -1630,6 +1816,7 @@ class PillLoggerCard extends i {
             '_refillAmount',
             '_toolsDialog',
             '_overrideDialog',
+            '_trackingOverrideDialog',
         ]) {
             if (changedProps.has(key))
                 return true;
@@ -1695,6 +1882,16 @@ class PillLoggerCard extends i {
                 this._fetchAmountHistory(entities);
             }
         }
+        // Clean up _pendingTracking: once HA confirms logged_today=true for an
+        // entity, remove it from the pending set so future changes use the real
+        // attribute instead of the optimistic local flag.
+        if (this.hass && this._pendingTracking.size > 0) {
+            for (const entityId of this._pendingTracking) {
+                const isLogged = this._getAttr(entityId, 'logged_today') === true;
+                if (isLogged)
+                    this._pendingTracking.delete(entityId);
+            }
+        }
     }
     // ── Sizing ─────────────────────────────────
     getCardSize() {
@@ -1703,6 +1900,7 @@ class PillLoggerCard extends i {
             case 'graphs': return 8;
             case 'stats': return 7;
             case 'tools': return 6;
+            case 'tracking': return 6;
             default: return 5; // daily
         }
     }
@@ -1727,7 +1925,7 @@ class PillLoggerCard extends i {
                     required: true,
                     selector: {
                         device: {
-                            filter: { integration: 'pill_logger' },
+                            filter: { integration: 'ax_dose_logger' },
                         },
                     },
                 },
@@ -1872,7 +2070,7 @@ class PillLoggerCard extends i {
     }
 }
 // ── Styles ─────────────────────────────────
-PillLoggerCard.styles = i$3 `
+AxDoseLoggerCard.styles = i$3 `
     :host {
       display: block;
     }
@@ -2021,6 +2219,10 @@ PillLoggerCard.styles = i$3 `
       font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 450;
       opacity: 0.9;
+    }
+
+    .take-sub-segment {
+      white-space: nowrap;
     }
 
     .stat-pill {
@@ -2472,6 +2674,102 @@ PillLoggerCard.styles = i$3 `
       border-color: var(--error-color, #db4437);
     }
 
+    /* ── Tracking Pane ─────────────────────────── */
+
+    .tracking-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 4px 0;
+    }
+
+    .tracking-empty {
+      text-align: center;
+      color: var(--secondary-text-color, #666);
+      font-size: calc(14px + var(--pill-text-offset, 0px));
+      padding: 24px 0;
+    }
+
+    .tracking-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tracking-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tracking-label {
+      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-weight: 500;
+      color: var(--primary-text-color, #222);
+    }
+
+    .tracking-badge {
+      font-size: calc(11px + var(--pill-text-offset, 0px));
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+
+    .tracking-badge--set {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+
+    .tracking-badge--unset {
+      background: rgba(var(--rgb-secondary-text-color, 102, 102, 102), 0.12);
+      color: var(--secondary-text-color, #666);
+    }
+
+    .tracking-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .tracking-slider-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tracking-slider-wrapper ha-slider {
+      width: 100%;
+    }
+
+    .tracking-value {
+      min-width: 28px;
+      text-align: center;
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
+    }
+
+    .tracking-scale {
+      display: flex;
+      justify-content: space-between;
+      /* Asymmetric padding aligns tick centers with slider thumb centers.
+         The ha-slider thumb sits about 10px from each track edge at min and
+         max. Single-digit ticks are about 8px wide (center at 4px), so
+         padding-left 6px places the 0 center at 10px. The 10 tick is two
+         digits (about 14px, center at 7px), so padding-right 2px shifts it
+         right to match the thumb at max. */
+      padding-left: 6px;
+      padding-right: 2px;
+      margin-top: -2px;
+      box-sizing: border-box;
+    }
+
+    .tracking-scale-tick {
+      font-size: calc(10px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #888);
+      text-align: center;
+    }
+
     .tools-dialog-descriptor {
       font-size: calc(14px + var(--pill-text-offset, 0px));
       color: var(--primary-text-color, #222);
@@ -2494,57 +2792,60 @@ PillLoggerCard.styles = i$3 `
   `;
 __decorate([
     n({ attribute: false })
-], PillLoggerCard.prototype, "hass", void 0);
+], AxDoseLoggerCard.prototype, "hass", void 0);
 __decorate([
     n({ attribute: false })
-], PillLoggerCard.prototype, "config", void 0);
+], AxDoseLoggerCard.prototype, "config", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_activePane", void 0);
+], AxDoseLoggerCard.prototype, "_activePane", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_activeGraph", void 0);
+], AxDoseLoggerCard.prototype, "_activeGraph", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_amountHistory", void 0);
+], AxDoseLoggerCard.prototype, "_amountHistory", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_doseHistory", void 0);
+], AxDoseLoggerCard.prototype, "_doseHistory", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_showDeviceInfo", void 0);
+], AxDoseLoggerCard.prototype, "_showDeviceInfo", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_showRefillDialog", void 0);
+], AxDoseLoggerCard.prototype, "_showRefillDialog", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_refillAmount", void 0);
+], AxDoseLoggerCard.prototype, "_refillAmount", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_activeTimeframe", void 0);
+], AxDoseLoggerCard.prototype, "_activeTimeframe", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_activeBarTimeframe", void 0);
+], AxDoseLoggerCard.prototype, "_activeBarTimeframe", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_toolsDialog", void 0);
+], AxDoseLoggerCard.prototype, "_toolsDialog", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_overrideDialog", void 0);
+], AxDoseLoggerCard.prototype, "_overrideDialog", void 0);
 __decorate([
     r()
-], PillLoggerCard.prototype, "_tick", void 0);
+], AxDoseLoggerCard.prototype, "_trackingOverrideDialog", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_tick", void 0);
 // ──────────────────────────────────────────────
 // Registrations
 // ──────────────────────────────────────────────
-customElements.define('pill-logger-card', PillLoggerCard);
+customElements.define('ax-dose-logger-card', AxDoseLoggerCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
-    type: 'pill-logger-card',
-    name: 'Pill Logger',
+    type: 'ax-dose-logger-card',
+    name: 'AX Dose Logger Card',
     preview: true,
-    description: 'A custom card for the Pill Logger integration — track medications, view dose graphs, and monitor statistics.',
-    documentationURL: 'https://github.com/adix992/Home-Assistant-Pill-Logger',
+    description: 'A custom card for the AX Dose Logger integration — track medications, view dose graphs, and monitor statistics.',
+    documentationURL: 'https://github.com/Axildor/AX-Dose-Logger-Card',
 });
 
-export { PillLoggerCard };
+export { AxDoseLoggerCard };
