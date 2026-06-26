@@ -1560,3 +1560,311 @@ Batches 1–9 complete. The Pill Logger Card has been audited against HA best pr
 - [x] Step 4: Frontend `ax-dose-logger-card.ts` — override handler now calls `set_metric` with `entity_id` + `value` + `override: true` (no entry_id/metric_key); removed `configEntryId` from `ResolvedEntities` and `_computeEntities()`; removed dead `_getEntryId()` method
 - [x] Step 5: Verification — yarn run build (exit 0), python3 -m py_compile (OK), hass check_config (exit 0)
 - Key decision: The first attempt (configEntryId in ResolvedEntities) failed because `hass.entities[entityId].config_entry_id` is not reliably available in a Lovelace card context. The correct fix is to change the `set_metric` service to accept `entity_id` directly — the frontend already knows the entity_id (it's the slider's entity). The backend resolves entity_id → coordinator + metric_key via the entity registry and state attributes. This is the same pattern used by `number.set_value` and `button.press` — entity-targeted services that don't require the caller to resolve config entries.
+
+## Stats Pane Clickable More-Info
+- [x] Step 1: Investigate `_renderPane3()` — confirmed each row maps 1:1 to an entity on the `entities` object (totalDoses, daysSinceFirstDose, lastDose, strength, amountInBody, steadyState, avg7/14/30/Yearly, adherence7/14/30/365)
+- [x] Step 2: Confirm HA more-info event pattern — `custom-card-helpers` exports `fireEvent`; `handleAction` fires `hass-more-info` with `{ entityId }` (line 1117); `fireEvent` defaults to `{ bubbles: true, composed: true }`
+- [x] Step 3: Write architecture plan — `plans/stats-more-info-plan.md`
+- [x] Step 4: Get user approval on plan
+- [x] Step 5: Implement — `import { fireEvent } from 'custom-card-helpers'`; extend row type with `entityId?`; thread entity_id into every `rows.push()`; add `_openMoreInfo()` + `_onStatCellKeydown()` helpers; add `@click`/`@keydown`/`role`/`tabindex` to `.stat-cell`; add `.clickable` + `:hover` + `:focus-visible` CSS
+- [x] Step 6: Verification — yarn run build (exit 0)
+- Key decisions: (1) Used canonical `fireEvent` from custom-card-helpers rather than a hand-rolled CustomEvent — same `hass-more-info` event every stock Lovelace card uses. (2) Entity_id threaded into rows as a one-field-per-row change since each `rows.push()` already had the entity reference in scope. (3) Accessibility parity with existing `.stat-pill.clickable` (role="button") plus `tabindex="0"`, `@keydown` for Enter/Space, and `:focus-visible` outline.
+
+## Override Popup Wording Rework
+- [x] Step 1: Audit current override dialog wording (`dialog.override.body` = "Pill limit does not reset until: {expiry}. Override?") and confirm Reset History scope (user clarified: reset untouched, only override popup in scope)
+- [x] Step 2: Confirm backend `tracking_type` values (snake_case: `as_needed` per `const.py:18`) and that `custom-card-helpers` re-exports `formatTime`/`formatDateTime` from `src/datetime/`
+- [x] Step 3: Clarify with user — scheduled meds show `next_dose` sensor time; As Needed shows `window_expires_at` attribute time; "Override" button label stays (intentional repetition); "rolling window" wording replaced with "next safe dose"
+- [x] Step 4: Write architecture plan — `plans/override-popup-wording-plan.md`
+- [x] Step 5: Get user approval on plan
+- [x] Step 6: Implement `src/localize.ts` — replaced `dialog.override.body` with `dialog.override.body_scheduled` ("Your next scheduled dose is not until {time}. Take a dose now anyway?") + `dialog.override.body_as_needed` ("Your next safe dose is not until {time}. Take a dose now anyway?")
+- [x] Step 7: Implement `src/ax-dose-logger-card.ts` — added `formatTime, formatDateTime` import; extended `_overrideDialog` state to `{ timeLabel, bodyKey, entities }`; added `_formatOverrideTime()` helper (same-day → formatTime, cross-day → formatDateTime, fallback → toLocaleTimeString); rewrote `_handleTakePill` override trigger to normalize `tracking_type` (snake_case + title-case), branch time source + body key by tracking type with fallback to `_computeWindowExpiry()`; updated `_renderOverrideDialog` body to use `dlg.bodyKey` + `{ time: dlg.timeLabel }`
+- [x] Step 8: Verification — yarn run build (exit 0; pre-existing `@formatjs/intl-utils` "this rewritten to undefined" warnings are transitive-dependency noise, unrelated)
+- Key decisions: (1) Branch by tracking type — scheduled meds have a designated dose time (`next_dose` sensor); As Needed has no schedule so the only relevant time is the rolling safety window reset (`window_expires_at`). (2) Absolute clock time over relative duration — locale-aware `formatTime`/`formatDateTime` produces "2:30 PM" / "Tomorrow, 8:00 AM" instead of "3h 45m". (3) Defensive `tracking_type` normalization (lowercase, accept both `as_needed` and `as needed`) because the pre-existing `_computeOverTime()` checked title-case `As Needed` while the backend stores snake_case. (4) "Override" button label retained per user — repetition conveys weight. (5) Fallback to `_computeWindowExpiry()` relative duration when absolute-time source is missing/invalid — never shows "Invalid Date". (6) Reset History untouched per user clarification.
+
+## Take-Pill Button Icon + Big Text Toggle Fix
+- [x] Step 1: Audit current take-pill button render (`mdi:alert` for limit-reached, `mdi:pill` for safe) and `big_text` default logic (`big_text !== false ? '0px' : '-2px'` at line 1720)
+- [x] Step 2: Confirm with user — flip `big_text` default to small (OFF); reword toggle label/helper to explain ON = bigger; add configurable take-pill icon (limit-reached stays `mdi:alert`)
+- [x] Step 3: Write architecture plan — `plans/take-pill-icon-and-text-toggle-plan.md`
+- [x] Step 4: Get user approval on plan
+- [x] Step 5: Implement `src/ax-dose-logger-card.ts` — added `take_pill_icon?: string` to config interface; added `{ name: 'take_pill_icon', selector: { icon: {} } }` to `getConfigForm()` schema after `big_text`; changed take-pill `<ha-icon>` to `isLimitReached ? 'mdi:alert' : (this.config?.take_pill_icon || 'mdi:pill')`; fixed `--pill-text-offset` default from `big_text !== false` to `big_text === true`
+- [x] Step 6: Implement `src/localize.ts` — reworded `config.big_text` "Big Text" → "Large Text"; rewrote `config.helper.big_text` to "When on, all text in the card becomes 2px larger for easier reading. Off by default for a compact view."; added `config.take_pill_icon` + `config.helper.take_pill_icon`
+- [x] Step 7: Update `README.md` Configuration Options table — `big_text` default `true` → `false` with reworded description; added `take_pill_icon` row
+- [x] Step 8: Verification — yarn run build (exit 0; pre-existing `@formatjs/intl-utils` warnings are transitive-dependency noise, unrelated)
+- Key decisions: (1) LIMIT REACHED icon locked to `mdi:alert` — safety affordance, not user-overridable. (2) HA native `icon` selector renders the standard icon picker (search + preview), no custom UI. (3) `big_text === true` over `!== false` — fixes the fresh-card default-state mismatch where `undefined` was treated as big. (4) Label "Big Text" → "Large Text" + helper reword makes directionality explicit (ON = bigger).
+
+## README YAML Card Configuration Explainer Removal
+- [x] Step 1: Context grounding — read frontend [`README.md`](README.md) and backend [`README.md`](../Home-Assistant-Pill-Logger/README.md) to locate YAML card configuration explainers
+- [x] Step 2: Remove the `### YAML` subsection (minimal `device_id: <your medication device ID>` code block) from frontend README.md
+- [x] Step 3: Remove the `### Example` block (`device_id: a1b2c3d4e5f6...` + color_scheme/chips YAML snippet) from frontend README.md
+- [x] Step 4: Retain the Visual Editor subsection and the Configuration Options table (documents the visual editor field schema; the `device_id` row notes it is auto-populated by the device dropdown, not hand-entered)
+- [x] Step 5: Verify — searched frontend README for `device_id` (1 result in the Configuration Options table row, which is the visual editor field schema, not a hand-entered YAML snippet)
+- [x] Step 6: Update memory-bank files (activeContext.md, progress.md)
+- Key decision: The Configuration Options table was retained because it documents the visual editor's field schema. Only the YAML code snippets that asked users to manually find and paste a `device_id` were removed. Users cannot reasonably find their medication `device_id` manually, so the YAML examples were misleading.
+
+## Config Screen Restructure + Label Overrides
+- [x] Step 1: Audit current flat schema (device_id, big_text, take_pill_icon, color_scheme, name, chips expandable, graph_options expandable, stats_3_columns, hide_nav_bar) and the take-pill/pills-left render sites
+- [x] Step 2: UX audit of label-override approaches — Option A (form token) vs Option B (full-label) vs Option C (verb+form split). User clarified need for "Amount Left (ml)" override → Option B chosen (full phrase handles units + verbs a token can't)
+- [x] Step 3: Confirm HA `expandable` supports nested child expandables via Context7 frontend docs ("Expansion panels require a type of expandable, a name, and a schema of child controls")
+- [x] Step 4: Write architecture plan — `plans/config-restructure-and-label-overrides-plan.md`
+- [x] Step 5: Get user approval on plan
+- [x] Step 6: Implement `src/ax-dose-logger-card.ts` — added `take_pill_label` + `pills_left_label` to interface; restructured schema into top-level globals + 3 panel expandables (daily_panel with nested chips, graphs_panel, stats_panel); added render fallbacks for take-pill label/aria + pills-left stat-label
+- [x] Step 7: Implement `src/localize.ts` — added 5 label keys (take_pill_label, pills_left_label, daily_panel, graphs_panel, stats_panel) + 2 helper keys; retained graph_options for backward compat
+- [x] Step 8: Update `README.md` Configuration Options table — added take_pill_label + pills_left_label rows
+- [x] Step 9: Verification — yarn run build (exit 0; pre-existing `@formatjs/intl-utils` warnings are transitive-dependency noise, unrelated)
+- Key decisions: (1) Option B (full-label override) over form-token — "Amount Left (ml)" includes a unit a form token can't generate; verb independent of noun; two full-label overrides give complete control without decomposition. (2) Two-field verb+form split audited and rejected — invites half-configured "Take Cream" awkwardness, no reuse benefit. (3) LIMIT REACHED label locked — safety state, not overridable. (4) aria-label follows visible label so screen readers announce actual action. (5) Panel-grouped expandables reduce editor bloat; card-global options stay top-level. (6) Custom Chips nested inside Daily Panel (HA expandable supports nesting). (7) Unified "X Panel" naming convention. (8) `flatten: true` on all panels; fallback to `flatten: false` on outer Daily Panel if nested chips don't render correctly (visual concern only).
+
+## 12H Time Indicators + 24H Timeframe + Default Timescale Selector (2026-06-25)
+
+### Planning
+- [x] Read activeContext, progress, projectstructure, line graph code, config form schema, README
+- [x] Clarify 12H time indicator density with user (tick marks hourly + labels every 2h)
+- [x] Clarify default-timescale dropdown options with user (12H/24H/48H/7D/14D/30D, add 24H)
+- [x] Created architecture plan in plans/12h-time-indicators-and-default-timescale-plan.md
+- [x] User approved plan, switched to Code mode
+
+### Implementation
+- [x] Added `amount_in_body_default_timeframe?: string` to `AxDoseLoggerCardConfig` interface
+- [x] Added `case '24h': return 24;` to `_getTimeframeHours()`
+- [x] Added `{ id: '24h', ... }` entry to `_renderTimeframeChips()` between 12h and 48h
+- [x] Rewrote `connectedCallback()` `_activeTimeframe` reset to read from config with validation guard
+- [x] Rewrote `_renderLineGraph()` time-indicator block: split single `timeLabels` array into `tickMarks` + `timeLabels` with per-timeframe density branching
+- [x] Updated SVG render block: tick marks (short 3px lines, 0.5 stroke, 0.6 opacity) separate from text labels (4px tick + text)
+- [x] Added `amount_in_body_default_timeframe` select dropdown to `getConfigForm()` `graphs_panel` expandable
+- [x] Added localize keys: `graphs.timeframe_24h`, `aria.timeframe_24h`, `config.amount_in_body_default_timeframe`, `config.helper.amount_in_body_default_timeframe`
+- [x] Updated `README.md` — added `amount_in_body_default_timeframe` row to Configuration Options table; updated Graphs feature line to include 24H
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0; pre-existing `@formatjs/intl-utils` warnings are transitive-dependency noise, unrelated)
+- [x] Grep confirmed: 13 references to `amount_in_body_default_timeframe`/`timeframe_24h`/`tickMarks` in compiled dist output
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- [x] Updated README.md (Configuration Options table + Graphs feature line)
+- Key decisions: (1) Tick marks vs text labels separated — 13 text labels in 320px would be too dense; splitting gives hourly visual granularity + readable text every 2h. (2) 24H bridges the gap between 12H (acute) and 48H (longer view). (3) Config default applied in `connectedCallback` (single reset point) with validation guard falling back to '48h'. (4) Dropdown in `graphs_panel` expandable right after `show_amount_in_body` toggle for contextual grouping.
+
+## Day Average Boxes Entity ID Suffix Mismatch Fix (2026-06-25)
+
+### Problem Analysis
+- [x] User reported: Day Average boxes not appearing in Graph or Stats panel; adherence boxes appearing as expected
+- [x] Inspected backend [`sensors/avg_doses.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/sensors/avg_doses.py:59) — unique_id uses numeric window: `f"{entry.entry_id}_avg_doses_{window_days}"` with window_days = 7/14/30/365
+- [x] Inspected frontend [`_computeEntities()`](src/ax-dose-logger-card.ts:255) — yearly avg match used legacy suffix `_avg_daily_doses_yearly`
+- [x] Inspected `config/.storage/core.entity_registry` — confirmed newer devices (my_day_on_off, test_pill2, test_pill_z) produce `_avg_daily_doses_365_days`; older devices (my_medication, test_pill, pill_deef, b_my_pill) retain `_avg_daily_doses_yearly`
+- [x] Confirmed adherence sensors use `_adherence_365_days` (numeric) which frontend correctly matches — explains why adherence boxes worked but avg boxes didn't
+- [x] Root cause: backend unique_id `_avg_doses_365` → HA slugifies entity_id to `_avg_daily_doses_365_days`, but frontend only matched `_avg_daily_doses_yearly`
+
+### Planning
+- [x] Created architecture plan in `plans/fix-day-avg-boxes-mismatch.md`
+- [x] Decided on frontend-only fix (accept both suffixes) — avoids breaking existing entity registry entries and keeps backend consistent with adherence pattern
+- [x] User approved plan, switched to Code mode
+
+### Implementation
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) line 258 — changed `entityId.endsWith('_avg_daily_doses_yearly')` to `entityId.endsWith('_avg_daily_doses_365_days') || entityId.endsWith('_avg_daily_doses_yearly')`
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0; pre-existing `@formatjs/intl-utils` warnings are transitive-dependency noise, unrelated)
+- [x] Grep confirmed: `_avg_daily_doses_365_days` present in compiled dist output (line 540)
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- [x] No README change needed — bug fix, no new user-facing config/UX feature
+- Key decisions: (1) Frontend-only fix — backend unique_id `_avg_doses_365` is correct and consistent with adherence pattern (`_adherence_365`); changing backend would break existing entity registry entries and require migration. (2) Dual-suffix match handles both legacy (`_avg_daily_doses_yearly`) and newer (`_avg_daily_doses_365_days`) entity_ids. (3) 7/14/30-day avg suffixes already matched correctly; only the yearly slot was mismatched.
+
+---
+
+## Replaceable "Safe to Take" Box — 2026-06-25
+
+### Planning
+- [x] Analyze current Safe to Take box implementation in `_renderPane1` + `_computeEntities`
+- [x] Confirm decoupled design with user (button logic stays on real sensor)
+- [x] Write architecture plan: `plans/replace-safe-to-take-box-plan.md`
+
+### Implementation
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Added `safe_to_take_entity` + `safe_to_take_label` to `AxDoseLoggerCardConfig` interface
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Added `_getSafeBoxEntity()` helper (returns config override or auto-resolved sensor)
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Updated `_renderPane1` Safe to Take `.stat-pill`: display entity for state + label override, raw state when swapped (non-numeric safe), clickable more-info
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Added 2 schema entries to `getConfigForm` `daily_panel` between `take_pill_label` and `pills_left_label` (entity selector with `filter_device_id` + `integration: 'ax_dose_logger'`, text selector for label)
+- [x] [`src/localize.ts`](src/localize.ts) — Added 4 keys: `config.safe_to_take_entity`, `config.safe_to_take_label`, `config.helper.safe_to_take_entity`, `config.helper.safe_to_take_label`
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0; pre-existing `@formatjs/intl-utils` warnings are transitive-dependency noise, unrelated)
+
+### Documentation
+- [x] Updated README.md Configuration Options table (2 new rows)
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- [x] Created plans/replace-safe-to-take-box-plan.md
+- Key decisions: (1) Decoupled button — LIMIT REACHED + override dialog always read real `pills_safe_to_take` sensor; only box display swaps. (2) Integration + device locked picker via `integration: 'ax_dose_logger'` + `context: { filter_device_id: 'device_id' }`. (3) Non-numeric safe — swapped box shows raw state string. (4) Seamless revert — empty field falls back to default sensor. (5) Placement between `take_pill_label` and `pills_left_label` per user request.
+
+---
+
+## Replaceable "Safe to Take" Box v2 — Any Entity + Tap/Hold/Double-Tap Actions — 2026-06-25
+
+### Planning
+- [x] User requested: any entity selectable (not integration-locked) + tap/hold/double-tap actions (Mushroom-style) + nested collapsable under take_pill_label
+- [x] Investigated `handleAction` + `ActionConfig` from custom-card-helpers (standard HA action dispatch)
+- [x] Updated plans/replace-safe-to-take-box-plan.md to v2
+
+### Implementation
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Added `ActionConfig` + `handleAction` to custom-card-helpers import
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Added 3 action fields to `AxDoseLoggerCardConfig`: `safe_to_take_tap_action`, `safe_to_take_hold_action`, `safe_to_take_double_tap_action`
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Added `_handleSafeBoxAction()` method (handleAction dispatch + more-info fallback)
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Updated `_renderPane1`: `safeBoxActionConfig`/`hasCustomTap`/`hasHold`/`hasDblClick`/`safeBoxClickable` locals; wired `@click`/`@contextmenu`/`@dblclick`/`@keydown`
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Restructured `getConfigForm`: nested `safe_to_take_box` expandable with 5 fields (entity selector without integration lock, label, 3 ui-action selectors)
+- [x] [`src/localize.ts`](src/localize.ts) — Added 7 keys (safe_to_take_box title + 3 action labels + 4 helpers); updated safe_to_take_entity helper wording
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0; pre-existing `@formatjs/intl-utils` warnings are transitive-dependency noise, unrelated)
+
+### Documentation
+- [x] Updated README.md Configuration Options table (reworded entity row + 3 new action rows)
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- [x] Updated plans/replace-safe-to-take-box-plan.md to v2
+- Key decisions: (1) Any entity — dropped `integration` lock per user request; kept `filter_device_id` as soft default. (2) Standard HA action pattern — `ui-action` selector + `handleAction` (same as Mushroom/stock cards). (3) Default tap = more-info (backward compat with v1). (4) Hold via `@contextmenu` preventDefault, gated on `hasHold`. (5) Nested expandable under `take_pill_label` per user request. (6) Decoupled button logic retained from v1.
+
+## Config Form Grid Layout (2026-06-25)
+
+### Planning
+- [x] User requested: columns in config screens (like Mushroom) — Large Text + Hide Nav Bar side-by-side; Color Scheme + Name Override (50/50 since 1/3+2/3 not possible)
+- [x] User extended: also group Take Pill Icon + Take Pill Label; Safe to Take Entity + Safe to Take Label; all chip pairs; Day Avg Boxes + Adherence Boxes
+- [x] Investigated HA `type: 'grid'` schema via Context7 — confirmed only equal-width columns (50/50), no colspan/fractional
+- [x] Wrote plans/config-form-grid-layout-plan.md with all 9 grid groupings + column_min_width rationale
+
+### Implementation
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Wrapped 9 field pairs in `type: 'grid'` blocks in `getConfigForm()`: (1) big_text+hide_nav_bar; (2) color_scheme+name; (3) take_pill_icon+take_pill_label; (4) safe_to_take_entity+safe_to_take_label; (5–8) chip_1..4 + chip_N_label; (9) show_day_avg_boxes+show_adherence_boxes
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0; pre-existing `@formatjs/intl-utils` warnings are transitive-dependency noise, unrelated)
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- [x] Created plans/config-form-grid-layout-plan.md
+- Key decisions: (1) HA `type: 'grid'` = CSS auto-fill equal-width columns only — no 1/3+2/3 possible. (2) `column_min_width` 250px for most (fits 2 cols at ~500px dialog), 200px for chips (shorter fields). (3) Full-width fields kept alone (device_id, pills_left_label, show_amount_in_body, amount_in_body_default_timeframe, stats_3_columns, 3 ui-action selectors). (4) No localization changes — grid is pure layout, computeLabel/computeHelper receive leaf field name unchanged.
+
+## Rollup onwarn Filter — Silence @formatjs/intl-utils Warning (2026-06-25)
+
+### Problem Analysis
+- [x] User noticed the `(!) "this" has been rewritten to "undefined"` Rollup warning and asked when it first appeared + whether to fix it
+- [x] Traced via memory-bank/progress.md: first appeared in the **Override Popup Wording Rework** task (line 1581) — the task that first imported `formatTime, formatDateTime` from `custom-card-helpers`
+- [x] Root cause: `custom-card-helpers` re-exports `formatTime`/`formatDateTime` from its datetime module, which transitively pulls in `@formatjs/intl-utils`; that package has TypeScript-compiled `__assign`/`__extends` helpers with top-level `this` references that Rollup flags as `THIS_IS_UNDEFINED` in ES module context
+- [x] Confirmed the warning is harmless: the flagged code path is dead (top-level `this` is `undefined` in ES modules; `Object.assign`/`Object.setPrototypeOf` are universally available so the hand-rolled fallbacks never run); build exits 0; no runtime impact; HA loads the card fine
+
+### Implementation
+- [x] [`rollup.config.js`](rollup.config.js) — Added `onwarn` handler that filters `THIS_IS_UNDEFINED` from `@formatjs/intl-utils` (matched via `warning.id.includes('@formatjs/intl-utils')`); all other warnings pass through to default handler
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — **completely clean** (no warnings, exit 0; output is just `src/ax-dose-logger-card.ts → dist/ax-dose-logger-card.js... created dist/ax-dose-logger-card.js in 3.1s`)
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- Key decisions: (1) Targeted filter — only silences `THIS_IS_UNDEFINED` from `@formatjs/intl-utils`, all other warnings visible. (2) Root cause is transitive dep — can't fix at source without patching node_modules (overwritten on yarn install); onwarn is the correct layer. (3) No runtime impact — flagged code is dead in ES module context. (4) HA best practice — don't use --silent or suppress all warnings; filter known-harmless transitive noise only.
+
+## Config Form Grid Layout v2 Fix — name: "" + column_min_width: "200px" (2026-06-25)
+
+### Problem Analysis
+- [x] User reported: grid layout fields still rendering as a single stacked list in the HA visual editor sidebar
+- [x] Root cause 1: `column_min_width: 250` (numeric) → CSS Grid calculated 500px minimum for 2 columns → exceeded the ~450px HA card editor sidebar → CSS Grid fell back to 1 column (stacked)
+- [x] Root cause 2: grid wrapper objects omitted `name` attribute → `ha-form` requires `name: ""` on layout-only containers to avoid rendering an empty label row
+- [x] Audited all 9 grid blocks in `getConfigForm()` — confirmed all had both issues
+
+### Implementation
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Fixed all 9 grid blocks: (1) changed every `column_min_width` from numeric `250`/`200` to string `"200px"`; (2) added `name: ''` to every grid wrapper object. The `schema` array nesting was already correct from v1.
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0, no warnings)
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- Key decisions: (1) `name: ""` required on grid wrapper — `ha-form` expects every schema node to have a `name`; empty string = layout-only container with no data field. (2) `column_min_width: "200px"` as string — HA grid schema expects CSS length string, not bare number; 200px makes 2 columns fit in 400px min, working in the narrow ~450px editor sidebar. (3) All grids use 200px — simplified from v1 split (250/200); 200px works for all field types in the narrow sidebar.
+
+## Config Helper Text Simplification (2026-06-25)
+
+### Problem Analysis
+- [x] User reported: description text under boxes/toggles takes up too much space and misaligns paired fields in the 2-column grid layout
+- [x] Audited all 21 `config.helper.*` strings in `src/localize.ts` (lines 149-170)
+- [x] Identified redundancy patterns: (1) repeating the label, (2) implementation details (pixel measurements, default icon names), (3) edge-case explanations (limit-reached state, safety logic disclaimers), (4) default-state descriptions, (5) verbose connective tissue
+
+### Implementation
+- [x] [`src/localize.ts`](src/localize.ts) — Simplified all 21 helper strings. Applied principle: "label says what it IS; helper says only what's NOT obvious — default value, brief example, or one-word behavior hint." Total reduction: ~1,950 chars → ~750 chars (62% reduction). Key examples: `safe_to_take_box` 253→67, `take_pill_label` 163→72, `amount_in_body_default_timeframe` 163→32, `hide_nav_bar` 106→29.
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0, no warnings)
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- Key decisions: (1) Label says what it IS, helper says what's NOT obvious — field label already identifies the field; helper only adds default value, brief example, or behavior hint. (2) Removed implementation details — pixel measurements, default icon names, safety logic disclaimers are not config guidance. (3) Removed edge-case explanations — shortened to essential behavior hints. (4) Removed verbose connective tissue — "When on, all text...", "Action to perform when...", "Entity from the selected device to display as..." all cut. (5) Grid alignment benefit — shorter helpers keep both columns' fields at the same vertical level in 2-column grids.
+
+## Label Alignment Fix — Safe to Take + Chips (2026-06-25)
+
+### Problem Analysis
+- [x] User reported: "Safe to Take Entity" title above the box is redundant and misaligns the 2 paired fields
+- [x] User reported: chip pairs have the same misalignment issue, but chips need some label to indicate which chip is being modified
+- [x] Root cause 1 (Safe to Take): both `safe_to_take_entity` ("Safe to Take Entity") and `safe_to_take_label` ("Safe to Take Label") labels are redundant — the expandable title "Safe to Take Box" already provides context; the labels add height above each field, and if one wraps differently than the other, the inputs misalign
+- [x] Root cause 2 (Chips): entity labels "Chip N (optional)" (16 chars) are longer than paired label fields "Chip N Label" (12 chars), causing the entity label to wrap to 2 lines in a 200px grid column while the label field stays on 1 line → vertical misalignment
+
+### Implementation
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — Updated `computeLabel` in `getConfigForm()` to return `undefined` for `safe_to_take_entity` and `safe_to_take_label`, removing both labels above the grid-paired fields
+- [x] [`src/localize.ts`](src/localize.ts) — Shortened all 4 chip entity labels from "Chip N (optional)" → "Chip N" (removed "(optional)" suffix)
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0, no warnings)
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- Key decisions: (1) Remove both Safe to Take labels, not just one — removing only the entity label would leave "Safe to Take Label" above the label field, causing misalignment in the opposite direction. (2) Chip "(optional)" suffix removed — made entity labels longer than paired label fields, causing wrapping; "Chip N" (6 chars) matches "Chip N Label" (12 chars) on 1 line. (3) `computeLabel` returning `undefined` — standard HA pattern for fields where the label would be redundant (e.g. inside an expandable whose title provides context).
+- **NOTE: This approach was SUPERSEDED by the Grid Alignment CSS Fix below.** The label removal stripped UX context and the chip label shortening didn't address the real root cause (different label rendering mechanisms between entity pickers and text fields).
+
+## Grid Alignment CSS Fix — align-items: end in ha-form shadow DOM (2026-06-25)
+
+### Problem Analysis
+- [x] User corrected: the misalignment root cause is NOT text length/wrapping — it's that entity pickers (`ha-entity-picker`) render an EXTERNAL label above the control while text fields (`ha-textfield`) render an INTERNAL floating label inside the control box
+- [x] In a CSS grid row, the grid aligns children by their top edges — the entity picker's external label pushes its control box down while the text field's control box starts at the top → physical input boxes misaligned
+- [x] Confirmed via Context7 HA frontend docs: `ha-form` does not expose a schema property to force external label rendering on text selectors; `ha-input` has `inset-label` property but `ha-form` controls how labels are passed and doesn't expose it via the schema
+- [x] Conclusion: must fix via CSS in the main Lit element (inject `align-items: end` into `ha-form` shadow roots), not via JSON schema
+
+### Implementation
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — (1) Reverted `computeLabel` `undefined` return for safe_to_take fields — both show full localized labels again. (2) Added `_injectFormGridAlignmentStyle()` static method + `_formStyleObserver` static field: uses a `MutationObserver` on `document.body` to find all `ha-form` elements (including lazily-opened config dialog forms), injects an id-tagged `<style>` into each `ha-form`'s `shadowRoot` with `align-items: end !important` on grid-display divs. (3) Called from `connectedCallback`.
+- [x] [`src/localize.ts`](src/localize.ts) — Restored chip entity labels from "Chip N" back to "Chip N (optional)"
+- [x] [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt via `yarn run build`
+
+### Verification
+- [x] `yarn run build` — clean compilation (exit 0, no warnings)
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md
+- [x] Updated memory-bank/progress.md (this section)
+- Key decisions: (1) Root cause = different label rendering — entity pickers have external labels (push control down), text fields have internal floating labels (control starts at top). (2) CSS fix, not schema fix — `ha-form` doesn't expose a way to force external labels on text selectors; only viable fix without a fully custom editor is CSS `align-items: end`. (3) `align-items: end` forces bottom-edge alignment — shorter text field sinks to match entity picker's bottom. (4) Shadow DOM injection via MutationObserver — `ha-form` uses shadow DOM, external CSS can't reach internals; observer catches forms as they appear and injects style into `shadowRoot`. (5) All field labels restored — previous label removal stripped UX context; CSS fix preserves all labels.
+
+## Panel Reactive Prop Fix — Restore Live Visual Updates Across Panes
+- [x] Step 1: Investigate frontend card source to locate the visual-update regression
+- [x] Step 2: Confirm root cause — presentational panel children only receive stable-reference props (`.controller` = the card itself, `.entities` = memoized `ResolvedEntities` cache), so Lit never re-renders them between mount and unmount; changes only appeared after a pane switch remounted the element
+- [x] Step 3: Add `@property({ attribute: false }) hass?: AxDoseLoggerHass;` to all 6 presentational panels (daily, stats, caffeine, tools, tracking, graphs) + import `AxDoseLoggerHass`
+- [x] Step 4: Add 5 graph-local reactive props to `graphs-panel.ts` (`amountHistory`, `doseHistory`, `activeGraph`, `activeTimeframe`, `activeBarTimeframe`); replace controller-getter reads with local reactive props
+- [x] Step 5: Update container `render()` to bind `.hass=${this.hass}` to all panels + bind the 5 graph props to the graphs panel
+- [x] Step 6: Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt
+- [x] Step 7: Update memory-bank/activeContext.md and memory-bank/progress.md (this section)
+- Created architecture plan: `plans/panel-reactive-prop-fix-plan.md`
+- Key decisions: (1) Root cause = stable-reference inputs starved Lit reactivity — the refactoring passed only `.controller` (card instance, invariant reference) and `.entities` (memoized on device_id + hass.entities registry ref, which only changes on entity add/remove, not on a normal state tick), so neither input changed reference during normal use and the panels never re-rendered except on pane-switch remount. (2) `hass` is the canonical HA reactivity signal — HA replaces the top-level `hass` object reference on every state update; binding it as a reactive prop makes the panel re-render whenever the container's `shouldUpdate` lets the container re-render. (3) Graph panel needed more than `hass` — it reads container `@state` (`_amountHistory`, `_doseHistory`, `_activeGraph`, `_activeTimeframe`, `_activeBarTimeframe`) that changes independently of HA ticks (async fetch completion, carousel/timeframe UI); promoting these to reactive props lets those changes re-render the panel immediately, fixing the "14-day average doesn't load until a second visit" and "graph doesn't change until pane reload" symptoms. (4) Controller getters kept on the `CardController` interface — now only used by the container, harmless; `hass` was already declared so no interface change needed. (5) No backend / config-flow / README changes — pure frontend reactivity bug fix.
+
+## Caffeine Pane Visibility Guard — Hide Caffeine Pane Unless device_type === 'caffeine'
+- [x] Step 1: Confirm gating contract with user — caffeine pane visible only when the device's primary sensor (`next_dose`) exposes a `device_type` state attribute with value `"caffeine"`. Backend does not emit this attribute yet, so pane stays hidden everywhere until a real caffeine device is configured.
+- [x] Step 2: In `src/ax-dose-logger-card.ts` `_renderPaneSelector` — compute `hasCaffeine` from `(this._getAttr(entities.nextDose, 'device_type') || '').toLowerCase() === 'caffeine'`; remove the previously-unconditional `{ id: 'caffeine', … }` entry from the `panes` array; spread it in only when `hasCaffeine` is true (mirrors the existing `hasMetrics`/tracking conditional-spread pattern).
+- [x] Step 3: In `src/ax-dose-logger-card.ts` `render()` — add an auto-fallback guard right after the existing tracking fallback: if `_activePane === 'caffeine'` but the device's `device_type` attribute is not `'caffeine'`, reset `_activePane = 'daily'`. Prevents the render ternary from rendering the caffeine panel for a non-caffeine device even when the nav button is hidden.
+- [x] Step 4: Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt.
+- [x] Step 5: Update memory-bank/activeContext.md and memory-bank/progress.md (this section).
+- Key decisions: (1) Gate on a state attribute, not a dedicated entity — a device *type* classifier is metadata about the device, not an observable measurement, so per HA best practice it belongs in `extra_state_attributes` on the primary sensor (mirrors the existing `tracking_type` pattern read via `this._getAttr(entities.nextDose, 'tracking_type')`). (2) Mirror the existing `hasMetrics`/tracking conditional-spread pattern — no new abstraction; `hasCaffeine` computed once, caffeine entry spread in only when true. (3) Defensive attribute lookup — nil-coalesced + lower-cased, since the backend doesn't emit the attribute yet and will eventually emit snake_case values; pane hidden everywhere until a real caffeine device exists. (4) Auto-fallback guard mirrors the tracking fallback — handles attribute removal, device switch, or lingering dev-session `_activePane` state. (5) Frontend-only, forward-compatible — `caffeine-panel.ts`, its import, the `'caffeine'` union member, the render ternary, and `getCardSize` all unchanged; simply not reached until a real caffeine device exists. Guard reads `device_type`, forward-compatible with the planned two-field backend design (`device_category: 'medicine'|'drink'` for the config-flow branch + `device_type: 'caffeine'|'alcohol'|…` for pane visibility).

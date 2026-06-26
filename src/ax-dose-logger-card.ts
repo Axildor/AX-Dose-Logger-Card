@@ -1,99 +1,56 @@
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { PropertyValues } from 'lit';
-import type { HomeAssistant, LovelaceCard, LovelaceCardConfig } from 'custom-card-helpers';
+import type { LovelaceCard, ActionConfig } from 'custom-card-helpers';
+import { fireEvent, formatTime, formatDateTime, handleAction } from 'custom-card-helpers';
 import { localize } from './localize.js';
+import {
+  formatInteger as formatIntegerHelper,
+  toLocalDateKey as toLocalDateKeyHelper,
+  bridgeGaps as bridgeGapsHelper,
+  getColorOverrides as getColorOverridesHelper,
+  getState as getStateHelper,
+  getAttr as getAttrHelper,
+} from './helpers.js';
+import { buildEditorForm, installEditorGridAlignment } from './ax-dose-logger-editor.js';
+// Panel components are statically imported so Rollup bundles them into the
+// single dist/ax-dose-logger-card.js output (HACS downloads exactly one file).
+import './components/stats-panel.js';
+import './components/tools-panel.js';
+import './components/tracking-panel.js';
+import './components/daily-panel.js';
+import './components/graphs-panel.js';
+import './components/caffeine-panel.js';
+import type {
+  AxDoseLoggerCardConfig,
+  AxDoseLoggerHass,
+  CardController,
+  ResolvedEntities,
+  MetricEntity,
+  DayBucket,
+} from './types.js';
+
+// Re-export the types that downstream code (the editor module, panel components)
+// imports from the container's module surface. They are authored in src/types.ts
+// to avoid circular imports between the container and the panels.
+export type {
+  AxDoseLoggerCardConfig,
+  AxDoseLoggerHass,
+  CardController,
+  ResolvedEntities,
+  MetricEntity,
+  DayBucket,
+} from './types.js';
 
 // ──────────────────────────────────────────────
-// Interfaces
+// AxDoseLoggerCard — Main Card Class (Container)
 // ──────────────────────────────────────────────
 
-interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
-  device_id?: string;
-  name?: string;
-  color_scheme?: string;
-  chip_1?: string;
-  chip_1_label?: string;
-  chip_2?: string;
-  chip_2_label?: string;
-  chip_3?: string;
-  chip_3_label?: string;
-  chip_4?: string;
-  chip_4_label?: string;
-  show_amount_in_body?: boolean;
-  show_day_avg_boxes?: boolean;
-  show_adherence_boxes?: boolean;
-  stats_3_columns?: boolean;
-  big_text?: boolean;
-  hide_nav_bar?: boolean;
-}
-
-// Extends the official HomeAssistant type from custom-card-helpers with the
-// two HA frontend extensions the card uses (entities + devices). These fields
-// are added by the entity registry at runtime and are not part of the
-// home-assistant-js-websocket protocol that custom-card-helpers' type is based on.
-// All other fields (states, callService, callApi, language, config, etc.) are
-// inherited from HomeAssistant — no need to re-declare them.
-interface AxDoseLoggerHass extends HomeAssistant {
-  entities: Record<string, {
-    device_id?: string;
-    platform?: string;
-    name?: string;
-    config_entry_id?: string;
-  }>;
-  devices?: Record<string, { name?: string }>;
-}
-
-interface MetricEntity {
-  entityId: string;
-  label: string;
-  metricKey: string;
-}
-
-interface ResolvedEntities {
-  medicationName: string;
-  totalDoses?: string;
-  lastDose?: string;
-  pillsSafeToTake?: string;
-  amountInBody?: string;
-  nextDose?: string;
-  avg7Days?: string;
-  avg14Days?: string;
-  avg30Days?: string;
-  avgYearly?: string;
-  adherence7Days?: string;
-  adherence14Days?: string;
-  adherence30Days?: string;
-  adherence365Days?: string;
-  daysSinceFirstDose?: string;
-  steadyState?: string;
-  strength?: string;
-  overdue?: string;
-  takeButton?: string;
-  resetButton?: string;
-  undoButton?: string;
-  adherenceResetButton?: string;
-  adherenceCoverButton?: string;
-  pillsLeft?: string;
-  addRefill?: string;
-  metrics: MetricEntity[];
-}
-
-interface DayBucket {
-  date: string;
-  label: string;
-  count: number;
-}
-
-// ──────────────────────────────────────────────
-// AxDoseLoggerCard — Main Card Class
-// ──────────────────────────────────────────────
-
-export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
+export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardController {
   @property({ attribute: false }) hass?: AxDoseLoggerHass;
   @property({ attribute: false }) config?: AxDoseLoggerCardConfig;
 
-  @state() private _activePane: 'daily' | 'graphs' | 'stats' | 'tools' | 'tracking' = 'daily';
+  @state() private _activePane: 'daily' | 'graphs' | 'stats' | 'caffeine' | 'tools' | 'tracking' = 'daily';
   @state() private _activeGraph: number = 0;
   @state() private _amountHistory: Array<{timestamp: string; value: number}> = [];
   @state() private _doseHistory: Array<[string, number]> = [];
@@ -105,8 +62,15 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
   @state() private _toolsDialog: { title: string; descriptor: string; onConfirm: () => void } | null = null;
   // Pill-limit override warning dialog (#6): replaces the synchronous native
   // confirm() box. When non-null, _renderOverrideDialog() shows an ha-dialog
-  // asking the user to confirm taking a pill past the safe limit.
-  @state() private _overrideDialog: { windowExpiry: string; entities: ResolvedEntities } | null = null;
+  // asking the user to confirm taking a pill past the safe limit. The body text
+  // and time source branch by tracking type: scheduled meds show the next
+  // designated dose time (next_dose sensor); As Needed meds show when the
+  // rolling safety window resets (window_expires_at attribute).
+  @state() private _overrideDialog: {
+    timeLabel: string;
+    bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed';
+    entities: ResolvedEntities;
+  } | null = null;
   // Tracking override warning dialog: when user tries to change a daily-locked
   // tracking value that has already been set today, this dialog asks for confirmation.
   @state() private _trackingOverrideDialog: { metricKey: string; metricLabel: string; oldValue: number; newValue: number; entityId: string } | null = null;
@@ -243,7 +207,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
         else if (entityId.endsWith('_avg_daily_doses_7_days')) result.avg7Days = entityId;
         else if (entityId.endsWith('_avg_daily_doses_14_days')) result.avg14Days = entityId;
         else if (entityId.endsWith('_avg_daily_doses_30_days')) result.avg30Days = entityId;
-        else if (entityId.endsWith('_avg_daily_doses_yearly')) result.avgYearly = entityId;
+        else if (entityId.endsWith('_avg_daily_doses_365_days') || entityId.endsWith('_avg_daily_doses_yearly')) result.avgYearly = entityId;
         else if (entityId.endsWith('_adherence_7_days')) result.adherence7Days = entityId;
         else if (entityId.endsWith('_adherence_14_days')) result.adherence14Days = entityId;
         else if (entityId.endsWith('_adherence_30_days')) result.adherence30Days = entityId;
@@ -294,15 +258,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
   // ── State Helpers ──────────────────────────
 
   private _getState(entityId?: string): string {
-    if (!entityId || !this.hass) return 'unavailable';
-    const state = this.hass.states[entityId];
-    return state ? state.state : 'unavailable';
+    return getStateHelper(this.hass, entityId);
   }
 
   private _getAttr(entityId?: string, attr?: string): any {
-    if (!entityId || !attr || !this.hass) return undefined;
-    const state = this.hass.states[entityId];
-    return state?.attributes?.[attr];
+    return getAttrHelper(this.hass, entityId, attr);
   }
 
   private _getStrengthUnit(entities: ResolvedEntities): string {
@@ -311,51 +271,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
   }
 
   private _formatInteger(value: string): string {
-    const num = parseFloat(value);
-    if (isNaN(num)) return value;
-    return Math.round(num).toString();
+    return formatIntegerHelper(value);
   }
 
   // ── Color Scheme ───────────────────────────
 
   private _getColorOverrides(): string {
-    const schemes: Record<string, { primary: string; rgb: string }> = {
-      default: { primary: '', rgb: '' },
-      blue:    { primary: '#03a9f4', rgb: '3, 169, 244' },
-      red:     { primary: '#e53935', rgb: '229, 57, 53' },
-      green:   { primary: '#43a047', rgb: '67, 160, 71' },
-      yellow:  { primary: '#fdd835', rgb: '253, 216, 53' },
-      orange:  { primary: '#fb8c00', rgb: '251, 140, 0' },
-      purple:  { primary: '#7e57c2', rgb: '126, 87, 194' },
-      pink:    { primary: '#d81b60', rgb: '216, 27, 96' },
-      teal:    { primary: '#00897b', rgb: '0, 137, 123' },
-      brown:   { primary: '#795548', rgb: '121, 85, 72' },
-      coral:   { primary: '#ff7043', rgb: '255, 112, 67' },
-      slate:   { primary: '#546e7a', rgb: '84, 110, 122' },
-      gold:    { primary: '#daa520', rgb: '218, 165, 32' },
-      grey:    { primary: '#9e9e9e', rgb: '158, 158, 158' },
-    };
-    const scheme = this.config?.color_scheme || 'default';
-    const colors = schemes[scheme];
-    if (!colors || !colors.primary) return '';
-    return `--primary-color: ${colors.primary}; --rgb-primary-color: ${colors.rgb};`;
+    return getColorOverridesHelper(this.config?.color_scheme);
   }
 
   // ── Dose History ───────────────────────────
 
   private _toLocalDateKey(d: Date): string {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  private _getBarTimeframeDays(): number {
-    switch (this._activeBarTimeframe) {
-      case '30d': return 30;
-      case '60d': return 60;
-      default: return 14;
-    }
+    return toLocalDateKeyHelper(d);
   }
 
   private _bucketByDay(dayCount: number = 14): DayBucket[] {
@@ -458,6 +386,23 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
     return this._computeNextDose(entities);
   }
 
+  /**
+   * Format an absolute Date as a locale-aware clock time for the override
+   * dialog. Same-day times use formatTime (e.g. "2:30 PM"); cross-day times
+   * (next dose is tomorrow+) use formatDateTime so the date is visible.
+   * Falls back to toLocaleTimeString() if hass.locale is unavailable.
+   */
+  private _formatOverrideTime(date: Date): string {
+    if (!this.hass?.locale) return date.toLocaleTimeString();
+    const now = new Date();
+    const sameDay = date.getFullYear() === now.getFullYear()
+      && date.getMonth() === now.getMonth()
+      && date.getDate() === now.getDate();
+    return sameDay
+      ? formatTime(date, this.hass.locale)
+      : formatDateTime(date, this.hass.locale);
+  }
+
   private _computeTimeSinceLastDose(entities: ResolvedEntities): string {
     const state = this._getState(entities.lastDose);
     if (state === 'unavailable' || state === 'unknown' || state === 'None' || !state) {
@@ -486,6 +431,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
   private _getTimeframeHours(): number {
     switch (this._activeTimeframe) {
       case '12h': return 12;
+      case '24h': return 24;
       case '7d': return 168;
       case '14d': return 336;
       case '30d': return 720;
@@ -505,10 +451,47 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
       // Pill limit reached: show the HA-native override confirmation dialog
       // instead of the synchronous browser confirm() box (#6). The actual
       // button.press call happens in the dialog's Confirm handler.
-      this._overrideDialog = {
-        windowExpiry: this._computeWindowExpiry(entities),
-        entities,
-      };
+      //
+      // Body text + time source branch by tracking type:
+      //   - Scheduled (regular_interval / time_of_day / cyclic): show the next
+      //     designated dose time from the next_dose sensor.
+      //   - As Needed (PRN): show when the rolling safety window resets via the
+      //     window_expires_at attribute on the pills_safe_to_take sensor.
+      // tracking_type is normalized defensively (snake_case "as_needed" and
+      // legacy title-case "As Needed") since the backend stores snake_case
+      // (const.py) but older deployments may expose title-case.
+      const tt = (this._getAttr(entities.nextDose, 'tracking_type') || '').toLowerCase();
+      const isAsNeeded = tt === 'as_needed' || tt === 'as needed';
+
+      let timeLabel: string;
+      let bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed';
+
+      if (isAsNeeded) {
+        const expiresAt = this._getAttr(entities.pillsSafeToTake, 'window_expires_at');
+        const expDate = expiresAt ? new Date(expiresAt as string) : null;
+        if (expDate && !isNaN(expDate.getTime())) {
+          timeLabel = this._formatOverrideTime(expDate);
+          bodyKey = 'dialog.override.body_as_needed';
+        } else {
+          // Fallback: backend without window_expires_at — show relative duration.
+          timeLabel = this._computeWindowExpiry(entities);
+          bodyKey = 'dialog.override.body_as_needed';
+        }
+      } else {
+        const nextDoseState = this._getState(entities.nextDose);
+        const nextDate = (nextDoseState && nextDoseState !== 'unavailable' && nextDoseState !== 'unknown')
+          ? new Date(nextDoseState) : null;
+        if (nextDate && !isNaN(nextDate.getTime()) && nextDate > new Date()) {
+          timeLabel = this._formatOverrideTime(nextDate);
+          bodyKey = 'dialog.override.body_scheduled';
+        } else {
+          // Fallback: next_dose unavailable or already past — relative duration.
+          timeLabel = this._computeWindowExpiry(entities);
+          bodyKey = 'dialog.override.body_scheduled';
+        }
+      }
+
+      this._overrideDialog = { timeLabel, bodyKey, entities };
       return;
     }
 
@@ -546,50 +529,6 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
     this._toolsDialog = null;
   }
 
-  private _handleAdherenceReset(entities: ResolvedEntities) {
-    if (!this.hass || !entities.adherenceResetButton) return;
-    this._openToolsDialog(
-      localize(this._lang, 'tools.reset_adherence'),
-      localize(this._lang, 'tools.desc.reset_adherence'),
-      () => {
-        this.hass!.callService('button', 'press', { entity_id: entities.adherenceResetButton });
-      }
-    );
-  }
-
-  private _handleAdherenceCover(entities: ResolvedEntities) {
-    if (!this.hass || !entities.adherenceCoverButton) return;
-    this._openToolsDialog(
-      localize(this._lang, 'tools.mark_adherence_taken'),
-      localize(this._lang, 'tools.desc.mark_adherence_taken'),
-      () => {
-        this.hass!.callService('button', 'press', { entity_id: entities.adherenceCoverButton });
-      }
-    );
-  }
-
-  private _handleResetHistory(entities: ResolvedEntities) {
-    if (!this.hass || !entities.resetButton) return;
-    this._openToolsDialog(
-      localize(this._lang, 'tools.reset_history'),
-      localize(this._lang, 'tools.desc.reset_history'),
-      () => {
-        this.hass!.callService('button', 'press', { entity_id: entities.resetButton });
-      }
-    );
-  }
-
-  private _handleUndoDoseConfirm(entities: ResolvedEntities) {
-    if (!this.hass || !entities.undoButton) return;
-    this._openToolsDialog(
-      localize(this._lang, 'tools.undo_dose'),
-      localize(this._lang, 'tools.desc.undo_dose'),
-      () => {
-        this.hass!.callService('button', 'press', { entity_id: entities.undoButton });
-      }
-    );
-  }
-
   private _handleTimeframeChange(timeframe: string): void {
     if (timeframe === this._activeTimeframe) return;
     this._activeTimeframe = timeframe;
@@ -599,6 +538,46 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
   // to 'en' when hass is not yet set (e.g. during initial render).
   private get _lang(): string {
     return this.hass?.language || 'en';
+  }
+
+  // ── CardController public accessors ─────────
+  // Public read-only views of the container's private @state, exposed to the
+  // presentational panel components via the CardController contract (see
+  // src/types.ts). Panels read these props instead of touching the container's
+  // private fields directly.
+  public get lang(): string {
+    return this._lang;
+  }
+  public get activeTimeframe(): string {
+    return this._activeTimeframe;
+  }
+  public get activeBarTimeframe(): string {
+    return this._activeBarTimeframe;
+  }
+  public get activeGraph(): number {
+    return this._activeGraph;
+  }
+  public get amountHistory(): Array<{ timestamp: string; value: number }> {
+    return this._amountHistory;
+  }
+  public get doseHistory(): Array<[string, number]> {
+    return this._doseHistory;
+  }
+
+  // ── CardController thin action methods ───────
+  // These were previously inlined as direct @state mutations inside pane
+  // templates (e.g. @click=${() => this._showRefillDialog = true}). Now that
+  // panes are presentational components, they call back through the controller
+  // so the container owns the state mutation.
+  public showRefillDialog(): void {
+    this._showRefillDialog = true;
+    this._refillAmount = '';
+  }
+  public showDeviceInfo(): void {
+    this._showDeviceInfo = true;
+  }
+  public setActiveGraph(idx: number): void {
+    this._activeGraph = idx;
   }
 
   // Keyboard activation helper for clickable <div> elements that use
@@ -611,9 +590,49 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
     }
   }
 
+  // ── CardController public method aliases ────
+  // The container keeps its private _-prefixed methods as the implementation
+  // (the existing ~49 internal call sites stay untouched, keeping this step
+  // low-risk). These public aliases expose them through the CardController
+  // contract so the presentational panel components (added in later steps)
+  // can call back into the container without touching its private surface.
+  // Each alias is a one-line delegate; behavior is unchanged.
+  public getState(entityId?: string): string { return this._getState(entityId); }
+  public getAttr(entityId?: string, attr?: string): any { return this._getAttr(entityId, attr); }
+  public getStrengthUnit(entities: ResolvedEntities): string { return this._getStrengthUnit(entities); }
+  public getMedName(entities: ResolvedEntities): string { return this._getMedName(entities); }
+  public getSafeBoxEntity(entities: ResolvedEntities): string | undefined { return this._getSafeBoxEntity(entities); }
+  public getChipEntities(): Array<{ entityId: string; label?: string }> { return this._getChipEntities(); }
+  public formatInteger(value: string): string { return this._formatInteger(value); }
+  public computeNextDose(entities: ResolvedEntities): string { return this._computeNextDose(entities); }
+  public computeOverTime(entities: ResolvedEntities): string | null { return this._computeOverTime(entities); }
+  public computeTimeSinceLastDose(entities: ResolvedEntities): string { return this._computeTimeSinceLastDose(entities); }
+  public bucketByDay(dayCount?: number): DayBucket[] { return this._bucketByDay(dayCount); }
+  public daysSinceReveal(entities: ResolvedEntities): { hasDaysSensor: boolean; daysSince: number } { return this._daysSinceReveal(entities); }
+  public handleTakePill(entities: ResolvedEntities): void { this._handleTakePill(entities); }
+  public handleUndoDose(entities: ResolvedEntities): void { this._handleUndoDose(entities); }
+  public handleRefill(entities: ResolvedEntities): void { this._handleRefill(entities); }
+  public openToolsDialog(title: string, descriptor: string, onConfirm: () => void): void { this._openToolsDialog(title, descriptor, onConfirm); }
+  public openMoreInfo(entityId: string): void { this._openMoreInfo(entityId); }
+  public handleSafeBoxAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+  ): void { this._handleSafeBoxAction(e as MouseEvent | null, kind, cfg, entity); }
+  public handleTimeframeChange(timeframe: string): void { this._handleTimeframeChange(timeframe); }
+  public handleBarTimeframeChange(timeframe: string): void {
+    if (timeframe === this._activeBarTimeframe) return;
+    this._activeBarTimeframe = timeframe;
+  }
+  public handleTrackingChange(metric: MetricEntity, rawValue: string): void { this._handleTrackingChange(metric, rawValue); }
+  public onKeyActivate(e: KeyboardEvent, handler: () => void): void { this._onKeyActivate(e, handler); }
+  public onStatCellKeydown(e: KeyboardEvent, entityId: string): void { this._onStatCellKeydown(e, entityId); }
+  public navigateToDevice(): void { this._navigateToDevice(); }
+
   // ── Pane Switching ─────────────────────────
 
-  private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'tools' | 'tracking'): void {
+  private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'caffeine' | 'tools' | 'tracking'): void {
     if (paneId === this._activePane) return; // Guard: skip redundant execution
     this._activePane = paneId;
     // Tell HA's layout engine to re-measure the card height. card-resize is
@@ -703,7 +722,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
         </div>
         <div class="dialog-body">
           <div class="tools-dialog-descriptor">
-            ${localize(this._lang, 'dialog.override.body', { expiry: dlg.windowExpiry })}
+            ${localize(this._lang, dlg.bodyKey, { time: dlg.timeLabel })}
           </div>
         </div>
         <div class="custom-action-bar">
@@ -740,223 +759,39 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
     return name;
   }
 
-  private _renderPane1(entities: ResolvedEntities) {
-    const safeState = this._getState(entities.pillsSafeToTake);
-    const safeCount = parseInt(safeState, 10);
-    const isLimitReached = !isNaN(safeCount) && safeCount <= 0;
-    const isUnknown = safeState === 'unknown' || safeState === 'unavailable';
-    const timeSince = this._computeTimeSinceLastDose(entities);
-    const nextDose = this._computeNextDose(entities);
-    const overTime = this._computeOverTime(entities);
-    const pillsLeft = this._getState(entities.pillsLeft);
-    const chipEntities = this._getChipEntities();
+  // Resolve the entity to display in the Safe to Take box. If the user
+  // configured a replacement (safe_to_take_entity), use it; otherwise fall
+  // back to the auto-resolved pills_safe_to_take sensor. The Take Pill
+  // button's LIMIT REACHED logic is decoupled and always uses the real
+  // pillsSafeToTake sensor (see isLimitReached below).
+  private _getSafeBoxEntity(entities: ResolvedEntities): string | undefined {
+    return this.config?.safe_to_take_entity || entities.pillsSafeToTake;
+  }
 
-    return html`
-      <div class="pane pane-daily">
-        <div class="med-name"
-             role="button" tabindex="0"
-             aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${() => this._showDeviceInfo = true}
-             @keydown=${(e: KeyboardEvent) => this._onKeyActivate(e, () => this._showDeviceInfo = true)}
-        >${this._getMedName(entities)}</div>
-
-        <div class="daily-main">
-          <button
-            class="take-pill-btn ${isLimitReached ? 'danger' : 'safe'}"
-            aria-label=${isLimitReached
-              ? localize(this._lang, 'aria.take_pill_limit')
-              : localize(this._lang, 'aria.take_pill_safe')}
-            @click=${() => this._handleTakePill(entities)}
-          >
-            <ha-icon icon="${isLimitReached ? 'mdi:alert' : 'mdi:pill'}"></ha-icon>
-            <span class="take-label">${isLimitReached ? localize(this._lang, 'daily.limit_reached') : localize(this._lang, 'daily.take_pill')}</span>
-            <span class="take-sub">${isLimitReached
-              ? (overTime
-                ? html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-                : html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`)
-              : (overTime
-                ? html`<span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-                : html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>`)}</span>
-          </button>
-
-          <div class="stats-column">
-            <div class="stat-pill">
-              <ha-icon icon="mdi:shield-check"></ha-icon>
-              <span class="stat-label">${localize(this._lang, 'daily.safe_to_take')}</span>
-              <span class="stat-value">${isUnknown ? localize(this._lang, 'daily.na') : this._formatInteger(safeState)}</span>
-            </div>
-            <div class="stat-pill ${entities.addRefill ? 'clickable' : ''}"
-                 role="button"
-                 tabindex="0"
-                 aria-label=${localize(this._lang, 'dialog.refill.aria')}
-                 @click=${entities.addRefill ? () => { this._showRefillDialog = true; this._refillAmount = ''; } : null}
-                 @keydown=${entities.addRefill ? (e: KeyboardEvent) => this._onKeyActivate(e, () => { this._showRefillDialog = true; this._refillAmount = ''; }) : null}>
-              <ha-icon icon="mdi:pill"></ha-icon>
-              <span class="stat-label">${localize(this._lang, 'daily.pills_left')}</span>
-              <span class="stat-value">${pillsLeft === 'unavailable' ? '-' : this._formatInteger(pillsLeft)}</span>
-            </div>
-          </div>
-        </div>
-
-        ${chipEntities.length > 0
-          ? html`
-              <div class="chips-row">
-                ${chipEntities.map((chip) => {
-                  const chipState = this._getState(chip.entityId);
-                  const chipName = chip.label
-                    || this.hass?.states[chip.entityId]?.attributes?.friendly_name
-                    || chip.entityId;
-                  return html`
-                    <div class="chip">
-                      <span class="chip-name">${chipName}</span>
-                      <span class="chip-value">${chipState}</span>
-                    </div>
-                  `;
-                })}
-              </div>
-            `
-          : nothing}
-      </div>
-    `;
+  // Fire the configured tap/hold/double-tap action for the Safe to Take box.
+  // When the requested action has a user-configured ActionConfig, delegate to
+  // custom-card-helpers' handleAction (standard HA action dispatch). When no
+  // tap_action is configured, fall back to more-info on the display entity
+  // (v1 default behavior). hold/double_tap with no config are no-ops.
+  private _handleSafeBoxAction(
+    _e: MouseEvent | null,
+    action: 'tap' | 'hold' | 'double_tap',
+    config: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    displayEntity: string | undefined,
+  ): void {
+    if (!this.hass) return;
+    const actionKey = `${action}_action` as 'tap_action' | 'hold_action' | 'double_tap_action';
+    const actionConfig = config[actionKey];
+    if (actionConfig) {
+      handleAction(this, this.hass, config, action);
+    } else if (action === 'tap' && displayEntity) {
+      // No custom tap action → default to more-info (backward compat).
+      this._openMoreInfo(displayEntity);
+    }
+    // hold/double_tap with no config and no fallback → no-op.
   }
 
   // ── Pane 2: Graphs ─────────────────────────
-
-  private _renderPane2(entities: ResolvedEntities) {
-    const dailyBuckets = this._bucketByDay(this._getBarTimeframeDays());
-    const hasAmountInBody = entities.amountInBody &&
-      this._getState(entities.amountInBody) !== '0' &&
-      this._getState(entities.amountInBody) !== 'unknown' &&
-      this._getState(entities.amountInBody) !== 'unavailable';
-
-    // Determine available slides
-    const slides: Array<'bar' | 'line'> = ['bar'];
-    if (hasAmountInBody && (this.config?.show_amount_in_body !== false)) {
-      slides.push('line');
-    }
-
-    // Clamp active graph index
-    const activeIdx = Math.min(this._activeGraph, slides.length - 1);
-    const activeSlide = slides[activeIdx];
-
-    return html`
-      <div class="pane pane-graphs">
-        ${slides.length > 1 ? html`
-          <div class="carousel-nav">
-            <button
-              class="nav-btn"
-              aria-label=${localize(this._lang, 'graphs.aria_prev')}
-              @click=${() => this._activeGraph = (activeIdx - 1 + slides.length) % slides.length}
-              ?disabled=${slides.length <= 1}
-            >
-              <ha-icon icon="mdi:chevron-left"></ha-icon>
-            </button>
-            <span class="nav-title">
-              ${activeSlide === 'bar' ? localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() }) : localize(this._lang, 'graphs.line_title')}
-            </span>
-            <button
-              class="nav-btn"
-              aria-label=${localize(this._lang, 'graphs.aria_next')}
-              @click=${() => this._activeGraph = (activeIdx + 1) % slides.length}
-              ?disabled=${slides.length <= 1}
-            >
-              <ha-icon icon="mdi:chevron-right"></ha-icon>
-            </button>
-          </div>
-        ` : html`
-          <div class="carousel-nav">
-            <span class="nav-title">${localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() })}</span>
-          </div>
-        `}
-
-        <div class="graph-container">
-          ${activeSlide === 'bar'
-            ? this._renderBarGraph(dailyBuckets)
-            : this._renderLineGraph(entities)}
-        </div>
-
-        ${activeSlide === 'bar' ? this._renderAveragesGrid(entities) : nothing}
-      </div>
-    `;
-  }
-
-  private _renderBarGraph(buckets: DayBucket[]) {
-    const maxCount = Math.max(...buckets.map(b => b.count), 1);
-    const hasData = buckets.some(b => b.count > 0);
-    const dayCount = this._getBarTimeframeDays();
-
-    if (!hasData) {
-      return html`
-        <div class="bar-graph-wrapper">
-          <div class="timeframe-chips">
-            ${this._renderBarTimeframeChips()}
-          </div>
-          <div class="graph-placeholder">
-            <ha-icon icon="mdi:chart-bar"></ha-icon>
-            <span>${localize(this._lang, 'graphs.empty_bar')}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    const w = 320;
-    const h = 180;
-    const padLeft = 32;
-    const padRight = 8;
-    const padTop = 16;
-    const padBottom = 8;
-    const chartW = w - padLeft - padRight;
-    const chartH = h - padTop - padBottom;
-    const barGap = 2;
-    const barW = (chartW - barGap * (buckets.length - 1)) / buckets.length;
-
-    // Label decimation: show every Nth label to keep 60-bar view readable
-    let labelStep: number;
-    if (dayCount <= 14) labelStep = 1;       // 14D: every day
-    else if (dayCount <= 30) labelStep = 2;   // 30D: every 2 days
-    else labelStep = 5;                        // 60D: every 5 days
-
-    return html`
-      <div class="bar-graph-wrapper">
-        <div class="timeframe-chips">
-          ${this._renderBarTimeframeChips()}
-        </div>
-        <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
-          ${[0, 0.25, 0.5, 0.75, 1].map(fraction => {
-            const y = padTop + chartH * (1 - fraction);
-            return svg`
-              <line x1="${padLeft}" y1="${y}" x2="${w - padRight}" y2="${y}"
-                    stroke="var(--divider-color)" stroke-width="0.5" opacity="0.5"/>
-              <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
-                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
-                    fill="var(--secondary-text-color)">${Math.round(maxCount * fraction)}</text>
-            `;
-          })}
-
-          ${buckets.map((bucket, i) => {
-            const barH = Math.max((bucket.count / maxCount) * chartH, bucket.count > 0 ? 2 : 0);
-            const x = padLeft + i * (barW + barGap);
-            const y = padTop + chartH - barH;
-            return svg`
-              <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2"
-                    fill="var(--primary-color)" opacity="0.85">
-                <title>${bucket.label}: ${bucket.count} dose${bucket.count !== 1 ? 's' : ''}</title>
-              </rect>
-            `;
-          })}
-
-          <!-- Baseline -->
-          <line x1="${padLeft}" y1="${h - padBottom}" x2="${w - padRight}" y2="${h - padBottom}"
-                stroke="var(--divider-color)" stroke-width="1"/>
-        </svg>
-        <div class="bar-labels">
-          ${buckets.map((bucket, i) => html`
-            <span>${i % labelStep === 0 ? bucket.label : ''}</span>
-          `)}
-        </div>
-      </div>
-    `;
-  }
 
   private async _fetchAmountHistory(entities: ResolvedEntities) {
     if (!this.hass || !entities.amountInBody) return;
@@ -1030,204 +865,6 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
     }
   }
 
-  private _renderTimeframeChips() {
-    const timeframes: Array<{ id: string; labelKey: string; ariaKey: string }> = [
-      { id: '12h', labelKey: 'graphs.timeframe_12h', ariaKey: 'aria.timeframe_12h' },
-      { id: '48h', labelKey: 'graphs.timeframe_48h', ariaKey: 'aria.timeframe_48h' },
-      { id: '7d', labelKey: 'graphs.timeframe_7d', ariaKey: 'aria.timeframe_7d' },
-      { id: '14d', labelKey: 'graphs.timeframe_14d', ariaKey: 'aria.timeframe_14d' },
-      { id: '30d', labelKey: 'graphs.timeframe_30d', ariaKey: 'aria.timeframe_30d' },
-    ];
-    return timeframes.map(tf => html`
-      <button
-        class="timeframe-chip ${this._activeTimeframe === tf.id ? 'active' : ''}"
-        aria-label=${localize(this._lang, tf.ariaKey)}
-        @click=${() => this._handleTimeframeChange(tf.id)}
-      >${localize(this._lang, tf.labelKey)}</button>
-    `);
-  }
-
-  private _renderBarTimeframeChips() {
-    const timeframes: Array<{ id: string; labelKey: string; ariaKey: string }> = [
-      { id: '14d', labelKey: 'graphs.timeframe_14d', ariaKey: 'aria.timeframe_14d' },
-      { id: '30d', labelKey: 'graphs.timeframe_30d', ariaKey: 'aria.timeframe_30d' },
-      { id: '60d', labelKey: 'graphs.timeframe_60d', ariaKey: 'aria.timeframe_60d' },
-    ];
-    return timeframes.map(tf => html`
-      <button
-        class="timeframe-chip ${this._activeBarTimeframe === tf.id ? 'active' : ''}"
-        aria-label=${localize(this._lang, tf.ariaKey)}
-        @click=${() => this._handleBarTimeframeChange(tf.id)}
-      >${localize(this._lang, tf.labelKey)}</button>
-    `);
-  }
-
-  private _handleBarTimeframeChange(timeframe: string): void {
-    if (timeframe === this._activeBarTimeframe) return;
-    this._activeBarTimeframe = timeframe;
-  }
-
-  private _bridgeGaps(history: Array<{timestamp: string | number | Date; value: number}>, gapMs: number = 3 * 60 * 1000): Array<{timestamp: number; value: number}> {
-    if (history.length < 2) {
-      return history.map(p => ({
-        timestamp: new Date(p.timestamp).getTime(),
-        value: p.value,
-      }));
-    }
-    const bridged: Array<{timestamp: number; value: number}> = [];
-    for (let i = 0; i < history.length; i++) {
-      const current = {
-        timestamp: new Date(history[i].timestamp).getTime(),
-        value: history[i].value,
-      };
-      if (i > 0) {
-        const prev = bridged[bridged.length - 1];
-        if (current.timestamp - prev.timestamp > gapMs) {
-          bridged.push({
-            timestamp: current.timestamp - 1000,
-            value: prev.value,
-          });
-        }
-      }
-      bridged.push(current);
-    }
-    return bridged;
-  }
-
-  private _renderLineGraph(entities: ResolvedEntities) {
-    const amountInBody = this._getState(entities.amountInBody);
-    const rawHistory = this._amountHistory;
-
-    const w = 320;
-    const h = 180;
-    const padLeft = 36;
-    const padRight = 8;
-    const padTop = 16;
-    const padBottom = 28;
-    const chartW = w - padLeft - padRight;
-    const chartH = h - padTop - padBottom;
-
-    if (rawHistory.length === 0) {
-      return html`
-        <div class="line-graph-wrapper">
-          <div class="timeframe-chips">
-            ${this._renderTimeframeChips()}
-          </div>
-          <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
-            <text x="${w / 2}" y="${h / 2}" text-anchor="middle"
-                  style="font-size: calc(13px + var(--pill-text-offset, 0px))"
-                  fill="var(--secondary-text-color)">${localize(this._lang, 'graphs.loading_history')}</text>
-          </svg>
-        </div>
-      `;
-    }
-
-    const now = new Date();
-    const timeframeHours = this._getTimeframeHours();
-    const startTime = new Date(now.getTime() - timeframeHours * 60 * 60 * 1000);
-
-    // Bridge gaps in history so the polyline renders flat holds + vertical
-    // steps instead of diagonal slopes across sparse recorder data.
-    const bridgedHistory = this._bridgeGaps(rawHistory);
-
-    // Find max value for Y-axis scaling
-    const values = bridgedHistory.map(p => p.value);
-    const maxAmount = Math.max(...values, 1);
-
-    // Build polyline points from gap-bridged history
-    const polylinePoints = bridgedHistory.map(p => {
-      const fraction = Math.max(0, Math.min(1, (p.timestamp - startTime.getTime()) / (timeframeHours * 60 * 60 * 1000)));
-      const x = padLeft + fraction * chartW;
-      const y = padTop + chartH * (1 - p.value / maxAmount);
-      return `${x},${y}`;
-    }).join(' ');
-
-    // Compute Y position for the current-amount dashed line
-    const currentAmountNum = parseFloat(amountInBody);
-    const currentY = (amountInBody && amountInBody !== 'unavailable' && !isNaN(currentAmountNum))
-      ? Math.max(padTop, Math.min(padTop + chartH, padTop + chartH * (1 - currentAmountNum / maxAmount)))
-      : padTop;
-    const currentLabelY = Math.max(padTop + 8, currentY - 5);
-
-    // Dynamic time labels based on timeframe
-    const timeLabels: Array<{ label: string; x: number }> = [];
-    const totalHours = this._getTimeframeHours();
-
-    if (totalHours <= 12) {
-      // 12H: labels every 3 hours, format "-Xh"
-      for (let h = 0; h <= totalHours; h += 3) {
-        const fraction = h / totalHours;
-        timeLabels.push({ label: `-${totalHours - h}h`, x: padLeft + fraction * chartW });
-      }
-    } else if (totalHours <= 48) {
-      // 48H: labels every 6 hours, format "-Xh"
-      for (let h = 0; h <= totalHours; h += 6) {
-        const fraction = h / totalHours;
-        timeLabels.push({ label: `-${totalHours - h}h`, x: padLeft + fraction * chartW });
-      }
-    } else {
-      // 7D/14D/30D: labels in days
-      const totalDays = totalHours / 24;
-      let step: number;
-      if (totalDays <= 7) step = 1;       // 7D: every 1 day
-      else if (totalDays <= 14) step = 2;   // 14D: every 2 days
-      else step = 5;                        // 30D: every 5 days
-
-      for (let d = 0; d <= totalDays; d += step) {
-        const fraction = d / totalDays;
-        timeLabels.push({ label: `-${Math.round(totalDays - d)}d`, x: padLeft + fraction * chartW });
-      }
-    }
-
-    return html`
-      <div class="line-graph-wrapper">
-        <div class="timeframe-chips">
-          ${this._renderTimeframeChips()}
-        </div>
-        <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
-          <!-- Y-axis grid lines and labels -->
-          ${[0, 0.25, 0.5, 0.75, 1].map(fraction => {
-            const y = padTop + chartH * (1 - fraction);
-            return svg`
-              <line x1="${padLeft}" y1="${y}" x2="${w - padRight}" y2="${y}"
-                    stroke="var(--divider-color)" stroke-width="0.5" opacity="0.5"/>
-              <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
-                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
-                    fill="var(--secondary-text-color)">${(maxAmount * fraction).toFixed(1)}</text>
-            `;
-          })}
-
-          <!-- History polyline -->
-          <polyline points="${polylinePoints}"
-                    fill="none" stroke="var(--primary-color)" stroke-width="1.5"
-                    stroke-linejoin="round" opacity="0.8"/>
-
-          <!-- Current amount dashed line -->
-          ${amountInBody && amountInBody !== 'unavailable' ? svg`
-            <line x1="${padLeft}" y1="${currentY}" x2="${w - padRight}" y2="${currentY}"
-                  stroke="var(--primary-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
-            <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(11px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
-              Current: ${amountInBody} ${this._getStrengthUnit(entities)}
-            </text>
-          ` : nothing}
-
-          <!-- X-axis baseline -->
-          <line x1="${padLeft}" y1="${h - padBottom}" x2="${w - padRight}" y2="${h - padBottom}"
-                stroke="var(--divider-color)" stroke-width="1"/>
-
-          <!-- X-axis time labels -->
-          ${timeLabels.map(tl => svg`
-            <line x1="${tl.x}" y1="${h - padBottom}" x2="${tl.x}" y2="${h - padBottom + 4}"
-                  stroke="var(--divider-color)" stroke-width="1"/>
-            <text x="${tl.x}" y="${h - 6}" text-anchor="middle"
-                  style="font-size: calc(9px + var(--pill-text-offset, 0px))"
-                  fill="var(--secondary-text-color)">${tl.label}</text>
-          `)}
-        </svg>
-      </div>
-    `;
-  }
-
   // Shared progressive-reveal resolver for avg/adherence boxes and stats rows.
   // Days since first dose drives which windows are shown. When the entity is
   // absent (older backend), hasDaysSensor=false and daysSince=-1 so callers
@@ -1239,166 +876,25 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
     return { hasDaysSensor, daysSince };
   }
 
-  private _renderAveragesGrid(entities: ResolvedEntities) {
-    const items: Array<{ label: string; value: string }> = [];
-    const { hasDaysSensor, daysSince } = this._daysSinceReveal(entities);
-
-    if (this.config?.show_day_avg_boxes !== false) {
-      if (entities.avg7Days && (!hasDaysSensor || daysSince >= 7)) items.push({ label: localize(this._lang, 'averages.avg_7_day'), value: this._getState(entities.avg7Days) });
-      if (entities.avg14Days && (!hasDaysSensor || daysSince >= 14)) items.push({ label: localize(this._lang, 'averages.avg_14_day'), value: this._getState(entities.avg14Days) });
-      if (entities.avg30Days && (!hasDaysSensor || daysSince >= 30)) items.push({ label: localize(this._lang, 'averages.avg_30_day'), value: this._getState(entities.avg30Days) });
-      // Year slot doubles as the running elapsed-days average until 365 days pass.
-      // The avgYearly sensor already computes min(days_since_start, 365), so its
-      // value IS the running average from the first dose until the year mark.
-      if (entities.avgYearly && (!hasDaysSensor || daysSince > 0)) {
-        const label = (hasDaysSensor && daysSince < 365) ? localize(this._lang, 'averages.avg_running', { days: daysSince }) : localize(this._lang, 'averages.avg_year');
-        items.push({ label, value: this._getState(entities.avgYearly) });
-      }
-    }
-    if (this.config?.show_adherence_boxes !== false) {
-      if (entities.adherence7Days && (!hasDaysSensor || daysSince >= 7)) items.push({ label: localize(this._lang, 'averages.adh_7_day'), value: this._getState(entities.adherence7Days) + '%' });
-      if (entities.adherence14Days && (!hasDaysSensor || daysSince >= 14)) items.push({ label: localize(this._lang, 'averages.adh_14_day'), value: this._getState(entities.adherence14Days) + '%' });
-      if (entities.adherence30Days && (!hasDaysSensor || daysSince >= 30)) items.push({ label: localize(this._lang, 'averages.adh_30_day'), value: this._getState(entities.adherence30Days) + '%' });
-      // 365d slot doubles as the running elapsed-days adherence until 365 days pass.
-      if (entities.adherence365Days && (!hasDaysSensor || daysSince > 0)) {
-        const label = (hasDaysSensor && daysSince < 365) ? localize(this._lang, 'averages.adh_running', { days: daysSince }) : localize(this._lang, 'averages.adh_365_day');
-        items.push({ label, value: this._getState(entities.adherence365Days) + '%' });
-      }
-    }
-
-    if (items.length === 0) return nothing;
-
-    return html`
-      <div class="averages-grid">
-        ${items.map(item => html`
-          <div class="avg-cell">
-            <span class="avg-label">${item.label}</span>
-            <span class="avg-value">${item.value === 'unavailable' ? '-' : item.value}</span>
-          </div>
-        `)}
-      </div>
-    `;
-  }
-
   // ── Pane 3: Stats ──────────────────────────
 
-  private _renderPane3(entities: ResolvedEntities) {
-    const rows: Array<{ label: string; value: string; icon: string }> = [];
+  // Open the native HA more-info dialog for an entity. Uses the canonical
+  // `hass-more-info` event (same pattern as every stock Lovelace card via
+  // custom-card-helpers' handleAction). fireEvent defaults to bubbles+composed,
+  // which is what HA's more-info dialog listener expects.
+  private _openMoreInfo(entityId: string): void {
+    fireEvent(this, 'hass-more-info', { entityId });
+  }
 
-    if (entities.totalDoses) rows.push({ label: localize(this._lang, 'stats.total_doses'), value: this._getState(entities.totalDoses), icon: 'mdi:counter' });
-    if (entities.daysSinceFirstDose) rows.push({ label: localize(this._lang, 'stats.days_since_first_dose'), value: this._getState(entities.daysSinceFirstDose), icon: 'mdi:calendar-start' });
-    if (entities.lastDose) rows.push({ label: localize(this._lang, 'stats.last_dose'), value: this._computeTimeSinceLastDose(entities), icon: 'mdi:clock-outline' });
-    const strengthUnit = this._getStrengthUnit(entities);
-    if (entities.strength) rows.push({ label: localize(this._lang, 'stats.strength'), value: this._formatInteger(this._getState(entities.strength)) + ' ' + strengthUnit, icon: 'mdi:scale' });
-    if (entities.amountInBody) rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: this._getState(entities.amountInBody) + ' ' + strengthUnit, icon: 'mdi:chart-bell-curve' });
-    if (entities.steadyState) {
-      const ss = this._getState(entities.steadyState);
-      const display = (ss === '0.0' || ss === '0') ? localize(this._lang, 'stats.steady_state_reached') : localize(this._lang, 'stats.steady_state_days', { days: ss });
-      rows.push({ label: localize(this._lang, 'stats.steady_state'), value: display, icon: 'mdi:chart-timeline-variant' });
+  // Keyboard activation for accessible stat cells (Enter / Space).
+  private _onStatCellKeydown(e: KeyboardEvent, entityId: string): void {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      this._openMoreInfo(entityId);
     }
-    // Avg / Adherence rows mirror the Graph panel's progressive reveal driven
-    // by days-since-first-dose. When the sensor is absent, all rows show.
-    const { hasDaysSensor: hasDays, daysSince: days } = this._daysSinceReveal(entities);
-    if (entities.avg7Days && (!hasDays || days >= 7)) rows.push({ label: localize(this._lang, 'stats.avg_7_day'), value: this._getState(entities.avg7Days), icon: 'mdi:chart-line' });
-    if (entities.avg14Days && (!hasDays || days >= 14)) rows.push({ label: localize(this._lang, 'stats.avg_14_day'), value: this._getState(entities.avg14Days), icon: 'mdi:chart-line' });
-    if (entities.avg30Days && (!hasDays || days >= 30)) rows.push({ label: localize(this._lang, 'stats.avg_30_day'), value: this._getState(entities.avg30Days), icon: 'mdi:chart-line' });
-    // Year slot doubles as the running elapsed-days average until 365 days pass.
-    if (entities.avgYearly && (!hasDays || days > 0)) {
-      const label = (hasDays && days < 365) ? localize(this._lang, 'stats.avg_running', { days }) : localize(this._lang, 'stats.avg_yearly');
-      rows.push({ label, value: this._getState(entities.avgYearly), icon: 'mdi:chart-line' });
-    }
-    if (entities.adherence7Days && (!hasDays || days >= 7)) rows.push({ label: localize(this._lang, 'stats.adherence_7_day'), value: this._getState(entities.adherence7Days) + '%', icon: 'mdi:check-decagram' });
-    if (entities.adherence14Days && (!hasDays || days >= 14)) rows.push({ label: localize(this._lang, 'stats.adherence_14_day'), value: this._getState(entities.adherence14Days) + '%', icon: 'mdi:check-decagram' });
-    if (entities.adherence30Days && (!hasDays || days >= 30)) rows.push({ label: localize(this._lang, 'stats.adherence_30_day'), value: this._getState(entities.adherence30Days) + '%', icon: 'mdi:check-decagram' });
-    // 365d slot doubles as the running elapsed-days adherence until 365 days pass.
-    if (entities.adherence365Days && (!hasDays || days > 0)) {
-      const label = (hasDays && days < 365) ? localize(this._lang, 'stats.adherence_running', { days }) : localize(this._lang, 'stats.adherence_365_day');
-      rows.push({ label, value: this._getState(entities.adherence365Days) + '%', icon: 'mdi:check-decagram' });
-    }
-
-    return html`
-      <div class="pane pane-stats">
-        <div class="stats-grid ${this.config?.stats_3_columns ? 'three-col' : ''}">
-          ${rows.map(row => html`
-            <div class="stat-cell">
-              <div class="stat-cell-header">
-                <ha-icon icon="${row.icon}"></ha-icon>
-                <span class="stat-cell-label">${row.label}</span>
-              </div>
-              <span class="stat-cell-value">${row.value === 'unavailable' ? '-' : row.value}</span>
-            </div>
-          `)}
-        </div>
-      </div>
-    `;
   }
 
   // ── Pane 4: Tools ──────────────────────────
-
-  private _renderPane4(entities: ResolvedEntities) {
-    const hasAdhTools = !!(entities.adherenceResetButton || entities.adherenceCoverButton);
-    const hasGenTools = !!(entities.resetButton || entities.undoButton);
-
-    if (!hasAdhTools && !hasGenTools) {
-      return html`
-        <div class="tools-panel">
-          <div class="tools-empty">${localize(this._lang, 'tools.empty')}</div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="tools-panel">
-        ${hasAdhTools ? html`
-          <div class="tools-section-header">${localize(this._lang, 'tools.adherence_header')}</div>
-          <div class="tools-grid">
-            ${entities.adherenceResetButton ? html`
-              <button
-                class="tool-btn danger"
-                @click=${() => this._handleAdherenceReset(entities)}
-              >
-                <ha-icon icon="mdi:percent-circle-outline"></ha-icon>
-                <span>${localize(this._lang, 'tools.reset_adherence')}</span>
-              </button>
-            ` : nothing}
-            ${entities.adherenceCoverButton ? html`
-              <button
-                class="tool-btn"
-                @click=${() => this._handleAdherenceCover(entities)}
-              >
-                <ha-icon icon="mdi:check-underline-circle"></ha-icon>
-                <span>${localize(this._lang, 'tools.mark_adherence_taken')}</span>
-              </button>
-            ` : nothing}
-          </div>
-        ` : nothing}
-
-        ${hasGenTools ? html`
-          <div class="tools-section-header tools-section-header--spaced">${localize(this._lang, 'tools.general_header')}</div>
-          <div class="tools-grid">
-            ${entities.resetButton ? html`
-              <button
-                class="tool-btn danger"
-                @click=${() => this._handleResetHistory(entities)}
-              >
-                <ha-icon icon="mdi:history"></ha-icon>
-                <span>${localize(this._lang, 'tools.reset_history')}</span>
-              </button>
-            ` : nothing}
-            ${entities.undoButton ? html`
-              <button
-                class="tool-btn danger"
-                @click=${() => this._handleUndoDoseConfirm(entities)}
-              >
-                <ha-icon icon="mdi:undo"></ha-icon>
-                <span>${localize(this._lang, 'tools.undo_dose')}</span>
-              </button>
-            ` : nothing}
-          </div>
-        ` : nothing}
-      </div>
-    `;
-  }
 
   private _renderToolsDialog() {
     const dialog = this._toolsDialog;
@@ -1438,61 +934,6 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
 
 
   // ── Pane 5: Metrics ──────────────────────────
-
-  private _renderPane5(entities: ResolvedEntities) {
-    const metrics = entities.metrics;
-    if (!metrics.length) {
-      return html`
-        <div class="tracking-panel">
-          <div class="tracking-empty">${localize(this._lang, 'tools.empty')}</div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="tracking-panel">
-        ${metrics.map(m => {
-          const state = this._getState(m.entityId);
-          const attrs = this._getAttr(m.entityId, 'logged_today');
-          const isLogged = attrs === true || attrs === 'True' || attrs === 'true';
-          const currentValue = state === 'unavailable' || state === 'unknown' ? null : parseFloat(state);
-          const displayValue = currentValue !== null ? currentValue : 0;
-          const todayLabel = localize(this._lang, 'tracking.today_label', { metric: m.label });
-
-          return html`
-            <div class="tracking-row">
-              <div class="tracking-header">
-                <span class="tracking-label">${todayLabel}</span>
-                ${isLogged
-                  ? html`<span class="tracking-badge tracking-badge--set">${localize(this._lang, 'tracking.set_today')}</span>`
-                  : html`<span class="tracking-badge tracking-badge--unset">${localize(this._lang, 'tracking.not_set')}</span>`
-                }
-              </div>
-              <div class="tracking-slider-row">
-                <div class="tracking-slider-wrapper">
-                  <ha-slider
-                    .value=${displayValue}
-                    .min=${0}
-                    .max=${10}
-                    .step=${1}
-                    .disabled=${false}
-                    pin
-                    @change=${(e: Event) => this._handleTrackingChange(m, (e.target as HTMLInputElement).value)}
-                  ></ha-slider>
-                  <div class="tracking-scale">
-                    ${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => html`
-                      <span class="tracking-scale-tick">${n}</span>
-                    `)}
-                  </div>
-                </div>
-                <span class="tracking-value">${currentValue !== null ? currentValue : '—'}</span>
-              </div>
-            </div>
-          `;
-        })}
-      </div>
-    `;
-  }
 
   private _handleTrackingChange(metric: MetricEntity, rawValue: string): void {
     const newValue = parseFloat(rawValue);
@@ -1576,10 +1017,20 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
 
   private _renderPaneSelector(entities: ResolvedEntities) {
     const hasMetrics = entities.metrics.length > 0;
-    const panes: Array<{ id: 'daily' | 'graphs' | 'stats' | 'tools' | 'tracking'; labelKey: string; icon: string }> = [
+    // Caffeine pane is gated on a `device_type` state attribute (value
+    // "caffeine") emitted by the device's primary sensor. The backend does
+    // not yet emit this attribute for any device, so the pane stays hidden
+    // everywhere until a real caffeine device is configured. Mirrors the
+    // existing hasMetrics/tracking conditional-spread pattern. The lookup
+    // is defensive (lower-cased, nil-coalesced) since the backend will
+    // eventually emit snake_case values.
+    const deviceType = (this._getAttr(entities.nextDose, 'device_type') || '').toLowerCase();
+    const hasCaffeine = deviceType === 'caffeine';
+    const panes: Array<{ id: 'daily' | 'graphs' | 'stats' | 'caffeine' | 'tools' | 'tracking'; labelKey: string; icon: string }> = [
       { id: 'daily', labelKey: 'pane.daily', icon: 'mdi:pill' },
       { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
       { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
+      ...(hasCaffeine ? [{ id: 'caffeine' as const, labelKey: 'pane.caffeine', icon: 'mdi:coffee' }] : []),
       ...(hasMetrics ? [{ id: 'tracking' as const, labelKey: 'pane.tracking', icon: 'mdi:chart-sankey' }] : []),
       { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
     ];
@@ -1632,14 +1083,26 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
       this._activePane = 'daily';
     }
 
+    // Auto-fallback: if the user is on the caffeine pane but the device is not
+    // a caffeine device (e.g. the device_type attribute was removed or the
+    // device was switched), fall back to the daily pane. Mirrors the tracking
+    // fallback above. The backend does not yet emit device_type, so any
+    // lingering _activePane === 'caffeine' (e.g. from a dev session) is
+    // bounced here.
+    if (this._activePane === 'caffeine' &&
+        (this._getAttr(entities.nextDose, 'device_type') || '').toLowerCase() !== 'caffeine') {
+      this._activePane = 'daily';
+    }
+
     return html`
-      <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text !== false ? '0px' : '-2px'};">
+      <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
         <div class="card-content">
-          ${this._activePane === 'daily' ? this._renderPane1(entities) : nothing}
-          ${this._activePane === 'graphs' ? this._renderPane2(entities) : nothing}
-          ${this._activePane === 'stats' ? this._renderPane3(entities) : nothing}
-          ${this._activePane === 'tools' ? this._renderPane4(entities) : nothing}
-          ${this._activePane === 'tracking' ? this._renderPane5(entities) : nothing}
+          ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-daily-panel>` : nothing}
+          ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe}></ax-dose-graphs-panel>` : nothing}
+          ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-stats-panel>` : nothing}
+          ${this._activePane === 'caffeine' ? html`<ax-dose-caffeine-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-caffeine-panel>` : nothing}
+          ${this._activePane === 'tools' ? html`<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : nothing}
+          ${this._activePane === 'tracking' ? html`<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : nothing}
         </div>
         ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector(entities) : nothing}
         ${this._showDeviceInfo ? this._renderDeviceInfoDialog(entities) : nothing}
@@ -1655,6 +1118,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
 
   connectedCallback(): void {
     super.connectedCallback();
+    // Inject CSS into ha-form shadow roots to align entity picker + text field
+    // pairs in grid containers. The implementation lives in the editor module
+    // (src/ax-dose-logger-editor.ts) since this is editor-only logic.
+    installEditorGridAlignment();
     // Reset to defaults on every connection. With ll-rebuild removed (#16),
     // the element is no longer destroyed/recreated on pane switch, so @state
     // survives naturally. The only time connectedCallback fires is on a
@@ -1663,7 +1130,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
     // mutations below, so no manual requestUpdate() is needed (#17).
     this._activePane = 'daily';
     this._activeGraph = 0;
-    this._activeTimeframe = '48h';
+    // Apply configured default timescale for the Amount in Body graph,
+    // falling back to '48h' if unset or invalid. Useful for medications
+    // (e.g. caffeine, paracetamol) where a shorter window is more informative.
+    const validTimeframes = ['12h', '24h', '48h', '7d', '14d', '30d'];
+    const configuredTf = this.config?.amount_in_body_default_timeframe;
+    this._activeTimeframe = (configuredTf && validTimeframes.includes(configuredTf)) ? configuredTf : '48h';
     this._activeBarTimeframe = '14d';
 
     // Clear any dialog that was open when the card was disconnected. Lit
@@ -1821,6 +1293,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
       case 'stats': return 7;
       case 'tools': return 6;
       case 'tracking': return 6;
+      case 'caffeine': return 6;
       default: return 5; // daily
     }
   }
@@ -1841,149 +1314,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
   // ── Editor Linkage ─────────────────────────
 
   static getConfigForm() {
-    return {
-      schema: [
-        {
-          name: 'device_id',
-          required: true,
-          selector: {
-            device: {
-              filter: { integration: 'ax_dose_logger' },
-            },
-          },
-        },
-        {
-          name: 'big_text',
-          selector: { boolean: {} },
-        },
-        {
-          name: 'color_scheme',
-          selector: {
-            select: {
-              options: [
-                { value: 'default', label: localize('en', 'color.default') },
-                { value: 'blue', label: localize('en', 'color.blue') },
-                { value: 'red', label: localize('en', 'color.red') },
-                { value: 'green', label: localize('en', 'color.green') },
-                { value: 'yellow', label: localize('en', 'color.yellow') },
-                { value: 'orange', label: localize('en', 'color.orange') },
-                { value: 'purple', label: localize('en', 'color.purple') },
-                { value: 'pink', label: localize('en', 'color.pink') },
-                { value: 'teal', label: localize('en', 'color.teal') },
-                { value: 'brown', label: localize('en', 'color.brown') },
-                { value: 'coral', label: localize('en', 'color.coral') },
-                { value: 'slate', label: localize('en', 'color.slate') },
-                { value: 'gold', label: localize('en', 'color.gold') },
-                { value: 'grey', label: localize('en', 'color.grey') },
-              ],
-            },
-          },
-        },
-        {
-          name: 'name',
-          selector: { text: {} },
-        },
-        {
-          type: 'expandable',
-          name: 'chips',
-          title: 'Custom Chips',
-          flatten: true,
-          schema: [
-            {
-              name: 'chip_1',
-              selector: {
-                entity: {
-                  context: { filter_device_id: 'device_id' },
-                },
-              },
-            },
-            {
-              name: 'chip_1_label',
-              selector: { text: {} },
-            },
-            {
-              name: 'chip_2',
-              selector: {
-                entity: {
-                  context: { filter_device_id: 'device_id' },
-                },
-              },
-            },
-            {
-              name: 'chip_2_label',
-              selector: { text: {} },
-            },
-            {
-              name: 'chip_3',
-              selector: {
-                entity: {
-                  context: { filter_device_id: 'device_id' },
-                },
-              },
-            },
-            {
-              name: 'chip_3_label',
-              selector: { text: {} },
-            },
-            {
-              name: 'chip_4',
-              selector: {
-                entity: {
-                  context: { filter_device_id: 'device_id' },
-                },
-              },
-            },
-            {
-              name: 'chip_4_label',
-              selector: { text: {} },
-            },
-          ],
-        },
-        {
-          type: 'expandable',
-          name: 'graph_options',
-          title: 'Graph',
-          flatten: true,
-          schema: [
-            {
-              name: 'show_amount_in_body',
-              selector: { boolean: {} },
-            },
-            {
-              name: 'show_day_avg_boxes',
-              selector: { boolean: {} },
-            },
-            {
-              name: 'show_adherence_boxes',
-              selector: { boolean: {} },
-            },
-          ],
-        },
-        {
-          name: 'stats_3_columns',
-          selector: { boolean: {} },
-        },
-        {
-          name: 'hide_nav_bar',
-          selector: { boolean: {} },
-        },
-      ] as any,
-      computeLabel: (schema: any, _data: any, hass: any) => {
-        const lang = hass?.language || 'en';
-        return localize(lang, 'config.' + schema.name);
-      },
-      computeHelper: (schema: any, _data: any, hass: any) => {
-        const lang = hass?.language || 'en';
-        const name: string = schema.name;
-        if (name?.startsWith('chip_') && name?.endsWith('_label')) {
-          return localize(lang, 'config.helper.chip_label');
-        }
-        if (name?.startsWith('chip_')) {
-          return localize(lang, 'config.helper.chip');
-        }
-        return localize(lang, 'config.helper.' + name);
-      },
-    };
+    // The ~280-line schema + computeLabel/computeHelper callbacks live in the
+    // editor module (src/ax-dose-logger-editor.ts) so the main card file stays
+    // focused on runtime dashboard logic. HA renders <ha-form> from this schema.
+    return buildEditorForm();
   }
 
   static getStubConfig() {
@@ -2063,385 +1397,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
       --mdc-icon-size: 18px;
     }
 
-    /* ── Pane 1: Daily ─────────────────────── */
-
-    .pane-daily {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .med-name {
-      font-size: calc(20px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-      text-align: center;
-      cursor: pointer;
-    }
-
-    .daily-main {
-      display: flex;
-      gap: 12px;
-    }
-
-    .stats-column {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      flex: 1;
-    }
-
-    .take-pill-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      padding: 12px 16px;
-      border: none;
-      border-radius: var(--ha-card-border-radius, 12px);
-      font-family: inherit;
-      cursor: pointer;
-      transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
-      position: relative;
-      overflow: hidden;
-      flex: 1;
-    }
-
-    .take-pill-btn:active {
-      transform: scale(0.96);
-    }
-
-    .take-pill-btn.safe {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      color: var(--primary-color, #03a9f4);
-    }
-
-    .take-pill-btn.safe:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-    }
-
-    .take-pill-btn.danger {
-      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.12);
-      color: var(--error-color, #db4437);
-    }
-
-    .take-pill-btn.danger:hover {
-      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.2);
-    }
-
-    .take-pill-btn ha-icon {
-      --mdc-icon-size: 28px;
-      margin-bottom: 2px;
-    }
-
-    .take-label {
-      font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 550;
-    }
-
-    .take-sub {
-      font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 450;
-      opacity: 0.9;
-    }
-
-    .take-sub-segment {
-      white-space: nowrap;
-    }
-
-    .stat-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 14px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
-      border-radius: var(--ha-card-border-radius, 12px);
-    }
-
-    .stat-pill ha-icon {
-      --mdc-icon-size: 20px;
-      color: var(--primary-color, #03a9f4);
-      opacity: 0.7;
-    }
-
-    .stat-label {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
-      color: var(--secondary-text-color, #666);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .stat-value {
-      font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-      margin-left: auto;
-    }
-
-    .stat-pill.clickable {
-      cursor: pointer;
-    }
-
-    .stat-pill.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-    }
-
-    .chips-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .chip {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      padding: 8px 6px;
-      background: var(--chip-background, rgba(128,128,128,0.08));
-      border-radius: 10px;
-    }
-
-    .chip-name {
-      font-size: calc(10px + var(--pill-text-offset, 0px));
-      color: var(--secondary-text-color, #666);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-
-    .chip-value {
-      font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-    }
-
-    /* ── Pane 2: Graphs ─────────────────────── */
-
-    .pane-graphs {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .carousel-nav {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .nav-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 50%;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
-      color: var(--primary-color, #03a9f4);
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .nav-btn:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.18);
-    }
-
-    .nav-btn[disabled] {
-      opacity: 0.3;
-      cursor: default;
-    }
-
-    .nav-btn ha-icon {
-      --mdc-icon-size: 20px;
-    }
-
-    .nav-title {
-      font-size: calc(15px + var(--pill-text-offset, 0px));
-      font-weight: 500;
-      color: var(--secondary-text-color, #666);
-      min-width: 100px;
-      text-align: center;
-    }
-
-    .graph-container {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.03);
-      border-radius: var(--ha-card-border-radius, 12px);
-      padding: 0;
-      min-height: 180px;
-      overflow: hidden;
-    }
-
-    .chart-svg {
-      display: block;
-      width: 100%;
-    }
-
-    .line-graph-wrapper {
-      position: relative;
-    }
-
-    .timeframe-chips {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      display: flex;
-      gap: 2px;
-      z-index: 1;
-    }
-
-    .timeframe-chip {
-      padding: 2px 6px;
-      font-size: 10px;
-      font-weight: 500;
-      border-radius: 4px;
-      cursor: pointer;
-      color: var(--secondary-text-color);
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
-      border: none;
-      font-family: inherit;
-      transition: color 0.2s, background 0.2s;
-      line-height: 1.4;
-    }
-
-    .timeframe-chip:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
-    }
-
-    .timeframe-chip.active {
-      color: var(--primary-color);
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-      font-weight: 600;
-    }
-
-    .bar-graph-wrapper {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .bar-labels {
-      display: flex;
-      padding-left: 10%;
-      padding-right: 2.5%;
-      margin-top: -2px;
-      padding-bottom: 6px;
-      overflow: hidden;
-    }
-
-    .bar-labels span {
-      flex: 1;
-      text-align: center;
-      font-size: calc(11px + var(--pill-text-offset, 0px));
-      color: var(--secondary-text-color, #666);
-      white-space: nowrap;
-      line-height: 1.4;
-    }
-
-    .graph-placeholder {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 40px 16px;
-      color: var(--secondary-text-color, #666);
-      font-size: calc(16px + var(--pill-text-offset, 0px));
-    }
-
-    .graph-placeholder ha-icon {
-      --mdc-icon-size: 40px;
-      opacity: 0.4;
-    }
-
-    .averages-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .avg-cell {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
-      padding: 6px 4px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
-      border-radius: 10px;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .avg-label {
-      font-size: calc(11px + var(--pill-text-offset, 0px));
-      color: var(--secondary-text-color, #666);
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      white-space: nowrap;
-    }
-
-    .avg-value {
-      font-size: calc(15px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-    }
-
     /* ── Pane 3: Stats ──────────────────────── */
-
-    .pane-stats {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .stats-grid.three-col {
-      grid-template-columns: 1fr 1fr 1fr;
-    }
-
-    .stat-cell {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 10px 8px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
-      border-radius: 10px;
-    }
-
-    .stat-cell-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .stat-cell-header ha-icon {
-      --mdc-icon-size: 16px;
-      color: var(--primary-color, #03a9f4);
-      opacity: 0.7;
-    }
-
-    .stat-cell-label {
-      font-size: calc(12px + var(--pill-text-offset, 0px));
-      color: var(--secondary-text-color, #666);
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-
-    .stat-cell-value {
-      font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-    }
 
     /* ── Dialog content (ha-dialog provides scrim/surface/heading) ─── */
 
@@ -2527,172 +1483,6 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard {
 
     .dialog-btn--muted:hover {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-    }
-
-    /* ── Tools Panel ─────────────────────────── */
-
-    .tools-panel {
-      padding: 8px 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .tools-empty {
-      text-align: center;
-      color: var(--secondary-text-color, #666);
-      font-size: calc(13px + var(--pill-text-offset, 0px));
-      padding: 24px 8px;
-    }
-
-    .tools-section-header {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--secondary-text-color, #666);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .tools-section-header--spaced {
-      margin-top: 8px;
-    }
-
-    .tools-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .tool-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 14px 8px;
-      border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
-      border-radius: var(--ha-card-border-radius, 12px);
-      background: var(--card-background-color, var(--primary-background-color, #fff));
-      color: var(--primary-text-color, #222);
-      font-size: calc(13px + var(--pill-text-offset, 0px));
-      font-family: inherit;
-      cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, transform 0.1s;
-    }
-
-    .tool-btn ha-icon {
-      --mdc-icon-size: 24px;
-      color: var(--primary-color, #03a9f4);
-    }
-
-    .tool-btn:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
-      border-color: var(--primary-color, #03a9f4);
-    }
-
-    .tool-btn:active {
-      transform: scale(0.98);
-    }
-
-    .tool-btn.danger:hover {
-      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.06);
-      border-color: var(--error-color, #db4437);
-    }
-
-    /* ── Tracking Pane ─────────────────────────── */
-
-    .tracking-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      padding: 4px 0;
-    }
-
-    .tracking-empty {
-      text-align: center;
-      color: var(--secondary-text-color, #666);
-      font-size: calc(14px + var(--pill-text-offset, 0px));
-      padding: 24px 0;
-    }
-
-    .tracking-row {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .tracking-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .tracking-label {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
-      font-weight: 500;
-      color: var(--primary-text-color, #222);
-    }
-
-    .tracking-badge {
-      font-size: calc(11px + var(--pill-text-offset, 0px));
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-weight: 500;
-    }
-
-    .tracking-badge--set {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      color: var(--primary-color, #03a9f4);
-    }
-
-    .tracking-badge--unset {
-      background: rgba(var(--rgb-secondary-text-color, 102, 102, 102), 0.12);
-      color: var(--secondary-text-color, #666);
-    }
-
-    .tracking-slider-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .tracking-slider-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .tracking-slider-wrapper ha-slider {
-      width: 100%;
-    }
-
-    .tracking-value {
-      min-width: 28px;
-      text-align: center;
-      font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-    }
-
-    .tracking-scale {
-      display: flex;
-      justify-content: space-between;
-      /* Asymmetric padding aligns tick centers with slider thumb centers.
-         The ha-slider thumb sits about 10px from each track edge at min and
-         max. Single-digit ticks are about 8px wide (center at 4px), so
-         padding-left 6px places the 0 center at 10px. The 10 tick is two
-         digits (about 14px, center at 7px), so padding-right 2px shifts it
-         right to match the thumb at max. */
-      padding-left: 6px;
-      padding-right: 2px;
-      margin-top: -2px;
-      box-sizing: border-box;
-    }
-
-    .tracking-scale-tick {
-      font-size: calc(10px + var(--pill-text-offset, 0px));
-      color: var(--secondary-text-color, #888);
-      text-align: center;
     }
 
     .tools-dialog-descriptor {
