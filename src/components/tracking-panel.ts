@@ -111,13 +111,13 @@ export class AxDoseTrackingPanel extends LitElement {
     }
 
     .tracking-label {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 500;
       color: var(--primary-text-color, #222);
     }
 
     .tracking-badge {
-      font-size: calc(11px + var(--pill-text-offset, 0px));
+      font-size: calc(12px + var(--pill-text-offset, 0px));
       padding: 2px 8px;
       border-radius: 10px;
       font-weight: 500;
@@ -173,7 +173,7 @@ export class AxDoseTrackingPanel extends LitElement {
     }
 
     .tracking-scale-tick {
-      font-size: calc(10px + var(--pill-text-offset, 0px));
+      font-size: calc(11px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #888);
       text-align: center;
     }

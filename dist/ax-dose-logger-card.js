@@ -335,6 +335,10 @@ const translations = {
         'graphs.bar_title': '{days}-day taken tracker',
         'graphs.line_title': 'Amount in Body',
         'graphs.empty_bar': 'No dose data yet',
+        'graphs.empty_effectiveness': 'No effectiveness data yet',
+        'graphs.effectiveness_title': 'Effectiveness',
+        'graphs.effectiveness_avg': 'Avg',
+        'graphs.effectiveness_individual': 'Individual',
         'graphs.loading_history': 'Loading history...',
         'graphs.timeframe_12h': '12H',
         'graphs.timeframe_24h': '24H',
@@ -420,10 +424,12 @@ const translations = {
         'config.safe_to_take_box': 'Safe to Take Box',
         'config.safe_to_take_entity': 'Safe to Take Entity',
         'config.safe_to_take_label': 'Safe to Take Label',
+        'config.safe_to_take_icon': 'Safe to Take Icon',
         'config.safe_to_take_tap_action': 'Tap Action',
         'config.safe_to_take_hold_action': 'Hold Action',
         'config.safe_to_take_double_tap_action': 'Double Tap Action',
         'config.pills_left_label': 'Pills Left Label',
+        'config.pills_left_icon': 'Pills Left Icon',
         'config.color_scheme': 'Color Scheme',
         'config.name': 'Name Override',
         'config.daily_panel': 'Daily Panel',
@@ -454,10 +460,12 @@ const translations = {
         'config.helper.safe_to_take_box': 'Replace the box with any entity. Leave empty for the default sensor.',
         'config.helper.safe_to_take_entity': 'Any entity to show here. Leave empty for default.',
         'config.helper.safe_to_take_label': 'Custom label. Defaults to "Safe to take".',
+        'config.helper.safe_to_take_icon': 'Icon on the Safe to Take box. Defaults to mdi:shield-check.',
         'config.helper.safe_to_take_tap_action': 'Defaults to more-info.',
         'config.helper.safe_to_take_hold_action': 'Long-press action.',
         'config.helper.safe_to_take_double_tap_action': 'Double-tap action.',
         'config.helper.pills_left_label': 'Defaults to "Pills left". E.g. "Amount Left (ml)", "Doses Left".',
+        'config.helper.pills_left_icon': 'Icon on the Pills Left box. Defaults to mdi:pill.',
         'config.helper.color_scheme': 'Accent color for the card.',
         'config.helper.name': 'Leave empty to use the device name.',
         'config.helper.chip_label': "Leave empty to use the entity's name.",
@@ -495,6 +503,8 @@ const translations = {
         'aria.timeframe_14d': '14 days',
         'aria.timeframe_30d': '30 days',
         'aria.timeframe_60d': '60 days',
+        'aria.effectiveness_avg': 'Average of visible effectiveness trackers',
+        'aria.effectiveness_individual': 'Individual effectiveness trackers',
     },
 };
 /**
@@ -804,17 +814,21 @@ function buildEditorForm() {
                         flatten: true,
                         schema: [
                             {
+                                name: 'safe_to_take_entity',
+                                selector: {
+                                    entity: {
+                                        context: { filter_device_id: 'device_id' },
+                                    },
+                                },
+                            },
+                            {
                                 type: 'grid',
                                 name: '',
                                 column_min_width: '200px',
                                 schema: [
                                     {
-                                        name: 'safe_to_take_entity',
-                                        selector: {
-                                            entity: {
-                                                context: { filter_device_id: 'device_id' },
-                                            },
-                                        },
+                                        name: 'safe_to_take_icon',
+                                        selector: { icon: {} },
                                     },
                                     {
                                         name: 'safe_to_take_label',
@@ -843,8 +857,19 @@ function buildEditorForm() {
                         ],
                     },
                     {
-                        name: 'pills_left_label',
-                        selector: { text: {} },
+                        type: 'grid',
+                        name: '',
+                        column_min_width: '200px',
+                        schema: [
+                            {
+                                name: 'pills_left_icon',
+                                selector: { icon: {} },
+                            },
+                            {
+                                name: 'pills_left_label',
+                                selector: { text: {} },
+                            },
+                        ],
                     },
                     {
                         type: 'expandable',
@@ -987,11 +1012,49 @@ function buildEditorForm() {
         ],
         computeLabel: (schema, _data, hass) => {
             const lang = hass?.language || 'en';
+            // Grid containers have an empty name and are pure layout — no visible
+            // label. Returning '' here prevents the localize() 'config.' fallback
+            // from leaking as visible text for layout-only schema nodes.
+            if (schema.type === 'grid' || !schema.name) {
+                return '';
+            }
+            // Chip entity + label fields: drop BOTH labels so the entity picker and
+            // text field render at the same vertical level inside each chip grid row.
+            // The entity picker's external "Chip N (optional)" label wraps to 2 lines
+            // in the 200px column, making its cell taller than the paired text field
+            // (which uses an internal floating label). Returning an EMPTY STRING (not
+            // undefined) is the key: ha-form treats a falsy/undefined computeLabel
+            // result as "no override" and falls back to the schema field name (which
+            // renders as visible "Chip N (optional)" text). An empty string IS a
+            // valid label value, so ha-form renders an empty label element with no
+            // visible text and no 2-line wrap, equalizing cell heights. This mirrors
+            // the grid-container guard above (which also returns '' to suppress
+            // layout labels). The helper text under each field conveys role and
+            // optionality; the entity-picker UI vs text-field UI distinguishes the
+            // two columns. Reversible to Option B (keep chip_N_label) via a one-line
+            // edit if per-slot identification is later needed.
+            if (schema.name === 'chip_1' || schema.name === 'chip_1_label' ||
+                schema.name === 'chip_2' || schema.name === 'chip_2_label' ||
+                schema.name === 'chip_3' || schema.name === 'chip_3_label' ||
+                schema.name === 'chip_4' || schema.name === 'chip_4_label') {
+                return '';
+            }
             return localize(lang, 'config.' + schema.name);
         },
         computeHelper: (schema, _data, hass) => {
             const lang = hass?.language || 'en';
             const name = schema.name;
+            // Layout/container nodes (grid, expandable) and nodes without a selector
+            // have no input control, so helper text does not apply. Without this
+            // guard, localize() returns the raw 'config.helper.<name>' key for
+            // containers (daily_panel, graphs_panel, stats_panel, chips,
+            // safe_to_take_box) that have no translation defined, which then
+            // renders as visible text under the expandable headers.
+            if (schema.type === 'grid' ||
+                schema.type === 'expandable' ||
+                !schema.selector) {
+                return '';
+            }
             if (name?.startsWith('chip_') && name?.endsWith('_label')) {
                 return localize(lang, 'config.helper.chip_label');
             }
@@ -1138,7 +1201,7 @@ AxDoseStatsPanel.styles = i$3 `
     }
 
     .stat-cell-label {
-      font-size: calc(12px + var(--pill-text-offset, 0px));
+      font-size: calc(14px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.3px;
@@ -1284,12 +1347,12 @@ AxDoseToolsPanel.styles = i$3 `
     .tools-empty {
       text-align: center;
       color: var(--secondary-text-color, #666);
-      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-size: calc(14px + var(--pill-text-offset, 0px));
       padding: 24px 8px;
     }
 
     .tools-section-header {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 600;
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
@@ -1317,7 +1380,7 @@ AxDoseToolsPanel.styles = i$3 `
       border-radius: var(--ha-card-border-radius, 12px);
       background: var(--card-background-color, var(--primary-background-color, #fff));
       color: var(--primary-text-color, #222);
-      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-size: calc(14px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
       transition: background 0.2s, border-color 0.2s, transform 0.1s;
@@ -1448,13 +1511,13 @@ AxDoseTrackingPanel.styles = i$3 `
     }
 
     .tracking-label {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 500;
       color: var(--primary-text-color, #222);
     }
 
     .tracking-badge {
-      font-size: calc(11px + var(--pill-text-offset, 0px));
+      font-size: calc(12px + var(--pill-text-offset, 0px));
       padding: 2px 8px;
       border-radius: 10px;
       font-weight: 500;
@@ -1510,7 +1573,7 @@ AxDoseTrackingPanel.styles = i$3 `
     }
 
     .tracking-scale-tick {
-      font-size: calc(10px + var(--pill-text-offset, 0px));
+      font-size: calc(11px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #888);
       text-align: center;
     }
@@ -1610,11 +1673,11 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
                  @keydown=${safeBoxClickable ? (ev) => c.onKeyActivate(ev, () => c.handleSafeBoxAction(null, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @contextmenu=${hasHold ? (ev) => { ev.preventDefault(); c.handleSafeBoxAction(null, 'hold', safeBoxActionConfig, displayEntity); } : null}
                  @dblclick=${hasDblClick ? () => c.handleSafeBoxAction(null, 'double_tap', safeBoxActionConfig, displayEntity) : null}>
-              <ha-icon icon="mdi:shield-check"></ha-icon>
+              <ha-icon icon="${c.config?.safe_to_take_icon || 'mdi:shield-check'}"></ha-icon>
               <span class="stat-label">${c.config?.safe_to_take_label || localize(this._lang, 'daily.safe_to_take')}</span>
               <span class="stat-value">${displayIsUnknown
             ? localize(this._lang, 'daily.na')
-            : (isSwapped ? displayState : c.formatInteger(safeState))}</span>
+            : (isSwapped ? (displayState ? displayState.charAt(0).toUpperCase() + displayState.slice(1) : '') : c.formatInteger(safeState))}</span>
             </div>
             <div class="stat-pill ${e.addRefill ? 'clickable' : ''}"
                  role="button"
@@ -1622,7 +1685,7 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
                  aria-label=${localize(this._lang, 'dialog.refill.aria')}
                  @click=${e.addRefill ? () => c.showRefillDialog() : null}
                  @keydown=${e.addRefill ? (ev) => c.onKeyActivate(ev, () => c.showRefillDialog()) : null}>
-              <ha-icon icon="mdi:pill"></ha-icon>
+              <ha-icon icon="${c.config?.pills_left_icon || 'mdi:pill'}"></ha-icon>
               <span class="stat-label">${c.config?.pills_left_label || localize(this._lang, 'daily.pills_left')}</span>
               <span class="stat-value">${pillsLeft === 'unavailable' ? '-' : c.formatInteger(pillsLeft)}</span>
             </div>
@@ -1753,7 +1816,7 @@ AxDoseDailyPanel.styles = i$3 `
     }
 
     .stat-label {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(15px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -1793,7 +1856,7 @@ AxDoseDailyPanel.styles = i$3 `
     }
 
     .chip-name {
-      font-size: calc(10px + var(--pill-text-offset, 0px));
+      font-size: calc(12px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       white-space: nowrap;
       overflow: hidden;
@@ -1829,7 +1892,8 @@ AxDoseDailyPanel = __decorate([
 // card. Reads amount/dose history + active timeframes from the controller
 // props and calls back for timeframe changes + carousel navigation. The actual
 // history fetching stays on the container (updated() lifecycle).
-let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
+var AxDoseGraphsPanel_1;
+let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i {
     constructor() {
         super(...arguments);
         // Graph-local state mirrored from the container as reactive props. The
@@ -1844,6 +1908,14 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
         this.activeGraph = 0;
         this.activeTimeframe = '48h';
         this.activeBarTimeframe = '14d';
+        // Effectiveness-graph state (mirrored from the container as reactive props,
+        // same rationale as amountHistory/doseHistory above). The effectiveness
+        // slide is gated on entities.metrics.length > 0; these props are read only
+        // when that slide is active.
+        this.activeEffectivenessTimeframe = '14d';
+        this.activeEffectivenessView = 'avg';
+        this.effectivenessHistory = {};
+        this.effectivenessVisible = new Set();
     }
     get _lang() {
         return this.controller.lang;
@@ -1877,14 +1949,23 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
             c.getState(e.amountInBody) !== '0' &&
             c.getState(e.amountInBody) !== 'unknown' &&
             c.getState(e.amountInBody) !== 'unavailable';
-        // Determine available slides
+        // Determine available slides. The effectiveness slide auto-appears when the
+        // device has any effectiveness number entities (standard or custom).
         const slides = ['bar'];
         if (hasAmountInBody && (this._config?.show_amount_in_body !== false)) {
             slides.push('line');
         }
+        if (e.metrics.length > 0) {
+            slides.push('effectiveness');
+        }
         // Clamp active graph index
         const activeIdx = Math.min(this.activeGraph, slides.length - 1);
         const activeSlide = slides[activeIdx];
+        const slideTitle = activeSlide === 'bar'
+            ? localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() })
+            : activeSlide === 'line'
+                ? localize(this._lang, 'graphs.line_title')
+                : localize(this._lang, 'graphs.effectiveness_title');
         return b `
       <div class="pane pane-graphs">
         ${slides.length > 1 ? b `
@@ -1897,9 +1978,7 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
             >
               <ha-icon icon="mdi:chevron-left"></ha-icon>
             </button>
-            <span class="nav-title">
-              ${activeSlide === 'bar' ? localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() }) : localize(this._lang, 'graphs.line_title')}
-            </span>
+            <span class="nav-title">${slideTitle}</span>
             <button
               class="nav-btn"
               aria-label=${localize(this._lang, 'graphs.aria_next')}
@@ -1911,14 +1990,16 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
           </div>
         ` : b `
           <div class="carousel-nav">
-            <span class="nav-title">${localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() })}</span>
+            <span class="nav-title">${slideTitle}</span>
           </div>
         `}
 
         <div class="graph-container">
           ${activeSlide === 'bar'
             ? this._renderBarGraph(dailyBuckets)
-            : this._renderLineGraph(e)}
+            : activeSlide === 'line'
+                ? this._renderLineGraph(e)
+                : this._renderEffectivenessGraph(e)}
         </div>
 
         ${activeSlide === 'bar' ? this._renderAveragesGrid(e) : A}
@@ -1947,7 +2028,7 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
         const h = 180;
         const padLeft = 32;
         const padRight = 8;
-        const padTop = 16;
+        const padTop = 28;
         const padBottom = 8;
         const chartW = w$1 - padLeft - padRight;
         const chartH = h - padTop - padBottom;
@@ -1973,7 +2054,7 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
               <line x1="${padLeft}" y1="${y}" x2="${w$1 - padRight}" y2="${y}"
                     stroke="var(--divider-color)" stroke-width="0.5" opacity="0.5"/>
               <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
-                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                    style="font-size: calc(11px + var(--pill-text-offset, 0px))"
                     fill="var(--secondary-text-color)">${Math.round(maxCount * fraction)}</text>
             `;
         })}
@@ -2040,10 +2121,12 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
         const amountInBody = c.getState(entities.amountInBody);
         const rawHistory = this.amountHistory;
         const w$1 = 320;
-        const h = 180;
+        // h bumped 180 -> 200 so chartH (h - padTop - padBottom) matches the bar
+        // graph's 144 (180-28-8), giving all three graphs an equally-tall Y axis.
+        const h = 200;
         const padLeft = 36;
         const padRight = 8;
-        const padTop = 16;
+        const padTop = 28;
         const padBottom = 28;
         const chartW = w$1 - padLeft - padRight;
         const chartH = h - padTop - padBottom;
@@ -2053,9 +2136,9 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
           <div class="timeframe-chips">
             ${this._renderTimeframeChips()}
           </div>
-          <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
+          <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w$1}/${h}">
             <text x="${w$1 / 2}" y="${h / 2}" text-anchor="middle"
-                  style="font-size: calc(13px + var(--pill-text-offset, 0px))"
+                  style="font-size: calc(14px + var(--pill-text-offset, 0px))"
                   fill="var(--secondary-text-color)">${localize(this._lang, 'graphs.loading_history')}</text>
           </svg>
         </div>
@@ -2154,7 +2237,7 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
         <div class="timeframe-chips">
           ${this._renderTimeframeChips()}
         </div>
-        <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
+        <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w$1}/${h}">
           <!-- Y-axis grid lines and labels -->
           ${[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
             const y = padTop + chartH * (1 - fraction);
@@ -2162,7 +2245,7 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
               <line x1="${padLeft}" y1="${y}" x2="${w$1 - padRight}" y2="${y}"
                     stroke="var(--divider-color)" stroke-width="0.5" opacity="0.5"/>
               <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
-                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                    style="font-size: calc(11px + var(--pill-text-offset, 0px))"
                     fill="var(--secondary-text-color)">${(maxAmount * fraction).toFixed(1)}</text>
             `;
         })}
@@ -2176,7 +2259,7 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
           ${amountInBody && amountInBody !== 'unavailable' ? w `
             <line x1="${padLeft}" y1="${currentY}" x2="${w$1 - padRight}" y2="${currentY}"
                   stroke="var(--primary-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
-            <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(11px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
+            <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(12px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
               Current: ${amountInBody} ${c.getStrengthUnit(entities)}
             </text>
           ` : A}
@@ -2196,10 +2279,290 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
             <line x1="${tl.x}" y1="${h - padBottom}" x2="${tl.x}" y2="${h - padBottom + 4}"
                   stroke="var(--divider-color)" stroke-width="1"/>
             <text x="${tl.x}" y="${h - 6}" text-anchor="middle"
-                  style="font-size: calc(9px + var(--pill-text-offset, 0px))"
+                  style="font-size: calc(11px + var(--pill-text-offset, 0px))"
                   fill="var(--secondary-text-color)">${tl.label}</text>
           `)}
         </svg>
+      </div>
+    `;
+    }
+    // ── Effectiveness graph ─────────────────────
+    // Daily-locked effectiveness metrics → one point per metric per day. The HA
+    // recorder is the source of multi-day history (the integration's own store
+    // only keeps today's value). Unlogged days were filtered out by the fetch,
+    // so the polyline naturally gaps on those days (svg M move, no L line). The
+    // 0–10 scale is fixed (backend PillEffectivenessSlider), so the Y-axis is
+    // always 0–10.
+    _getEffectivenessTimeframeDays() {
+        switch (this.activeEffectivenessTimeframe) {
+            case '30d': return 30;
+            case '60d': return 60;
+            default: return 14;
+        }
+    }
+    _renderEffectivenessTimeframeChips() {
+        const c = this.controller;
+        const timeframes = [
+            { id: '14d', labelKey: 'graphs.timeframe_14d', ariaKey: 'aria.timeframe_14d' },
+            { id: '30d', labelKey: 'graphs.timeframe_30d', ariaKey: 'aria.timeframe_30d' },
+            { id: '60d', labelKey: 'graphs.timeframe_60d', ariaKey: 'aria.timeframe_60d' },
+        ];
+        return timeframes.map((tf) => b `
+      <button
+        class="timeframe-chip ${this.activeEffectivenessTimeframe === tf.id ? 'active' : ''}"
+        aria-label=${localize(this._lang, tf.ariaKey)}
+        @click=${() => c.handleEffectivenessTimeframeChange(tf.id)}
+      >${localize(this._lang, tf.labelKey)}</button>
+    `);
+    }
+    // Stable color for a metricKey. Index is the metric's position in the sorted
+    // list of all metric keys, so toggling visibility doesn't reassign colors.
+    _metricColor(metricKey, allKeys) {
+        const idx = allKeys.indexOf(metricKey);
+        const colors = AxDoseGraphsPanel_1.METRIC_COLORS;
+        return colors[(idx < 0 ? 0 : idx) % colors.length];
+    }
+    // Resample a metric's raw history into one value per day. Effectiveness is
+    // daily-locked so there's at most a few points per day; we take the last
+    // known value of each calendar day. Days with no points stay absent → gaps.
+    _bucketByDay(series, days) {
+        const buckets = new Map();
+        if (!series.length)
+            return buckets;
+        const now = new Date();
+        for (let d = 0; d < days; d++) {
+            const day = new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
+            const key = day.toISOString().slice(0, 10);
+            let dayValue = null;
+            for (const p of series) {
+                const pd = new Date(p.timestamp);
+                if (pd.toISOString().slice(0, 10) === key) {
+                    dayValue = p.value; // later points overwrite → last wins
+                }
+            }
+            if (dayValue !== null)
+                buckets.set(key, dayValue);
+        }
+        return buckets;
+    }
+    _renderEffectivenessGraph(entities) {
+        this.controller;
+        const metrics = entities.metrics;
+        const days = this._getEffectivenessTimeframeDays();
+        const allKeys = metrics.map((m) => m.metricKey).sort();
+        const visibleMetrics = metrics.filter((m) => this.effectivenessVisible.has(m.metricKey));
+        const dayMaps = new Map();
+        let hasAnyData = false;
+        for (const m of metrics) {
+            const series = this.effectivenessHistory[m.metricKey] || [];
+            const dm = this._bucketByDay(series, days);
+            dayMaps.set(m.metricKey, dm);
+            if (dm.size > 0)
+                hasAnyData = true;
+        }
+        const now = new Date();
+        const dayLabels = [];
+        let labelStep;
+        if (days <= 14)
+            labelStep = 1;
+        else if (days <= 30)
+            labelStep = 2;
+        else
+            labelStep = 5;
+        for (let d = days - 1; d >= 0; d -= 1) {
+            const day = new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
+            const key = day.toISOString().slice(0, 10);
+            // Day-of-month only (no month) so the font can be bigger and the date
+            // numbers stay uniform with the Day tracker bar graph.
+            const label = d % labelStep === 0
+                ? `${day.getDate()}`
+                : '';
+            dayLabels.push({ key, label });
+        }
+        const w$1 = 320;
+        // h bumped 180 -> 196 so chartH (h - padTop - padBottom = 196-28-24 = 144)
+        // matches the bar graph's 144, giving all three graphs an equally-tall
+        // Y axis.
+        const h = 196;
+        const padLeft = 28;
+        const padRight = 8;
+        // padTop matches the bar/line graphs (28) so the absolutely-positioned
+        // timeframe chips (top: 4px) don't overlap the chart area.
+        const padTop = 28;
+        // padBottom makes room for the in-SVG date tick marks + labels (like the
+        // Amount-in-Body line graph), not a separate .bar-labels div.
+        const padBottom = 24;
+        const chartW = w$1 - padLeft - padRight;
+        const chartH = h - padTop - padBottom;
+        const maxVal = 10;
+        const avgSeries = [];
+        for (const { key } of dayLabels) {
+            const vals = [];
+            for (const m of visibleMetrics) {
+                const dm = dayMaps.get(m.metricKey);
+                const v = dm?.get(key);
+                if (typeof v === 'number')
+                    vals.push(v);
+            }
+            avgSeries.push(vals.length ? { key, value: vals.reduce((a, b) => a + b, 0) / vals.length } : null);
+        }
+        const buildSegments = (points) => {
+            const segments = [];
+            let current = [];
+            for (const p of points) {
+                if (p === null) {
+                    if (current.length) {
+                        segments.push(current.join(' '));
+                        current = [];
+                    }
+                }
+                else {
+                    current.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+                }
+            }
+            if (current.length)
+                segments.push(current.join(' '));
+            return segments;
+        };
+        const mapToPoints = (dm) => {
+            return dayLabels.map((dl, i) => {
+                const v = dm.get(dl.key);
+                if (typeof v !== 'number')
+                    return null;
+                const x = padLeft + (i / Math.max(dayLabels.length - 1, 1)) * chartW;
+                const y = padTop + chartH * (1 - v / maxVal);
+                return { x, y };
+            });
+        };
+        const showViewToggle = metrics.length > 1;
+        const showTrackerRow = metrics.length > 1;
+        if (!hasAnyData) {
+            return b `
+        <div class="bar-graph-wrapper">
+          <div class="timeframe-chips">
+            ${this._renderEffectivenessTimeframeChips()}
+          </div>
+          <div class="graph-placeholder">
+            <ha-icon icon="mdi:clipboard-list"></ha-icon>
+            <span>${localize(this._lang, 'graphs.empty_effectiveness')}</span>
+          </div>
+          ${this._renderEffectivenessBottomBar(metrics, allKeys, showViewToggle, showTrackerRow)}
+        </div>
+      `;
+        }
+        const chartBody = this.activeEffectivenessView === 'avg'
+            ? (() => {
+                const pts = avgSeries.map((a, i) => a
+                    ? { x: padLeft + (i / Math.max(dayLabels.length - 1, 1)) * chartW, y: padTop + chartH * (1 - a.value / maxVal) }
+                    : null);
+                const segs = buildSegments(pts);
+                return b `
+            ${segs.map((s) => w `<polyline points="${s}" fill="none" stroke="var(--primary-color)" stroke-width="1.8" stroke-linejoin="round" opacity="0.9"/>`)}
+            ${pts.map((p, i) => p ? w `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.2" fill="var(--primary-color)"><title>${dayLabels[i].key} : ${avgSeries[i].value.toFixed(1)} (avg)</title></circle>` : A)}
+          `;
+            })()
+            : b `
+          ${visibleMetrics.map((m) => {
+                const color = this._metricColor(m.metricKey, allKeys);
+                const dm = dayMaps.get(m.metricKey);
+                const pts = mapToPoints(dm);
+                const segs = buildSegments(pts);
+                return b `
+              ${segs.map((s) => w `<polyline points="${s}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" opacity="0.85"/>`)}
+              ${pts.map((p, i) => p ? w `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2" fill="${color}"><title>${m.label} — ${dayLabels[i].key} : ${dm.get(dayLabels[i].key)}</title></circle>` : A)}
+            `;
+            })}
+        `;
+        return b `
+      <div class="bar-graph-wrapper effectiveness-wrapper">
+        <div class="timeframe-chips">
+          ${this._renderEffectivenessTimeframeChips()}
+        </div>
+        <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w$1}/${h}">
+          ${Array.from({ length: maxVal + 1 }, (_, v) => v).map((v) => {
+            const y = padTop + chartH * (1 - v / maxVal);
+            // Lighter gridline for interior values; the 0 and max lines are
+            // drawn by the explicit baseline below + the top edge, so only
+            // label every integer and use a faint line for the in-between
+            // values so the chart isn't visually crowded.
+            return w `
+              <line x1="${padLeft}" y1="${y}" x2="${w$1 - padRight}" y2="${y}"
+                    stroke="var(--divider-color)" stroke-width="0.5" opacity="${v === 0 ? 0 : 0.35}"/>
+              <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
+                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                    fill="var(--secondary-text-color)">${v}</text>
+            `;
+        })}
+          ${chartBody}
+          <line x1="${padLeft}" y1="${h - padBottom}" x2="${w$1 - padRight}" y2="${h - padBottom}"
+                stroke="var(--divider-color)" stroke-width="1"/>
+          ${dayLabels.map((dl, i) => {
+            const x = padLeft + (i / Math.max(dayLabels.length - 1, 1)) * chartW;
+            const baseline = h - padBottom;
+            return w `
+              ${dl.label ? w `
+                <line x1="${x}" y1="${baseline}" x2="${x}" y2="${baseline + 4}"
+                      stroke="var(--divider-color)" stroke-width="1"/>
+                <text x="${x}" y="${baseline + 15}" text-anchor="middle"
+                      style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                      fill="var(--secondary-text-color)">${dl.label}</text>
+              ` : w `
+                <line x1="${x}" y1="${baseline}" x2="${x}" y2="${baseline + 3}"
+                      stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>
+              `}
+            `;
+        })}
+        </svg>
+        ${this._renderEffectivenessBottomBar(metrics, allKeys, showViewToggle, showTrackerRow)}
+      </div>
+    `;
+    }
+    // Bottom control bar: the Avg/Individual view toggle and the per-tracker
+    // chips sit on ONE line, separated by a thin vertical divider. This keeps
+    // the graph's control surface compact and avoids a two-row stack. When
+    // there's only one metric (no view toggle, no tracker row), nothing renders.
+    _renderEffectivenessBottomBar(metrics, allKeys, showViewToggle, showTrackerRow) {
+        if (!showViewToggle && !showTrackerRow)
+            return A;
+        const c = this.controller;
+        const view = this.activeEffectivenessView;
+        const mkTab = (v, labelKey, ariaKey) => b `
+      <button
+        class="eff-view-tab ${view === v ? 'active' : ''}"
+        role="tab"
+        aria-selected=${view === v}
+        aria-label=${localize(this._lang, ariaKey)}
+        @click=${() => c.setEffectivenessView(v)}
+      >${localize(this._lang, labelKey)}</button>
+    `;
+        return b `
+      <div class="eff-bottom-bar">
+        ${showViewToggle ? b `
+          <div class="eff-view-toggle" role="tablist">
+            ${mkTab('avg', 'graphs.effectiveness_avg', 'aria.effectiveness_avg')}
+            ${mkTab('individual', 'graphs.effectiveness_individual', 'aria.effectiveness_individual')}
+          </div>
+          <span class="eff-bottom-separator"></span>
+        ` : A}
+        ${showTrackerRow ? b `
+          <div class="eff-tracker-row">
+            ${metrics.map((m) => {
+            const color = this._metricColor(m.metricKey, allKeys);
+            const on = this.effectivenessVisible.has(m.metricKey);
+            return b `
+                <button
+                  class="eff-tracker-chip ${on ? 'on' : 'off'}"
+                  aria-pressed=${on}
+                  aria-label=${m.label}
+                  @click=${() => c.toggleEffectivenessMetric(m.metricKey)}
+                >
+                  <span class="eff-swatch" style="background:${color}"></span>
+                  <span class="eff-tracker-label">${m.label}</span>
+                </button>
+              `;
+        })}
+          </div>
+        ` : A}
       </div>
     `;
     }
@@ -2249,6 +2612,15 @@ let AxDoseGraphsPanel = class AxDoseGraphsPanel extends i {
     `;
     }
 };
+// Stable per-metric color palette. Indexed by sorted metricKey position so a
+// metric keeps the same color across re-renders and visibility toggles. The
+// first 8 metrics get distinct hues; extras cycle. Colors are hex (not HA
+// CSS vars) because there is no multi-hue HA token set — the existing line
+// graph used only --primary-color for its single series.
+AxDoseGraphsPanel.METRIC_COLORS = [
+    '#03a9f4', '#4caf50', '#ff9800', '#e91e63',
+    '#9c27b0', '#00bcd4', '#ffc107', '#795548',
+];
 AxDoseGraphsPanel.styles = i$3 `
     .pane-graphs {
       display: flex;
@@ -2267,8 +2639,8 @@ AxDoseGraphsPanel.styles = i$3 `
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 40px;
+      height: 40px;
       border: none;
       border-radius: 50%;
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
@@ -2291,7 +2663,7 @@ AxDoseGraphsPanel.styles = i$3 `
     }
 
     .nav-title {
-      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 500;
       color: var(--secondary-text-color, #666);
       min-width: 100px;
@@ -2325,8 +2697,8 @@ AxDoseGraphsPanel.styles = i$3 `
     }
 
     .timeframe-chip {
-      padding: 2px 6px;
-      font-size: 10px;
+      padding: 4px 10px;
+      font-size: 12px;
       font-weight: 500;
       border-radius: 4px;
       cursor: pointer;
@@ -2366,7 +2738,7 @@ AxDoseGraphsPanel.styles = i$3 `
     .bar-labels span {
       flex: 1;
       text-align: center;
-      font-size: calc(11px + var(--pill-text-offset, 0px));
+      font-size: calc(13px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       white-space: nowrap;
       line-height: 1.4;
@@ -2407,7 +2779,7 @@ AxDoseGraphsPanel.styles = i$3 `
     }
 
     .avg-label {
-      font-size: calc(11px + var(--pill-text-offset, 0px));
+      font-size: calc(12px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.3px;
@@ -2415,9 +2787,106 @@ AxDoseGraphsPanel.styles = i$3 `
     }
 
     .avg-value {
-      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 600;
       color: var(--primary-text-color, #222);
+    }
+
+    /* ── Effectiveness graph ── */
+    .effectiveness-wrapper {
+      gap: 4px;
+    }
+
+    /* Bottom control bar: view toggle + separator + tracker chips on ONE
+       line. flex-wrap lets the tracker chips flow to a second line when there
+       are many custom metrics, but the view toggle and separator stay on the
+       first line with the first batch of chips. */
+    .eff-bottom-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 7px;
+      padding-top: 6px;
+    }
+
+    .eff-bottom-separator {
+      width: 1px;
+      align-self: stretch;
+      background: var(--divider-color, #e0e0e0);
+      opacity: 0.6;
+      min-height: 20px;
+    }
+
+    .eff-view-toggle {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .eff-view-tab {
+      padding: 5px 16px;
+      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-weight: 500;
+      border-radius: 999px;
+      cursor: pointer;
+      color: var(--secondary-text-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+      border: none;
+      font-family: inherit;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .eff-view-tab:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
+    }
+
+    .eff-view-tab.active {
+      color: var(--primary-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+      font-weight: 600;
+    }
+
+    .eff-tracker-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .eff-tracker-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: calc(12px + var(--pill-text-offset, 0px));
+      color: var(--primary-text-color);
+      transition: opacity 0.2s, background 0.2s;
+    }
+
+    .eff-tracker-chip:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
+    }
+
+    .eff-tracker-chip.off {
+      opacity: 0.45;
+    }
+
+    .eff-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .eff-tracker-label {
+      white-space: nowrap;
     }
   `;
 __decorate([
@@ -2444,7 +2913,19 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "activeBarTimeframe", void 0);
-AxDoseGraphsPanel = __decorate([
+__decorate([
+    n({ attribute: false })
+], AxDoseGraphsPanel.prototype, "activeEffectivenessTimeframe", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseGraphsPanel.prototype, "activeEffectivenessView", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseGraphsPanel.prototype, "effectivenessHistory", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseGraphsPanel.prototype, "effectivenessVisible", void 0);
+AxDoseGraphsPanel = AxDoseGraphsPanel_1 = __decorate([
     t('ax-dose-graphs-panel')
 ], AxDoseGraphsPanel);
 
@@ -2522,6 +3003,16 @@ class AxDoseLoggerCard extends i {
         this._refillAmount = '';
         this._activeTimeframe = '48h';
         this._activeBarTimeframe = '14d';
+        // Effectiveness-graph state. Mirrors the bar/line graph pattern but keyed
+        // separately so the three carousel slides don't clobber each other's chips.
+        // _effectivenessHistory is keyed by metricKey; _effectivenessVisible is the
+        // set of metricKeys currently toggled on (defaults to all metrics). The view
+        // toggle ('avg' | 'individual') only matters when metrics.length > 1; the
+        // panel hides it for single-metric devices.
+        this._activeEffectivenessTimeframe = '14d';
+        this._activeEffectivenessView = 'avg';
+        this._effectivenessHistory = {};
+        this._effectivenessVisible = new Set();
         this._toolsDialog = null;
         // Pill-limit override warning dialog (#6): replaces the synchronous native
         // confirm() box. When non-null, _renderOverrideDialog() shows an ha-dialog
@@ -2561,6 +3052,7 @@ class AxDoseLoggerCard extends i {
         //    bumps both tokens to invalidate all in-flight fetches on disconnect.
         this._amountFetchToken = 0;
         this._doseFetchToken = 0;
+        this._effectivenessFetchToken = 0;
     }
     // ── Configuration ──────────────────────────
     setConfig(config) {
@@ -3012,6 +3504,18 @@ class AxDoseLoggerCard extends i {
     get doseHistory() {
         return this._doseHistory;
     }
+    get activeEffectivenessTimeframe() {
+        return this._activeEffectivenessTimeframe;
+    }
+    get activeEffectivenessView() {
+        return this._activeEffectivenessView;
+    }
+    get effectivenessHistory() {
+        return this._effectivenessHistory;
+    }
+    get effectivenessVisible() {
+        return this._effectivenessVisible;
+    }
     // ── CardController thin action methods ───────
     // These were previously inlined as direct @state mutations inside pane
     // templates (e.g. @click=${() => this._showRefillDialog = true}). Now that
@@ -3066,6 +3570,26 @@ class AxDoseLoggerCard extends i {
         if (timeframe === this._activeBarTimeframe)
             return;
         this._activeBarTimeframe = timeframe;
+    }
+    handleEffectivenessTimeframeChange(timeframe) {
+        if (timeframe === this._activeEffectivenessTimeframe)
+            return;
+        this._activeEffectivenessTimeframe = timeframe;
+    }
+    setEffectivenessView(view) {
+        if (view === this._activeEffectivenessView)
+            return;
+        this._activeEffectivenessView = view;
+    }
+    toggleEffectivenessMetric(metricKey) {
+        // Mutate a fresh Set so Lit detects the reference change (a Set mutation
+        // in place would not trigger re-render since @state compares references).
+        const next = new Set(this._effectivenessVisible);
+        if (next.has(metricKey))
+            next.delete(metricKey);
+        else
+            next.add(metricKey);
+        this._effectivenessVisible = next;
     }
     handleTrackingChange(metric, rawValue) { this._handleTrackingChange(metric, rawValue); }
     onKeyActivate(e, handler) { this._onKeyActivate(e, handler); }
@@ -3285,6 +3809,59 @@ class AxDoseLoggerCard extends i {
             console.warn('[ax-dose-logger-card] dose history fetch failed:', e);
         }
     }
+    // Effectiveness history fetch — batched single call for ALL effectiveness
+    // entities of the device (comma-separated filter_entity_id), split per
+    // entity on the client. Effectiveness entities are daily-locked number
+    // entities (state changes only when the user logs a value), so the recorder
+    // is the source of multi-day history. unknown/unavailable states are
+    // dropped so the graph renders gaps on unlogged days instead of zeros.
+    // Mirrors _fetchAmountHistory's race-guard token + minimal_response +
+    // significant_changes_only optimizations, but covers N entities per call.
+    async _fetchEffectivenessHistory(entities) {
+        if (!this.hass || !entities.metrics.length)
+            return;
+        const entityIds = entities.metrics.map((m) => m.entityId).join(',');
+        const now = new Date();
+        const days = this._activeEffectivenessTimeframe === '30d' ? 30
+            : this._activeEffectivenessTimeframe === '60d' ? 60 : 14;
+        const startTime = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+        const endTime = now.toISOString();
+        const token = ++this._effectivenessFetchToken;
+        try {
+            const data = await this.hass.callApi('GET', `history/period/${startTime}?filter_entity_id=${entityIds}&end_time=${endTime}&minimal_response&significant_changes_only=1`);
+            if (token !== this._effectivenessFetchToken)
+                return;
+            // data is an array of arrays, one per requested entity (order matches
+            // filter_entity_id order). Map each entity's history to its metricKey.
+            const result = {};
+            if (Array.isArray(data)) {
+                entities.metrics.forEach((metric, idx) => {
+                    const series = data[idx];
+                    if (!Array.isArray(series))
+                        return;
+                    result[metric.metricKey] = series
+                        .filter((entry) => entry.state && !isNaN(parseFloat(entry.state)))
+                        .map((entry) => ({
+                        timestamp: entry.last_changed,
+                        value: parseFloat(entry.state),
+                    }));
+                });
+            }
+            this._effectivenessHistory = result;
+            // Initialize the visible set to all metrics on first fetch (or when the
+            // metric set changed since last fetch, e.g. a custom metric was added
+            // in the options flow). We compare against the existing visible set so
+            // a user's per-tracker toggles survive timeframe changes.
+            const allKeys = entities.metrics.map((m) => m.metricKey);
+            const knownKeys = allKeys.filter((k) => this._effectivenessVisible.has(k));
+            if (knownKeys.length !== allKeys.length || knownKeys.length === 0) {
+                this._effectivenessVisible = new Set(allKeys);
+            }
+        }
+        catch (e) {
+            console.warn('[ax-dose-logger-card] effectiveness history fetch failed:', e);
+        }
+    }
     // Shared progressive-reveal resolver for avg/adherence boxes and stats rows.
     // Days since first dose drives which windows are shown. When the entity is
     // absent (older backend), hasDaysSensor=false and daysSince=-1 so callers
@@ -3473,7 +4050,7 @@ class AxDoseLoggerCard extends i {
           <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
             <ha-icon icon="mdi:cog" style="--mdc-icon-size: 48px; opacity: 0.5; margin-bottom: 12px;"></ha-icon>
             <div style="font-size: 16px; font-weight: 500; color: var(--primary-text-color);">${localize(this._lang, 'card.placeholder_title')}</div>
-            <div style="font-size: 13px; color: var(--secondary-text-color);">${localize(this._lang, 'card.placeholder_subtitle')}</div>
+            <div style="font-size: 14px; color: var(--secondary-text-color);">${localize(this._lang, 'card.placeholder_subtitle')}</div>
           </div>
         </ha-card>
       `;
@@ -3498,7 +4075,7 @@ class AxDoseLoggerCard extends i {
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
         <div class="card-content">
           ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-daily-panel>` : A}
-          ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe}></ax-dose-graphs-panel>` : A}
+          ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : A}
           ${this._activePane === 'stats' ? b `<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-stats-panel>` : A}
           ${this._activePane === 'caffeine' ? b `<ax-dose-caffeine-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-caffeine-panel>` : A}
           ${this._activePane === 'tools' ? b `<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : A}
@@ -3535,6 +4112,10 @@ class AxDoseLoggerCard extends i {
         const configuredTf = this.config?.amount_in_body_default_timeframe;
         this._activeTimeframe = (configuredTf && validTimeframes.includes(configuredTf)) ? configuredTf : '48h';
         this._activeBarTimeframe = '14d';
+        this._activeEffectivenessTimeframe = '14d';
+        this._activeEffectivenessView = 'avg';
+        this._effectivenessHistory = {};
+        this._effectivenessVisible = new Set();
         // Clear any dialog that was open when the card was disconnected. Lit
         // pauses reactive updates while an element is detached, so a dialog
         // flag set to false just before navigation may not have flushed its
@@ -3561,6 +4142,7 @@ class AxDoseLoggerCard extends i {
         // _fetchDoseHistory result discard itself after its `await` resolves.
         this._amountFetchToken++;
         this._doseFetchToken++;
+        this._effectivenessFetchToken++;
     }
     _startTickTimer() {
         if (this._tickTimer !== null)
@@ -3599,6 +4181,10 @@ class AxDoseLoggerCard extends i {
             '_activeBarTimeframe',
             '_amountHistory',
             '_doseHistory',
+            '_activeEffectivenessTimeframe',
+            '_activeEffectivenessView',
+            '_effectivenessHistory',
+            '_effectivenessVisible',
             '_showDeviceInfo',
             '_showRefillDialog',
             '_refillAmount',
@@ -3664,10 +4250,20 @@ class AxDoseLoggerCard extends i {
             if (changedProperties.has('_activePane')) {
                 this._fetchAmountHistory(entities);
                 this._fetchDoseHistory(entities);
+                if (entities.metrics.length) {
+                    this._effectivenessHistory = {};
+                    this._fetchEffectivenessHistory(entities);
+                }
             }
             else if (changedProperties.has('_activeTimeframe')) {
                 this._amountHistory = [];
                 this._fetchAmountHistory(entities);
+            }
+            else if (changedProperties.has('_activeEffectivenessTimeframe')) {
+                if (entities.metrics.length) {
+                    this._effectivenessHistory = {};
+                    this._fetchEffectivenessHistory(entities);
+                }
             }
         }
         // Clean up _pendingTracking: once HA confirms logged_today=true for an
@@ -3760,7 +4356,7 @@ AxDoseLoggerCard.styles = i$3 `
       border: none;
       background: none;
       color: var(--secondary-text-color, #666);
-      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
       transition: color 0.2s, background 0.2s, box-shadow 0.2s;
@@ -3770,7 +4366,7 @@ AxDoseLoggerCard.styles = i$3 `
     .pane-btn.tools {
       flex: 0 0 auto;
       min-width: 44px;
-      padding: 10px;
+      padding: 12px;
     }
 
     .pane-btn:hover {
@@ -3805,7 +4401,7 @@ AxDoseLoggerCard.styles = i$3 `
        Pre-2026.3 used the .heading property / slot="heading"; HA 2026.3
        renamed the slot to "header". Using the slot element works on both. */
     .dialog-header {
-      font-size: 1.25rem;
+      font-size: 1.5rem;
       font-weight: 500;
       color: var(--primary-text-color, #222);
       text-align: center;
@@ -3820,7 +4416,7 @@ AxDoseLoggerCard.styles = i$3 `
     }
 
     .dialog-header--warning ha-icon {
-      --mdc-icon-size: 24px;
+      --mdc-icon-size: 28px;
     }
 
     .dialog-btn {
@@ -3828,12 +4424,12 @@ AxDoseLoggerCard.styles = i$3 `
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 20px;
+      padding: 14px 24px;
       border: none;
       border-radius: var(--ha-card-border-radius, 12px);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 500;
       font-family: inherit;
       cursor: pointer;
@@ -3845,7 +4441,7 @@ AxDoseLoggerCard.styles = i$3 `
     }
 
     .dialog-btn ha-icon {
-      --mdc-icon-size: 20px;
+      --mdc-icon-size: 24px;
     }
 
     /* ── Refill Dialog ──────────────────────── */
@@ -3855,7 +4451,7 @@ AxDoseLoggerCard.styles = i$3 `
       padding: 12px 14px;
       border: 1px solid var(--divider-color, rgba(0,0,0,0.1));
       border-radius: var(--ha-card-border-radius, 12px);
-      font-size: 16px;
+      font-size: 18px;
       font-family: inherit;
       background: var(--card-background-color, var(--primary-background-color));
       color: var(--primary-text-color);
@@ -3877,7 +4473,7 @@ AxDoseLoggerCard.styles = i$3 `
     }
 
     .tools-dialog-descriptor {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(18px + var(--pill-text-offset, 0px));
       color: var(--primary-text-color, #222);
       line-height: 1.5;
       text-align: center;
@@ -3929,6 +4525,18 @@ __decorate([
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_activeBarTimeframe", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_activeEffectivenessTimeframe", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_activeEffectivenessView", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_effectivenessHistory", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_effectivenessVisible", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_toolsDialog", void 0);

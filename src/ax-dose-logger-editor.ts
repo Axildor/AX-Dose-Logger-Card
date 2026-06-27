@@ -185,17 +185,21 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             flatten: true,
             schema: [
               {
+                name: 'safe_to_take_entity',
+                selector: {
+                  entity: {
+                    context: { filter_device_id: 'device_id' },
+                  },
+                },
+              },
+              {
                 type: 'grid',
                 name: '',
                 column_min_width: '200px',
                 schema: [
                   {
-                    name: 'safe_to_take_entity',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    name: 'safe_to_take_icon',
+                    selector: { icon: {} },
                   },
                   {
                     name: 'safe_to_take_label',
@@ -224,8 +228,19 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             ],
           },
           {
-            name: 'pills_left_label',
-            selector: { text: {} },
+            type: 'grid',
+            name: '',
+            column_min_width: '200px',
+            schema: [
+              {
+                name: 'pills_left_icon',
+                selector: { icon: {} },
+              },
+              {
+                name: 'pills_left_label',
+                selector: { text: {} },
+              },
+            ],
           },
           {
             type: 'expandable',
@@ -368,11 +383,53 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
     ] as any,
     computeLabel: (schema: any, _data: any, hass: any) => {
       const lang = hass?.language || 'en';
+      // Grid containers have an empty name and are pure layout — no visible
+      // label. Returning '' here prevents the localize() 'config.' fallback
+      // from leaking as visible text for layout-only schema nodes.
+      if (schema.type === 'grid' || !schema.name) {
+        return '';
+      }
+      // Chip entity + label fields: drop BOTH labels so the entity picker and
+      // text field render at the same vertical level inside each chip grid row.
+      // The entity picker's external "Chip N (optional)" label wraps to 2 lines
+      // in the 200px column, making its cell taller than the paired text field
+      // (which uses an internal floating label). Returning an EMPTY STRING (not
+      // undefined) is the key: ha-form treats a falsy/undefined computeLabel
+      // result as "no override" and falls back to the schema field name (which
+      // renders as visible "Chip N (optional)" text). An empty string IS a
+      // valid label value, so ha-form renders an empty label element with no
+      // visible text and no 2-line wrap, equalizing cell heights. This mirrors
+      // the grid-container guard above (which also returns '' to suppress
+      // layout labels). The helper text under each field conveys role and
+      // optionality; the entity-picker UI vs text-field UI distinguishes the
+      // two columns. Reversible to Option B (keep chip_N_label) via a one-line
+      // edit if per-slot identification is later needed.
+      if (
+        schema.name === 'chip_1' || schema.name === 'chip_1_label' ||
+        schema.name === 'chip_2' || schema.name === 'chip_2_label' ||
+        schema.name === 'chip_3' || schema.name === 'chip_3_label' ||
+        schema.name === 'chip_4' || schema.name === 'chip_4_label'
+      ) {
+        return '';
+      }
       return localize(lang, 'config.' + schema.name);
     },
     computeHelper: (schema: any, _data: any, hass: any) => {
       const lang = hass?.language || 'en';
       const name: string = schema.name;
+      // Layout/container nodes (grid, expandable) and nodes without a selector
+      // have no input control, so helper text does not apply. Without this
+      // guard, localize() returns the raw 'config.helper.<name>' key for
+      // containers (daily_panel, graphs_panel, stats_panel, chips,
+      // safe_to_take_box) that have no translation defined, which then
+      // renders as visible text under the expandable headers.
+      if (
+        schema.type === 'grid' ||
+        schema.type === 'expandable' ||
+        !schema.selector
+      ) {
+        return '';
+      }
       if (name?.startsWith('chip_') && name?.endsWith('_label')) {
         return localize(lang, 'config.helper.chip_label');
       }

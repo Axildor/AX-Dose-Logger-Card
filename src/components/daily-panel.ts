@@ -101,11 +101,11 @@ export class AxDoseDailyPanel extends LitElement {
                  @keydown=${safeBoxClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleSafeBoxAction(null, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleSafeBoxAction(null, 'hold', safeBoxActionConfig, displayEntity); } : null}
                  @dblclick=${hasDblClick ? () => c.handleSafeBoxAction(null, 'double_tap', safeBoxActionConfig, displayEntity) : null}>
-              <ha-icon icon="mdi:shield-check"></ha-icon>
+              <ha-icon icon="${c.config?.safe_to_take_icon || 'mdi:shield-check'}"></ha-icon>
               <span class="stat-label">${c.config?.safe_to_take_label || localize(this._lang, 'daily.safe_to_take')}</span>
               <span class="stat-value">${displayIsUnknown
                 ? localize(this._lang, 'daily.na')
-                : (isSwapped ? displayState : c.formatInteger(safeState))}</span>
+                : (isSwapped ? (displayState ? displayState.charAt(0).toUpperCase() + displayState.slice(1) : '') : c.formatInteger(safeState))}</span>
             </div>
             <div class="stat-pill ${e.addRefill ? 'clickable' : ''}"
                  role="button"
@@ -113,7 +113,7 @@ export class AxDoseDailyPanel extends LitElement {
                  aria-label=${localize(this._lang, 'dialog.refill.aria')}
                  @click=${e.addRefill ? () => c.showRefillDialog() : null}
                  @keydown=${e.addRefill ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showRefillDialog()) : null}>
-              <ha-icon icon="mdi:pill"></ha-icon>
+              <ha-icon icon="${c.config?.pills_left_icon || 'mdi:pill'}"></ha-icon>
               <span class="stat-label">${c.config?.pills_left_label || localize(this._lang, 'daily.pills_left')}</span>
               <span class="stat-value">${pillsLeft === 'unavailable' ? '-' : c.formatInteger(pillsLeft)}</span>
             </div>
@@ -244,7 +244,7 @@ export class AxDoseDailyPanel extends LitElement {
     }
 
     .stat-label {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(15px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -284,7 +284,7 @@ export class AxDoseDailyPanel extends LitElement {
     }
 
     .chip-name {
-      font-size: calc(10px + var(--pill-text-offset, 0px));
+      font-size: calc(12px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       white-space: nowrap;
       overflow: hidden;

@@ -1868,3 +1868,144 @@ Batches 1–9 complete. The Pill Logger Card has been audited against HA best pr
 - [x] Step 4: Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt.
 - [x] Step 5: Update memory-bank/activeContext.md and memory-bank/progress.md (this section).
 - Key decisions: (1) Gate on a state attribute, not a dedicated entity — a device *type* classifier is metadata about the device, not an observable measurement, so per HA best practice it belongs in `extra_state_attributes` on the primary sensor (mirrors the existing `tracking_type` pattern read via `this._getAttr(entities.nextDose, 'tracking_type')`). (2) Mirror the existing `hasMetrics`/tracking conditional-spread pattern — no new abstraction; `hasCaffeine` computed once, caffeine entry spread in only when true. (3) Defensive attribute lookup — nil-coalesced + lower-cased, since the backend doesn't emit the attribute yet and will eventually emit snake_case values; pane hidden everywhere until a real caffeine device exists. (4) Auto-fallback guard mirrors the tracking fallback — handles attribute removal, device switch, or lingering dev-session `_activePane` state. (5) Frontend-only, forward-compatible — `caffeine-panel.ts`, its import, the `'caffeine'` union member, the render ternary, and `getCardSize` all unchanged; simply not reached until a real caffeine device exists. Guard reads `device_type`, forward-compatible with the planned two-field backend design (`device_category: 'medicine'|'drink'` for the config-flow branch + `device_type: 'caffeine'|'alcohol'|…` for pane visibility).
+
+## Safe to Take + Pills Left Icon Selectors + Title-Case Swapped State (2026-06-26)
+
+### Planning
+- [x] Read frontend memory-bank/activeContext.md and card source (daily-panel.ts, ax-dose-logger-editor.ts, types.ts, localize.ts) to establish current Safe to Take + Pills Left rendering and config form structure.
+- [x] Confirm title-case formatting rule with user (first letter capitalized, rest unchanged: `on` -> `On`, `off` -> `Off`, `available` -> `Available`).
+
+### Implementation
+- [x] Step 1: In `src/types.ts` — add `safe_to_take_icon?: string;` after `safe_to_take_label` and `pills_left_icon?: string;` after `pills_left_label` to `AxDoseLoggerCardConfig`.
+- [x] Step 2: In `src/ax-dose-logger-editor.ts` — restructure the `safe_to_take_box` expandable: move `safe_to_take_entity` out of the grid to a full-width top row; add a new `type: 'grid'` row pairing `safe_to_take_icon` (`selector: { icon: {} }`) with `safe_to_take_label` (`selector: { text: {} }`). Wrap the lone `pills_left_label` field in a `type: 'grid'` row pairing `pills_left_icon` (`selector: { icon: {} }`) with `pills_left_label`.
+- [x] Step 3: In `src/localize.ts` — add 4 keys: `config.safe_to_take_icon`, `config.pills_left_icon`, `config.helper.safe_to_take_icon`, `config.helper.pills_left_icon`.
+- [x] Step 4: In `src/components/daily-panel.ts` — wire `c.config?.safe_to_take_icon || 'mdi:shield-check'` into the Safe to Take `<ha-icon>`; wire `c.config?.pills_left_icon || 'mdi:pill'` into the Pills Left `<ha-icon>`; replace the swapped Safe to Take `stat-value` with `displayState ? displayState.charAt(0).toUpperCase() + displayState.slice(1) : ''` (title-case, empty-guarded).
+- [x] Step 5: Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt.
+- [x] Step 6: Update README.md Configuration Options table (two new icon rows).
+- [x] Step 7: Update memory-bank/activeContext.md and memory-bank/progress.md (this section).
+- Key decisions: (1) HA-native `icon` selector (`selector: { icon: {} }`) for both new fields — same selector already used by `take_pill_icon`; gives users the HA icon picker UI rather than free text. (2) Entity on its own row, icon+label on the next row — per user request; `safe_to_take_entity` is full-width (entity pickers benefit from horizontal room), and the visually-related `safe_to_take_icon` + `safe_to_take_label` share a 200px grid row underneath, mirroring the existing take-pill icon/label grid. (3) Pills Left grid pairing — the previously lone `pills_left_label` text field is now wrapped in a 200px grid row with `pills_left_icon`, matching the take-pill and safe-to-take icon/label pairing pattern for visual consistency. (4) Title-case rule: first letter only — per user confirmation, uppercase the first character and leave the remainder unchanged (`on` -> `On`, `not_home` -> `Not_home`); avoids over-transforming states with underscores or mixed casing while fixing the all-lowercase complaint for the common `on`/`off`/`available` cases. (5) Defensive empty-string guard — the title-case expression checks `displayState ?` before `.charAt(0)`, so an empty/undefined swapped state renders an empty string instead of throwing. (6) Frontend-only — icons and title-case display are pure card-config cosmetic concerns; no backend, config-flow, or sensor changes; the default-sensor (non-swapped) Safe to Take path is unchanged.
+
+## Dialog Font-Size UX Audit + Uniform Enlargement (2026-06-26)
+
+### Planning / Audit
+- [x] Read frontend memory-bank/activeContext.md and inspect shared dialog CSS in `src/ax-dose-logger-card.ts` `_getStyles()` (`.dialog-header`, `.tools-dialog-descriptor`, `.dialog-btn`, `.dialog-btn ha-icon`, `.dialog-header--warning ha-icon`, `.refill-input`).
+- [x] Confirm scope with user: all five card dialogs (pill-limit override, tracking override, tools, refill, device-info) — enlarge body + header + buttons uniformly.
+- [x] UX audit against WCAG 1.4.3 (body min 16px), WCAG 2.5.5 (44px touch target), and Material 3 type scale (body-medium 14px = supporting text, title-medium 18px = primary message, headline-small 24px). Confirmed via Context7 HA frontend docs that `ha-dialog` `width="small"` = 320px and custom sizing is not recommended, so the fix is content font-size, not dialog width.
+- [x] Conclusion: 14px override body fails WCAG 1.4.3 and is the wrong M3 token role (body-medium) for a safety-critical medication warning; buttons ~40px tall fail WCAG 2.5.5.
+
+### Implementation
+- [x] Step 1: `.dialog-header` font-size `1.25rem` (20px) -> `1.5rem` (24px) — M3 headline-small, clear hierarchy above enlarged body.
+- [x] Step 2: `.dialog-header--warning ha-icon` `--mdc-icon-size` 24px -> 28px — proportional to enlarged header.
+- [x] Step 3: `.dialog-btn` font-size 14px -> 16px (M3 body-large / WCAG body min) + padding `12px 20px` -> `14px 24px` (brings button height to ~44px = WCAG 2.5.5 touch-target min).
+- [x] Step 4: `.dialog-btn ha-icon` `--mdc-icon-size` 20px -> 24px — scales with 16px label.
+- [x] Step 5: `.refill-input` font-size 16px -> 18px — balances with enlarged buttons.
+- [x] Step 6: `.tools-dialog-descriptor` font-size `calc(14px + var(--pill-text-offset, 0px))` -> `calc(18px + var(--pill-text-offset, 0px))` — M3 title-medium for a safety-critical primary message; preserves the existing `big_text` opt-in bump (`--pill-text-offset`) on top of the new 18px baseline.
+- [x] Step 7: Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt.
+- [x] Step 8: Update memory-bank/activeContext.md and memory-bank/progress.md (this section).
+- Key decisions: (1) **18px body, not 16px** — 16px is the WCAG *minimum* for body text, but a medication-safety override is not ordinary body copy; it's a single critical sentence the user must read before confirming an unsafe action. 18px (M3 title-medium) gives it the prominence a warning deserves while staying inside the M3 type scale (no ad-hoc pixel value). (2) **Preserve the `--pill-text-offset` opt-in** — kept `calc(18px + var(--pill-text-offset, 0px))`; users who enabled `big_text` still get their extra bump on top of the new 18px baseline, and users who didn't still get the audited-safe 18px. Avoids regressing the existing accessibility feature. (3) **One shared ruleset, not per-dialog overrides** — all five dialogs already reuse `.dialog-header`/`.tools-dialog-descriptor`/`.dialog-btn`; bumping them once scales every dialog uniformly, matching the user's "all dialogs uniformly" scope without CSS duplication. (4) **44px touch targets** — padding bump to `14px 24px` brings button height to ~44px, the WCAG 2.5.5 minimum; a genuine accessibility fix, not just cosmetic. (5) **Frontend-only, CSS-only** — pure changes to the static `_getStyles()` CSS block; no template logic, localization, backend, or README impact (visual tweak, not a user-facing config change). No new CSS custom properties or hardcoded theme-breaking values — all rules continue to use the existing HA tokens (`--primary-text-color`, `--primary-color`, `--error-color`, `--ha-card-border-radius`).
+
+## Full-Card Font-Size & Touch-Target UX Audit + Implementation (2026-06-26)
+
+### Planning / Audit
+- [x] Inventory every `font-size` and `--mdc-icon-size` declaration across all 6 source files (`ax-dose-logger-card.ts`, `daily-panel.ts`, `stats-panel.ts`, `tracking-panel.ts`, `tools-panel.ts`, `graphs-panel.ts`, `caffeine-panel.ts`).
+- [x] Audit each against WCAG 1.4.3 (body min 16px), WCAG 2.5.5 (touch target min 44×44px, 24×24 AA concession), and the Material 3 type scale (headline-small 24, title-large 22, title-medium 18, body-large 16, body-medium 14, body-small 13, label-medium 12, label-small 11).
+- [x] Tier the findings: Tier 1 primary content (18-20px, PASS), Tier 2 secondary labels (12-15px, NEEDS WORK), Tier 3 tertiary/chart annotations (9-13px, MIXED), Tier 4 touch targets (20-32px, NEEDS WORK).
+- [x] Write full audit to `plans/full-card-font-audit.md`.
+- [x] Confirm chart-annotation scope with user: modest bump to 11px (preserves graph density on the 320px-wide chart while improving on 9-10px).
+
+### Implementation
+- [x] `daily-panel.ts` — `.stat-label` 14px -> 15px (M3 body-medium, secondary context); `.chip-name` 10px -> 12px (M3 label-medium, identifies chip entity).
+- [x] `stats-panel.ts` — `.stat-cell-label` 12px -> 14px (M3 body-medium; "7-Day Avg" labels must be readable).
+- [x] `tracking-panel.ts` — `.tracking-label` 14px -> 16px (WCAG body min); `.tracking-badge` 11px -> 12px (M3 label-medium); `.tracking-scale-tick` 10px -> 11px (chart annotation, density preserved).
+- [x] `tools-panel.ts` — tools body text 13px -> 14px (×2 rules: empty-state + tool-btn); `.tools-section-header` 14px -> 16px (WCAG body min).
+- [x] `graphs-panel.ts` — (1) `.nav-btn` 32×32 -> 40×40px (WCAG 2.5.5 AA concession for dense carousel header); (2) `.nav-title` 15px -> 16px (WCAG body min); (3) `.timeframe-chip` padding 2px 6px -> 4px 10px + font 10px -> 12px (WCAG 2.5.5 + legibility); (4) Y-axis labels 10px -> 11px (×2 inline SVG styles: dose-count + amount); (5) "Current:" label 11px -> 12px (safety-relevant annotation); (6) time labels 9px -> 11px (smallest text on card, chart density preserved); (7) loading text 13px -> 14px (M3 body-small); (8) `.avg-label` 11px -> 12px (M3 label-medium); (9) `.avg-value` 15px -> 16px (WCAG body min).
+- [x] `ax-dose-logger-card.ts` — nav bar title 15px -> 16px (WCAG body min); `.pane-btn` padding 10px -> 12px (borderline ~40px -> safer ~44px touch target); placeholder subtitle 13px -> 14px (M3 body-small, inline style).
+- [x] No change to already-compliant elements: med name (20px), take-pill label/sub (18/16px), stat values (18px), chip value (16px), caffeine placeholder (16px), graph placeholder title (16px).
+- [x] Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt.
+- [x] Update memory-bank/activeContext.md and memory-bank/progress.md (this section).
+- Key decisions: (1) **Preserve `--pill-text-offset` on every bumped rule** — the existing `big_text` opt-in (`0px` when ON, `-2px` when OFF) must keep working; all bumps stay `calc(newN + var(--pill-text-offset, 0px))` so users who enabled Large Text still get their extra bump on top of the new baselines. (2) **Chart annotations get a modest bump to 11px, not 16px** — per user confirmation; the 320px-wide graph cannot fit 13 time labels at 16px without overlap, so Y-axis labels, time labels, and scale ticks go to 11px (M3 label-small), improving on 9-10px while preserving information density. (3) **Content labels (chip name, badge, "Current:", avg-label) -> 12px (M3 label-medium)** — these are genuine content identifiers, not annotations; 12px is the smallest M3 token that's still a "label" role rather than ad-hoc. (4) **Touch targets use the AA concession** — graph nav-btn 32 -> 40px (full 44×44 would break the compact carousel header); timeframe chip padding + font bump brings it from ~20px to ~28px tall (still compact for the chip row but more tappable); pane-btn padding 10 -> 12px brings the borderline ~40px button to ~44px. (5) **No README / localization / backend changes** — pure CSS across 6 component files + the main card file; all rules continue using existing HA theme tokens (`--primary-text-color`, `--secondary-text-color`, `--primary-color`, `--ha-card-border-radius`). (6) **Tier 1 primary content untouched** — med name (20px), take-pill label (18px), stat values (18px) were already at M3 title-medium/title-large and pass the audit; no change needed.
+
+## Chart Top-Buffer Fix for Enlarged Timeframe Chips (2026-06-26)
+
+### Problem
+The Tier 4 timeframe-chip enlargement (padding 2px 6px -> 4px 10px + font 10px -> 12px, bringing chip height from ~20px to ~28px) caused the chips to overlap the chart plot area. Both charts use `viewBox="0 0 320 180"` with `padTop = 16` (the y-coordinate where the plot area begins), and the chips are absolutely positioned at `top: 4px` over the chart. With the enlarged chips occupying ~32px from the top (4px offset + ~28px height), they overlapped the plot area starting at y=16.
+
+### Implementation
+- [x] `src/components/graphs-panel.ts` — `_renderBarChart`: `padTop` 16 -> 36 (line 152). `_renderLineChart`: `padTop` 16 -> 36 (line 251). `chartH` recalculates automatically (`h - padTop - padBottom`), so the plot area shrinks proportionally while the SVG viewBox stays 320×180 — no layout shift, just ~20% more breathing room at the top (36px = 20% of the 180px chart height).
+- [x] Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt.
+- [x] Update memory-bank/progress.md (this section).
+- Key decisions: (1) **Bump padTop, not the SVG height** — keeping the viewBox at 320×180 means the chart's rendered size (controlled by `aspect-ratio: 320/180` and `min-height: 180px`) is unchanged; only the internal plot area shrinks, so the card layout doesn't shift. (2) **36px = 20% of 180px** — per user request for ~20% more buffer; clears the ~32px chip zone (4px top offset + ~28px chip height) with a small gap. (3) **Both charts get the same padTop** — bar and line charts share the identical chip positioning (`top: 4px`), so both need the same buffer; using 36px for both keeps the visual rhythm consistent across the carousel slides. (4) **No CSS-only fix possible** — the overlap is between the absolutely-positioned HTML chips and the SVG plot area whose top boundary is computed in JS (`padTop`); the chips can't be pushed up (they're already at the top edge) and the SVG can't be pushed down via CSS without creating a gap above the chart background, so the JS `padTop` is the correct fix point.
+
+## Chart Top-Buffer Adjustment to 28px (2026-06-26)
+
+### Change
+- [x] `src/components/graphs-panel.ts` — revised `padTop` from 36 -> 28 on both bar chart (line 152) and line chart (line 251), per user request for a tighter buffer than the initial 36px. 28px still clears the enlarged timeframe chips (~32px zone) with a minimal gap while giving more plot area back to the chart.
+- [x] Build (`yarn run build`) — clean compilation, exit 0, no warnings; dist rebuilt.
+- [x] Update memory-bank/progress.md (this section).
+
+## Card Visual Editor — Raw Translation Key Leak Fix (2026-06-26)
+
+### Problem
+In the card visual editor, expandable section headers (`Daily Panel`, `Graphs Panel`, `Stats Panel`, `Custom Chips`, `Safe to Take Box`) and `type: 'grid'` layout containers showed raw translation keys as visible helper/label text — e.g. `config.helper.daily_panel`, `config.helper.graphs_panel`, `config.helper.stats_panel`, `config.helper.chips`, `config.helper.safe_to_take_box`, and the empty-name `config.helper.`.
+
+### Root Cause
+`ha-form` invokes the `computeHelper` and `computeLabel` callbacks for **every** schema node, including container nodes (`type: 'expandable'`, `type: 'grid'`). The callbacks in `buildEditorForm()` blindly ran `localize(lang, 'config.helper.' + name)` / `localize(lang, 'config.' + schema.name)` for all nodes. The translation map in `localize.ts` only defines helpers/labels for **leaf input fields** (those with a `selector`). For containers, `localize()` falls back to **returning the raw key string** (`translations[lang]?.[key] ?? translations.en[key] ?? key`), which then rendered as visible text.
+
+### Implementation
+- [x] `src/ax-dose-logger-editor.ts` — `computeHelper`: added a guard at the top that returns `''` when `schema.type === 'grid' || schema.type === 'expandable' || !schema.selector` (layout/container nodes have no input control, so helper text does not apply). The existing `chip_` prefix logic is preserved for leaf chip fields.
+- [x] `src/ax-dose-logger-editor.ts` — `computeLabel`: added a guard returning `''` when `schema.type === 'grid' || !schema.name` (grid containers have `name: ''` and are pure layout; returning '' prevents the `config.` fallback from leaking). Expandable containers keep their labels (real section headers like `daily_panel` -> "Daily Panel").
+- [x] Build (`yarn run build`) — clean compilation, exit 0, no warnings; `dist/ax-dose-logger-card.js` rebuilt.
+- [x] Update memory-bank/progress.md (this section).
+- Key decisions: (1) **Guard at the top of the callbacks, not in the translation map** — the missing helpers are a symptom of containers not needing them; adding empty `config.helper.daily_panel` keys would mask the real issue and require an entry for every future container. Guarding by schema shape (`type`/`selector`) is the correct abstraction. (2) **Expandable containers keep their label** — `daily_panel`, `graphs_panel`, `stats_panel` are real section headers with defined `config.<name>` translations; only their helper text is suppressed. Grid containers suppress both label and helper (pure layout, empty name). (3) **No README change** — this is an internal editor-rendering bug fix; no user-facing config surface or installation step changed. (4) **No `localize.ts` change** — the fallback-to-key behavior is correct for genuine missing-key diagnostics; the bug was that containers were being asked for helpers they should never produce.
+
+## Effectiveness Tracking Line Graph (2026-06-26)
+
+### Planning / UX Audit
+- [x] Read backend effectiveness store/coordinator (`coordinator.py`, `store.py`, `number.py`) to confirm data source: metrics are daily-locked (one value per metric per day); the integration's own store keeps only today's value, so multi-day history must come from the HA recorder.
+- [x] Read frontend graphs-panel, daily-panel, types, history-fetch (`graphs-panel.ts`, `ax-dose-logger-card.ts:796`) to understand the existing bar/line graph patterns + the `history/period/` REST API usage.
+- [x] UX audit written to [`plans/effectiveness-graph-audit.md`](../../Home-Assistant-Pill-Logger/plans/effectiveness-graph-audit.md): 11 friction points identified; two design decisions confirmed with user (3rd carousel slide in Graphs pane; Avg recomputes over visible-only metrics). Resolved a hidden-state friction: the per-tracker toggle row is always rendered (in both Avg and Individual views) so the user can always see/edit which metrics feed the Avg line.
+- [x] Implementation plan (section 6 of the audit doc) written for Code mode.
+
+### Implementation (frontend-only, no backend changes)
+- [x] `src/types.ts` — Added `activeEffectivenessTimeframe`, `activeEffectivenessView`, `effectivenessHistory`, `effectivenessVisible` to `CardController`; added `handleEffectivenessTimeframeChange`, `setEffectivenessView`, `toggleEffectivenessMetric` action methods.
+- [x] `src/ax-dose-logger-card.ts` — (1) New `@state`: `_activeEffectivenessTimeframe` ('14d'), `_activeEffectivenessView` ('avg'), `_effectivenessHistory` (keyed by metricKey), `_effectivenessVisible` (Set). (2) New `_effectivenessFetchToken` race guard. (3) New `_fetchEffectivenessHistory` — batched single `history/period/…?filter_entity_id=e1,e2,e3&minimal_response&significant_changes_only=1` call covering ALL effectiveness entities, split per metricKey on the client; drops unknown/unavailable states so unlogged days render as gaps. Initializes the visible set to all metrics on first fetch (and when the metric set changes). (4) Public getters + action methods (`handleEffectivenessTimeframeChange`, `setEffectivenessView`, `toggleEffectivenessMetric` — the last mutates a fresh Set so Lit detects the reference change). (5) `updated()`: fetch on pane entry + on `_activeEffectivenessTimeframe` change. (6) `shouldUpdate`: added the four new `@state` keys to the always-render list. (7) `connectedCallback`: reset effectiveness state on view entry. (8) `disconnectedCallback`: bump the effectiveness fetch token. (9) Render: pass the four new reactive props to `<ax-dose-graphs-panel>`.
+- [x] `src/components/graphs-panel.ts` — (1) Added `MetricEntity` import. (2) New reactive props: `activeEffectivenessTimeframe`, `activeEffectivenessView`, `effectivenessHistory`, `effectivenessVisible`. (3) New static `METRIC_COLORS` palette (8 hues, hex since there's no multi-hue HA token). (4) `render()`: added `'effectiveness'` to the slides array (gated on `entities.metrics.length > 0`); carousel title dispatches to the new slide. (5) New `_renderEffectivenessGraph`: one-point-per-day line(s) on a fixed 0–10 Y-axis; `14d/30d/60d` chips (dedicated `_renderEffectivenessTimeframeChips`); `_bucketByDay` resamples recorder history to last-value-per-day; `buildSegments` produces polyline segments with gap-breaks across unlogged days (svg M move, no L line → gaps not zeros); `_metricColor` indexes by sorted metricKey position for stable colors. Avg view = single primary-color polyline of the average-of-visible per day. Individual view = one colored polyline per visible metric. Per-point `<circle>` + `<title>` for hover/AT. Empty-state placeholder when no history. (6) New `_renderEffectivenessViewToggle` — `role="tablist"`/`role="tab"`/`aria-selected`; shown only when metrics.length > 1. (7) New `_renderEffectivenessTrackerRow` — `flex-wrap` row of color-swatch + label + `aria-pressed` toggle buttons; **always rendered** when metrics.length > 1 (resolves the hidden-state friction; doubles as legend). (8) New CSS: `.effectiveness-wrapper`, `.eff-view-toggle`, `.eff-view-tab[.active]`, `.eff-tracker-row`, `.eff-tracker-chip[.off]`, `.eff-swatch`, `.eff-tracker-label`.
+- [x] `src/localize.ts` — Added 5 keys: `graphs.empty_effectiveness`, `graphs.effectiveness_title`, `graphs.effectiveness_avg`, `graphs.effectiveness_individual`, plus `aria.effectiveness_avg`, `aria.effectiveness_individual`.
+- [x] `README.md` — Added the Effectiveness graph to the Graphs pane feature list (auto-appears, Avg/Individual toggle, per-tracker visibility, 14D/30D/60D timescales, recorder requirement).
+- [x] Build (`yarn run build`) — clean compilation, exit 0, no warnings; `dist/ax-dose-logger-card.js` rebuilt.
+- [x] TypeScript type check (`npx tsc --noEmit`) — exit 0, no errors.
+- [x] Update memory-bank/progress.md (this section).
+
+### Key Design Decisions
+1. **No backend changes** — effectiveness history comes from the HA recorder via the same `history/period/` REST pattern the Amount-in-Body graph uses. The integration's own store only keeps today's value (`coordinator.py` daily-lock + midnight clear).
+2. **Batched history fetch** — single comma-separated `filter_entity_id` call for all effectiveness entities, split per metricKey on the client. Keeps the graph snappy with many custom metrics and reuses the race-guard token pattern.
+3. **One point per day + gap preservation** — effectiveness is daily-locked, so one-point-per-day is the natural representation (not the continuous polyline of the amount-in-body graph). Unlogged days were filtered out by the fetch, so the polyline naturally gaps (svg M move) rather than plotting zeros.
+4. **Fixed 0–10 Y-axis** — `PillEffectivenessSlider` hardcodes min=0/max=10 for both standard and custom metrics, so the axis is fixed and averaging across metrics is apples-to-apples. Caveat logged in the audit: if custom metrics ever gain per-metric min/max, the Avg toggle becomes meaningless.
+5. **Avg recomputes over visible-only metrics** (user-confirmed) — the per-tracker toggle row is therefore always rendered (in both views) so the user can always see/edit what feeds the Avg line. Resolves the hidden-state friction identified in the audit.
+6. **Stable color assignment by sorted metricKey** — toggling visibility doesn't reassign colors; the swatch in the tracker row matches the line color. Color-blind accessibility: swatch + label, not hue alone.
+7. **3rd carousel slide** (user-confirmed) — reuses the existing `activeGraph` index + carousel nav; the Avg/Individual toggle is an in-slide sub-control below the chart, kept out of the carousel nav row to avoid conflating "which graph" with "which view".
+8. **Toggle hidden when only 1 metric** — Avg ≡ Individual for a single metric; showing a no-op toggle is friction.
+9. **Accessibility** — `role="tablist"`/`role="tab"`/`aria-selected` on the view toggle; `aria-pressed` on per-tracker chips; `<title>` per data point for hover/AT.
+
+## Custom Chips Dropdown Alignment Fix (2026-06-26)
+Fixed the misaligned config boxes in the Custom Chips expandable of the card visual editor by dropping both labels (entity picker + text field) for all 4 chip grid rows, so the input boxes align on the same horizontal line.
+
+- [x] Audit the chip dropdown misalignment + review the user's "drop the title" proposal against 5 alternative solutions
+- [x] Confirm approach with user (Option A: drop both labels for full symmetry)
+- [x] Write architecture plan to `plans/chip-dropdown-alignment-fix.md` (root cause, 5 alternatives, chosen solution, reversible fallback to Option B)
+- [x] Add name-based early-return in `computeLabel` ([`src/ax-dose-logger-editor.ts`](src/ax-dose-logger-editor.ts:384)) returning `undefined` for the 8 chip field names (`chip_1`/`chip_1_label` ... `chip_4`/`chip_4_label`) so `ha-form` renders no label row above either field
+- [x] `yarn run build` — clean compilation (exit 0, no warnings)
+- [x] Update `memory-bank/activeContext.md` (Current Status, What Was Changed, Files Modified, Key Design Decisions, archive previous context)
+- [x] Append this section to `memory-bank/progress.md`
+
+### Root cause
+Each chip pair is a `type: 'grid'` row with an entity picker (external label above the control — "Chip N (optional)", 16 chars, wraps to 2 lines in the 200px column) and a text field (internal floating label, no extra height). The entity picker cell is taller than the text field cell. The existing `installEditorGridAlignment()` `align-items: end` CSS injection aligns only the bottoms, so the input lines still sit at different vertical positions.
+
+### Solution
+`computeLabel` returns `undefined` for the 8 chip field names → `ha-form` renders no label row above either field → both cells contain only the control box → equal cell heights → input boxes align naturally. The `localize.ts` `config.chip_N` / `config.chip_N_label` keys are retained (reversal is a one-line edit). Helper text under each field still conveys role + optionality; the entity-picker UI vs text-field UI distinguishes the two columns.
+
+### Key design decisions
+1. **Option A — drop both labels** (user-confirmed) — full symmetry over per-slot identification.
+2. **Reversible to Option B** — keep `chip_N_label` text-field floating label, drop only the entity label, if per-slot identification is later requested.
+3. **`installEditorGridAlignment()` kept** — still needed for Safe-to-Take + take-pill grids; now a harmless no-op for chip grids.
+4. **Frontend-only, editor-only** — no backend, config-flow, sensor, runtime, or README impact.

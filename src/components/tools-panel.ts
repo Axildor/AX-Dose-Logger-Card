@@ -154,12 +154,12 @@ export class AxDoseToolsPanel extends LitElement {
     .tools-empty {
       text-align: center;
       color: var(--secondary-text-color, #666);
-      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-size: calc(14px + var(--pill-text-offset, 0px));
       padding: 24px 8px;
     }
 
     .tools-section-header {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 600;
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
@@ -187,7 +187,7 @@ export class AxDoseToolsPanel extends LitElement {
       border-radius: var(--ha-card-border-radius, 12px);
       background: var(--card-background-color, var(--primary-background-color, #fff));
       color: var(--primary-text-color, #222);
-      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-size: calc(14px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
       transition: background 0.2s, border-color 0.2s, transform 0.1s;

@@ -36,10 +36,12 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   take_pill_label?: string;
   safe_to_take_entity?: string;
   safe_to_take_label?: string;
+  safe_to_take_icon?: string;
   safe_to_take_tap_action?: ActionConfig;
   safe_to_take_hold_action?: ActionConfig;
   safe_to_take_double_tap_action?: ActionConfig;
   pills_left_label?: string;
+  pills_left_icon?: string;
 }
 
 // Extends the official HomeAssistant type from custom-card-helpers with the
@@ -133,6 +135,14 @@ export interface CardController {
   readonly amountHistory: Array<{ timestamp: string; value: number }>;
   /** Dose history tuples from the custom REST endpoint. */
   readonly doseHistory: Array<[string, number]>;
+  /** Active effectiveness-graph timeframe id ('14d'|'30d'|'60d'). */
+  readonly activeEffectivenessTimeframe: string;
+  /** Active effectiveness-graph view ('avg'|'individual'). */
+  readonly activeEffectivenessView: 'avg' | 'individual';
+  /** Per-metric effectiveness history, keyed by metricKey (from the HA recorder). */
+  readonly effectivenessHistory: Record<string, Array<{ timestamp: string; value: number }>>;
+  /** Set of metricKeys currently visible (toggled on) in the effectiveness graph. */
+  readonly effectivenessVisible: Set<string>;
 
   // ── Read-only helpers (delegate to helpers.ts internally) ──
   getState(entityId?: string): string;
@@ -172,6 +182,12 @@ export interface CardController {
   handleTimeframeChange(timeframe: string): void;
   /** Bar-graph timeframe chip click. */
   handleBarTimeframeChange(timeframe: string): void;
+  /** Effectiveness-graph timeframe chip click. */
+  handleEffectivenessTimeframeChange(timeframe: string): void;
+  /** Effectiveness-graph Avg/Individual view toggle. */
+  setEffectivenessView(view: 'avg' | 'individual'): void;
+  /** Effectiveness-graph per-tracker visibility toggle. */
+  toggleEffectivenessMetric(metricKey: string): void;
   /** Carousel prev/next — sets the active graph index. */
   setActiveGraph(idx: number): void;
   /** Tracking slider change — direct set or override dialog depending on logged_today. */

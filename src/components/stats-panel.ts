@@ -141,7 +141,7 @@ export class AxDoseStatsPanel extends LitElement {
     }
 
     .stat-cell-label {
-      font-size: calc(12px + var(--pill-text-offset, 0px));
+      font-size: calc(14px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.3px;

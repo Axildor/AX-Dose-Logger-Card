@@ -59,6 +59,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   @state() private _refillAmount: string = '';
   @state() private _activeTimeframe: string = '48h';
   @state() private _activeBarTimeframe: string = '14d';
+  // Effectiveness-graph state. Mirrors the bar/line graph pattern but keyed
+  // separately so the three carousel slides don't clobber each other's chips.
+  // _effectivenessHistory is keyed by metricKey; _effectivenessVisible is the
+  // set of metricKeys currently toggled on (defaults to all metrics). The view
+  // toggle ('avg' | 'individual') only matters when metrics.length > 1; the
+  // panel hides it for single-metric devices.
+  @state() private _activeEffectivenessTimeframe: string = '14d';
+  @state() private _activeEffectivenessView: 'avg' | 'individual' = 'avg';
+  @state() private _effectivenessHistory: Record<string, Array<{ timestamp: string; value: number }>> = {};
+  @state() private _effectivenessVisible: Set<string> = new Set();
   @state() private _toolsDialog: { title: string; descriptor: string; onConfirm: () => void } | null = null;
   // Pill-limit override warning dialog (#6): replaces the synchronous native
   // confirm() box. When non-null, _renderOverrideDialog() shows an ha-dialog
@@ -105,6 +115,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   //    bumps both tokens to invalidate all in-flight fetches on disconnect.
   private _amountFetchToken: number = 0;
   private _doseFetchToken: number = 0;
+  private _effectivenessFetchToken: number = 0;
 
   // ── Configuration ──────────────────────────
 
@@ -563,6 +574,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public get doseHistory(): Array<[string, number]> {
     return this._doseHistory;
   }
+  public get activeEffectivenessTimeframe(): string {
+    return this._activeEffectivenessTimeframe;
+  }
+  public get activeEffectivenessView(): 'avg' | 'individual' {
+    return this._activeEffectivenessView;
+  }
+  public get effectivenessHistory(): Record<string, Array<{ timestamp: string; value: number }>> {
+    return this._effectivenessHistory;
+  }
+  public get effectivenessVisible(): Set<string> {
+    return this._effectivenessVisible;
+  }
 
   // ── CardController thin action methods ───────
   // These were previously inlined as direct @state mutations inside pane
@@ -624,6 +647,22 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public handleBarTimeframeChange(timeframe: string): void {
     if (timeframe === this._activeBarTimeframe) return;
     this._activeBarTimeframe = timeframe;
+  }
+  public handleEffectivenessTimeframeChange(timeframe: string): void {
+    if (timeframe === this._activeEffectivenessTimeframe) return;
+    this._activeEffectivenessTimeframe = timeframe;
+  }
+  public setEffectivenessView(view: 'avg' | 'individual'): void {
+    if (view === this._activeEffectivenessView) return;
+    this._activeEffectivenessView = view;
+  }
+  public toggleEffectivenessMetric(metricKey: string): void {
+    // Mutate a fresh Set so Lit detects the reference change (a Set mutation
+    // in place would not trigger re-render since @state compares references).
+    const next = new Set(this._effectivenessVisible);
+    if (next.has(metricKey)) next.delete(metricKey);
+    else next.add(metricKey);
+    this._effectivenessVisible = next;
   }
   public handleTrackingChange(metric: MetricEntity, rawValue: string): void { this._handleTrackingChange(metric, rawValue); }
   public onKeyActivate(e: KeyboardEvent, handler: () => void): void { this._onKeyActivate(e, handler); }
@@ -865,6 +904,65 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
   }
 
+  // Effectiveness history fetch — batched single call for ALL effectiveness
+  // entities of the device (comma-separated filter_entity_id), split per
+  // entity on the client. Effectiveness entities are daily-locked number
+  // entities (state changes only when the user logs a value), so the recorder
+  // is the source of multi-day history. unknown/unavailable states are
+  // dropped so the graph renders gaps on unlogged days instead of zeros.
+  // Mirrors _fetchAmountHistory's race-guard token + minimal_response +
+  // significant_changes_only optimizations, but covers N entities per call.
+  private async _fetchEffectivenessHistory(entities: ResolvedEntities) {
+    if (!this.hass || !entities.metrics.length) return;
+
+    const entityIds = entities.metrics.map((m) => m.entityId).join(',');
+    const now = new Date();
+    const days = this._activeEffectivenessTimeframe === '30d' ? 30
+      : this._activeEffectivenessTimeframe === '60d' ? 60 : 14;
+    const startTime = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+    const endTime = now.toISOString();
+
+    const token = ++this._effectivenessFetchToken;
+
+    try {
+      const data = await this.hass.callApi(
+        'GET',
+        `history/period/${startTime}?filter_entity_id=${entityIds}&end_time=${endTime}&minimal_response&significant_changes_only=1`,
+      );
+
+      if (token !== this._effectivenessFetchToken) return;
+
+      // data is an array of arrays, one per requested entity (order matches
+      // filter_entity_id order). Map each entity's history to its metricKey.
+      const result: Record<string, Array<{ timestamp: string; value: number }>> = {};
+      if (Array.isArray(data)) {
+        entities.metrics.forEach((metric, idx) => {
+          const series = data[idx];
+          if (!Array.isArray(series)) return;
+          result[metric.metricKey] = series
+            .filter((entry: any) => entry.state && !isNaN(parseFloat(entry.state)))
+            .map((entry: any) => ({
+              timestamp: entry.last_changed,
+              value: parseFloat(entry.state),
+            }));
+        });
+      }
+      this._effectivenessHistory = result;
+
+      // Initialize the visible set to all metrics on first fetch (or when the
+      // metric set changed since last fetch, e.g. a custom metric was added
+      // in the options flow). We compare against the existing visible set so
+      // a user's per-tracker toggles survive timeframe changes.
+      const allKeys = entities.metrics.map((m) => m.metricKey);
+      const knownKeys = allKeys.filter((k) => this._effectivenessVisible.has(k));
+      if (knownKeys.length !== allKeys.length || knownKeys.length === 0) {
+        this._effectivenessVisible = new Set(allKeys);
+      }
+    } catch (e) {
+      console.warn('[ax-dose-logger-card] effectiveness history fetch failed:', e);
+    }
+  }
+
   // Shared progressive-reveal resolver for avg/adherence boxes and stats rows.
   // Days since first dose drives which windows are shown. When the entity is
   // absent (older backend), hasDaysSensor=false and daysSince=-1 so callers
@@ -1069,7 +1167,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
             <ha-icon icon="mdi:cog" style="--mdc-icon-size: 48px; opacity: 0.5; margin-bottom: 12px;"></ha-icon>
             <div style="font-size: 16px; font-weight: 500; color: var(--primary-text-color);">${localize(this._lang, 'card.placeholder_title')}</div>
-            <div style="font-size: 13px; color: var(--secondary-text-color);">${localize(this._lang, 'card.placeholder_subtitle')}</div>
+            <div style="font-size: 14px; color: var(--secondary-text-color);">${localize(this._lang, 'card.placeholder_subtitle')}</div>
           </div>
         </ha-card>
       `;
@@ -1098,7 +1196,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
         <div class="card-content">
           ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-daily-panel>` : nothing}
-          ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe}></ax-dose-graphs-panel>` : nothing}
+          ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : nothing}
           ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-stats-panel>` : nothing}
           ${this._activePane === 'caffeine' ? html`<ax-dose-caffeine-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-caffeine-panel>` : nothing}
           ${this._activePane === 'tools' ? html`<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : nothing}
@@ -1137,6 +1235,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     const configuredTf = this.config?.amount_in_body_default_timeframe;
     this._activeTimeframe = (configuredTf && validTimeframes.includes(configuredTf)) ? configuredTf : '48h';
     this._activeBarTimeframe = '14d';
+    this._activeEffectivenessTimeframe = '14d';
+    this._activeEffectivenessView = 'avg';
+    this._effectivenessHistory = {};
+    this._effectivenessVisible = new Set();
 
     // Clear any dialog that was open when the card was disconnected. Lit
     // pauses reactive updates while an element is detached, so a dialog
@@ -1166,6 +1268,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // _fetchDoseHistory result discard itself after its `await` resolves.
     this._amountFetchToken++;
     this._doseFetchToken++;
+    this._effectivenessFetchToken++;
   }
 
   private _startTickTimer(): void {
@@ -1206,6 +1309,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       '_activeBarTimeframe',
       '_amountHistory',
       '_doseHistory',
+      '_activeEffectivenessTimeframe',
+      '_activeEffectivenessView',
+      '_effectivenessHistory',
+      '_effectivenessVisible',
       '_showDeviceInfo',
       '_showRefillDialog',
       '_refillAmount',
@@ -1268,9 +1375,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       if (changedProperties.has('_activePane')) {
         this._fetchAmountHistory(entities);
         this._fetchDoseHistory(entities);
+        if (entities.metrics.length) {
+          this._effectivenessHistory = {};
+          this._fetchEffectivenessHistory(entities);
+        }
       } else if (changedProperties.has('_activeTimeframe')) {
         this._amountHistory = [];
         this._fetchAmountHistory(entities);
+      } else if (changedProperties.has('_activeEffectivenessTimeframe')) {
+        if (entities.metrics.length) {
+          this._effectivenessHistory = {};
+          this._fetchEffectivenessHistory(entities);
+        }
       }
     }
     // Clean up _pendingTracking: once HA confirms logged_today=true for an
@@ -1369,7 +1485,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       border: none;
       background: none;
       color: var(--secondary-text-color, #666);
-      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
       transition: color 0.2s, background 0.2s, box-shadow 0.2s;
@@ -1379,7 +1495,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     .pane-btn.tools {
       flex: 0 0 auto;
       min-width: 44px;
-      padding: 10px;
+      padding: 12px;
     }
 
     .pane-btn:hover {
@@ -1414,7 +1530,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
        Pre-2026.3 used the .heading property / slot="heading"; HA 2026.3
        renamed the slot to "header". Using the slot element works on both. */
     .dialog-header {
-      font-size: 1.25rem;
+      font-size: 1.5rem;
       font-weight: 500;
       color: var(--primary-text-color, #222);
       text-align: center;
@@ -1429,7 +1545,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
 
     .dialog-header--warning ha-icon {
-      --mdc-icon-size: 24px;
+      --mdc-icon-size: 28px;
     }
 
     .dialog-btn {
@@ -1437,12 +1553,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 20px;
+      padding: 14px 24px;
       border: none;
       border-radius: var(--ha-card-border-radius, 12px);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 500;
       font-family: inherit;
       cursor: pointer;
@@ -1454,7 +1570,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
 
     .dialog-btn ha-icon {
-      --mdc-icon-size: 20px;
+      --mdc-icon-size: 24px;
     }
 
     /* ── Refill Dialog ──────────────────────── */
@@ -1464,7 +1580,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       padding: 12px 14px;
       border: 1px solid var(--divider-color, rgba(0,0,0,0.1));
       border-radius: var(--ha-card-border-radius, 12px);
-      font-size: 16px;
+      font-size: 18px;
       font-family: inherit;
       background: var(--card-background-color, var(--primary-background-color));
       color: var(--primary-text-color);
@@ -1486,7 +1602,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
 
     .tools-dialog-descriptor {
-      font-size: calc(14px + var(--pill-text-offset, 0px));
+      font-size: calc(18px + var(--pill-text-offset, 0px));
       color: var(--primary-text-color, #222);
       line-height: 1.5;
       text-align: center;

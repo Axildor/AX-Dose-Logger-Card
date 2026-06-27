@@ -10,7 +10,7 @@
 
 import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { CardController, ResolvedEntities, DayBucket, AxDoseLoggerHass } from '../types.js';
+import type { CardController, ResolvedEntities, DayBucket, AxDoseLoggerHass, MetricEntity } from '../types.js';
 import { localize } from '../localize.js';
 import { bridgeGaps } from '../helpers.js';
 
@@ -37,6 +37,24 @@ export class AxDoseGraphsPanel extends LitElement {
   @property({ type: Number }) activeGraph: number = 0;
   @property({ attribute: false }) activeTimeframe: string = '48h';
   @property({ attribute: false }) activeBarTimeframe: string = '14d';
+  // Effectiveness-graph state (mirrored from the container as reactive props,
+  // same rationale as amountHistory/doseHistory above). The effectiveness
+  // slide is gated on entities.metrics.length > 0; these props are read only
+  // when that slide is active.
+  @property({ attribute: false }) activeEffectivenessTimeframe: string = '14d';
+  @property({ attribute: false }) activeEffectivenessView: 'avg' | 'individual' = 'avg';
+  @property({ attribute: false }) effectivenessHistory: Record<string, Array<{ timestamp: string; value: number }>> = {};
+  @property({ attribute: false }) effectivenessVisible: Set<string> = new Set();
+
+  // Stable per-metric color palette. Indexed by sorted metricKey position so a
+  // metric keeps the same color across re-renders and visibility toggles. The
+  // first 8 metrics get distinct hues; extras cycle. Colors are hex (not HA
+  // CSS vars) because there is no multi-hue HA token set — the existing line
+  // graph used only --primary-color for its single series.
+  private static readonly METRIC_COLORS = [
+    '#03a9f4', '#4caf50', '#ff9800', '#e91e63',
+    '#9c27b0', '#00bcd4', '#ffc107', '#795548',
+  ];
 
   private get _lang(): string {
     return this.controller.lang;
@@ -74,15 +92,25 @@ export class AxDoseGraphsPanel extends LitElement {
       c.getState(e.amountInBody) !== 'unknown' &&
       c.getState(e.amountInBody) !== 'unavailable';
 
-    // Determine available slides
-    const slides: Array<'bar' | 'line'> = ['bar'];
+    // Determine available slides. The effectiveness slide auto-appears when the
+    // device has any effectiveness number entities (standard or custom).
+    const slides: Array<'bar' | 'line' | 'effectiveness'> = ['bar'];
     if (hasAmountInBody && (this._config?.show_amount_in_body !== false)) {
       slides.push('line');
+    }
+    if (e.metrics.length > 0) {
+      slides.push('effectiveness');
     }
 
     // Clamp active graph index
     const activeIdx = Math.min(this.activeGraph, slides.length - 1);
     const activeSlide = slides[activeIdx];
+
+    const slideTitle = activeSlide === 'bar'
+      ? localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() })
+      : activeSlide === 'line'
+        ? localize(this._lang, 'graphs.line_title')
+        : localize(this._lang, 'graphs.effectiveness_title');
 
     return html`
       <div class="pane pane-graphs">
@@ -96,9 +124,7 @@ export class AxDoseGraphsPanel extends LitElement {
             >
               <ha-icon icon="mdi:chevron-left"></ha-icon>
             </button>
-            <span class="nav-title">
-              ${activeSlide === 'bar' ? localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() }) : localize(this._lang, 'graphs.line_title')}
-            </span>
+            <span class="nav-title">${slideTitle}</span>
             <button
               class="nav-btn"
               aria-label=${localize(this._lang, 'graphs.aria_next')}
@@ -110,14 +136,16 @@ export class AxDoseGraphsPanel extends LitElement {
           </div>
         ` : html`
           <div class="carousel-nav">
-            <span class="nav-title">${localize(this._lang, 'graphs.bar_title', { days: this._getBarTimeframeDays() })}</span>
+            <span class="nav-title">${slideTitle}</span>
           </div>
         `}
 
         <div class="graph-container">
           ${activeSlide === 'bar'
             ? this._renderBarGraph(dailyBuckets)
-            : this._renderLineGraph(e)}
+            : activeSlide === 'line'
+              ? this._renderLineGraph(e)
+              : this._renderEffectivenessGraph(e)}
         </div>
 
         ${activeSlide === 'bar' ? this._renderAveragesGrid(e) : nothing}
@@ -149,7 +177,7 @@ export class AxDoseGraphsPanel extends LitElement {
     const h = 180;
     const padLeft = 32;
     const padRight = 8;
-    const padTop = 16;
+    const padTop = 28;
     const padBottom = 8;
     const chartW = w - padLeft - padRight;
     const chartH = h - padTop - padBottom;
@@ -174,7 +202,7 @@ export class AxDoseGraphsPanel extends LitElement {
               <line x1="${padLeft}" y1="${y}" x2="${w - padRight}" y2="${y}"
                     stroke="var(--divider-color)" stroke-width="0.5" opacity="0.5"/>
               <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
-                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                    style="font-size: calc(11px + var(--pill-text-offset, 0px))"
                     fill="var(--secondary-text-color)">${Math.round(maxCount * fraction)}</text>
             `;
           })}
@@ -245,10 +273,12 @@ export class AxDoseGraphsPanel extends LitElement {
     const rawHistory = this.amountHistory;
 
     const w = 320;
-    const h = 180;
+    // h bumped 180 -> 200 so chartH (h - padTop - padBottom) matches the bar
+    // graph's 144 (180-28-8), giving all three graphs an equally-tall Y axis.
+    const h = 200;
     const padLeft = 36;
     const padRight = 8;
-    const padTop = 16;
+    const padTop = 28;
     const padBottom = 28;
     const chartW = w - padLeft - padRight;
     const chartH = h - padTop - padBottom;
@@ -259,9 +289,9 @@ export class AxDoseGraphsPanel extends LitElement {
           <div class="timeframe-chips">
             ${this._renderTimeframeChips()}
           </div>
-          <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
+          <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w}/${h}">
             <text x="${w / 2}" y="${h / 2}" text-anchor="middle"
-                  style="font-size: calc(13px + var(--pill-text-offset, 0px))"
+                  style="font-size: calc(14px + var(--pill-text-offset, 0px))"
                   fill="var(--secondary-text-color)">${localize(this._lang, 'graphs.loading_history')}</text>
           </svg>
         </div>
@@ -357,7 +387,7 @@ export class AxDoseGraphsPanel extends LitElement {
         <div class="timeframe-chips">
           ${this._renderTimeframeChips()}
         </div>
-        <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
+        <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w}/${h}">
           <!-- Y-axis grid lines and labels -->
           ${[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
             const y = padTop + chartH * (1 - fraction);
@@ -365,7 +395,7 @@ export class AxDoseGraphsPanel extends LitElement {
               <line x1="${padLeft}" y1="${y}" x2="${w - padRight}" y2="${y}"
                     stroke="var(--divider-color)" stroke-width="0.5" opacity="0.5"/>
               <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
-                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                    style="font-size: calc(11px + var(--pill-text-offset, 0px))"
                     fill="var(--secondary-text-color)">${(maxAmount * fraction).toFixed(1)}</text>
             `;
           })}
@@ -379,7 +409,7 @@ export class AxDoseGraphsPanel extends LitElement {
           ${amountInBody && amountInBody !== 'unavailable' ? svg`
             <line x1="${padLeft}" y1="${currentY}" x2="${w - padRight}" y2="${currentY}"
                   stroke="var(--primary-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
-            <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(11px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
+            <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(12px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
               Current: ${amountInBody} ${c.getStrengthUnit(entities)}
             </text>
           ` : nothing}
@@ -399,10 +429,302 @@ export class AxDoseGraphsPanel extends LitElement {
             <line x1="${tl.x}" y1="${h - padBottom}" x2="${tl.x}" y2="${h - padBottom + 4}"
                   stroke="var(--divider-color)" stroke-width="1"/>
             <text x="${tl.x}" y="${h - 6}" text-anchor="middle"
-                  style="font-size: calc(9px + var(--pill-text-offset, 0px))"
+                  style="font-size: calc(11px + var(--pill-text-offset, 0px))"
                   fill="var(--secondary-text-color)">${tl.label}</text>
           `)}
         </svg>
+      </div>
+    `;
+  }
+
+  // ── Effectiveness graph ─────────────────────
+  // Daily-locked effectiveness metrics → one point per metric per day. The HA
+  // recorder is the source of multi-day history (the integration's own store
+  // only keeps today's value). Unlogged days were filtered out by the fetch,
+  // so the polyline naturally gaps on those days (svg M move, no L line). The
+  // 0–10 scale is fixed (backend PillEffectivenessSlider), so the Y-axis is
+  // always 0–10.
+
+  private _getEffectivenessTimeframeDays(): number {
+    switch (this.activeEffectivenessTimeframe) {
+      case '30d': return 30;
+      case '60d': return 60;
+      default: return 14;
+    }
+  }
+
+  private _renderEffectivenessTimeframeChips() {
+    const c = this.controller;
+    const timeframes: Array<{ id: string; labelKey: string; ariaKey: string }> = [
+      { id: '14d', labelKey: 'graphs.timeframe_14d', ariaKey: 'aria.timeframe_14d' },
+      { id: '30d', labelKey: 'graphs.timeframe_30d', ariaKey: 'aria.timeframe_30d' },
+      { id: '60d', labelKey: 'graphs.timeframe_60d', ariaKey: 'aria.timeframe_60d' },
+    ];
+    return timeframes.map((tf) => html`
+      <button
+        class="timeframe-chip ${this.activeEffectivenessTimeframe === tf.id ? 'active' : ''}"
+        aria-label=${localize(this._lang, tf.ariaKey)}
+        @click=${() => c.handleEffectivenessTimeframeChange(tf.id)}
+      >${localize(this._lang, tf.labelKey)}</button>
+    `);
+  }
+
+  // Stable color for a metricKey. Index is the metric's position in the sorted
+  // list of all metric keys, so toggling visibility doesn't reassign colors.
+  private _metricColor(metricKey: string, allKeys: string[]): string {
+    const idx = allKeys.indexOf(metricKey);
+    const colors = AxDoseGraphsPanel.METRIC_COLORS;
+    return colors[(idx < 0 ? 0 : idx) % colors.length];
+  }
+
+  // Resample a metric's raw history into one value per day. Effectiveness is
+  // daily-locked so there's at most a few points per day; we take the last
+  // known value of each calendar day. Days with no points stay absent → gaps.
+  private _bucketByDay(
+    series: Array<{ timestamp: string; value: number }>,
+    days: number,
+  ): Map<string, number> {
+    const buckets = new Map<string, number>();
+    if (!series.length) return buckets;
+    const now = new Date();
+    for (let d = 0; d < days; d++) {
+      const day = new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
+      const key = day.toISOString().slice(0, 10);
+      let dayValue: number | null = null;
+      for (const p of series) {
+        const pd = new Date(p.timestamp);
+        if (pd.toISOString().slice(0, 10) === key) {
+          dayValue = p.value; // later points overwrite → last wins
+        }
+      }
+      if (dayValue !== null) buckets.set(key, dayValue);
+    }
+    return buckets;
+  }
+
+  private _renderEffectivenessGraph(entities: ResolvedEntities) {
+    const c = this.controller;
+    const metrics = entities.metrics;
+    const days = this._getEffectivenessTimeframeDays();
+
+    const allKeys = metrics.map((m) => m.metricKey).sort();
+    const visibleMetrics = metrics.filter((m) => this.effectivenessVisible.has(m.metricKey));
+
+    const dayMaps = new Map<string, Map<string, number>>();
+    let hasAnyData = false;
+    for (const m of metrics) {
+      const series = this.effectivenessHistory[m.metricKey] || [];
+      const dm = this._bucketByDay(series, days);
+      dayMaps.set(m.metricKey, dm);
+      if (dm.size > 0) hasAnyData = true;
+    }
+
+    const now = new Date();
+    const dayLabels: Array<{ key: string; label: string }> = [];
+    let labelStep: number;
+    if (days <= 14) labelStep = 1;
+    else if (days <= 30) labelStep = 2;
+    else labelStep = 5;
+    for (let d = days - 1; d >= 0; d -= 1) {
+      const day = new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
+      const key = day.toISOString().slice(0, 10);
+      // Day-of-month only (no month) so the font can be bigger and the date
+      // numbers stay uniform with the Day tracker bar graph.
+      const label = d % labelStep === 0
+        ? `${day.getDate()}`
+        : '';
+      dayLabels.push({ key, label });
+    }
+
+    const w = 320;
+    // h bumped 180 -> 196 so chartH (h - padTop - padBottom = 196-28-24 = 144)
+    // matches the bar graph's 144, giving all three graphs an equally-tall
+    // Y axis.
+    const h = 196;
+    const padLeft = 28;
+    const padRight = 8;
+    // padTop matches the bar/line graphs (28) so the absolutely-positioned
+    // timeframe chips (top: 4px) don't overlap the chart area.
+    const padTop = 28;
+    // padBottom makes room for the in-SVG date tick marks + labels (like the
+    // Amount-in-Body line graph), not a separate .bar-labels div.
+    const padBottom = 24;
+    const chartW = w - padLeft - padRight;
+    const chartH = h - padTop - padBottom;
+    const maxVal = 10;
+
+    const avgSeries: Array<{ key: string; value: number } | null> = [];
+    for (const { key } of dayLabels) {
+      const vals: number[] = [];
+      for (const m of visibleMetrics) {
+        const dm = dayMaps.get(m.metricKey);
+        const v = dm?.get(key);
+        if (typeof v === 'number') vals.push(v);
+      }
+      avgSeries.push(vals.length ? { key, value: vals.reduce((a, b) => a + b, 0) / vals.length } : null);
+    }
+
+    const buildSegments = (points: Array<{ x: number; y: number } | null>): string[] => {
+      const segments: string[] = [];
+      let current: string[] = [];
+      for (const p of points) {
+        if (p === null) {
+          if (current.length) { segments.push(current.join(' ')); current = []; }
+        } else {
+          current.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+        }
+      }
+      if (current.length) segments.push(current.join(' '));
+      return segments;
+    };
+
+    const mapToPoints = (dm: Map<string, number>): Array<{ x: number; y: number } | null> => {
+      return dayLabels.map((dl, i) => {
+        const v = dm.get(dl.key);
+        if (typeof v !== 'number') return null;
+        const x = padLeft + (i / Math.max(dayLabels.length - 1, 1)) * chartW;
+        const y = padTop + chartH * (1 - v / maxVal);
+        return { x, y };
+      });
+    };
+
+    const showViewToggle = metrics.length > 1;
+    const showTrackerRow = metrics.length > 1;
+
+    if (!hasAnyData) {
+      return html`
+        <div class="bar-graph-wrapper">
+          <div class="timeframe-chips">
+            ${this._renderEffectivenessTimeframeChips()}
+          </div>
+          <div class="graph-placeholder">
+            <ha-icon icon="mdi:clipboard-list"></ha-icon>
+            <span>${localize(this._lang, 'graphs.empty_effectiveness')}</span>
+          </div>
+          ${this._renderEffectivenessBottomBar(metrics, allKeys, showViewToggle, showTrackerRow)}
+        </div>
+      `;
+    }
+
+    const chartBody = this.activeEffectivenessView === 'avg'
+      ? (() => {
+          const pts = avgSeries.map((a, i) => a
+            ? { x: padLeft + (i / Math.max(dayLabels.length - 1, 1)) * chartW, y: padTop + chartH * (1 - a.value / maxVal) }
+            : null);
+          const segs = buildSegments(pts);
+          return html`
+            ${segs.map((s) => svg`<polyline points="${s}" fill="none" stroke="var(--primary-color)" stroke-width="1.8" stroke-linejoin="round" opacity="0.9"/>`)}
+            ${pts.map((p, i) => p ? svg`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.2" fill="var(--primary-color)"><title>${dayLabels[i].key} : ${avgSeries[i]!.value.toFixed(1)} (avg)</title></circle>` : nothing)}
+          `;
+        })()
+      : html`
+          ${visibleMetrics.map((m) => {
+            const color = this._metricColor(m.metricKey, allKeys);
+            const dm = dayMaps.get(m.metricKey)!;
+            const pts = mapToPoints(dm);
+            const segs = buildSegments(pts);
+            return html`
+              ${segs.map((s) => svg`<polyline points="${s}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" opacity="0.85"/>`)}
+              ${pts.map((p, i) => p ? svg`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2" fill="${color}"><title>${m.label} — ${dayLabels[i].key} : ${dm.get(dayLabels[i].key)}</title></circle>` : nothing)}
+            `;
+          })}
+        `;
+
+    return html`
+      <div class="bar-graph-wrapper effectiveness-wrapper">
+        <div class="timeframe-chips">
+          ${this._renderEffectivenessTimeframeChips()}
+        </div>
+        <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w}/${h}">
+          ${Array.from({ length: maxVal + 1 }, (_, v) => v).map((v) => {
+            const y = padTop + chartH * (1 - v / maxVal);
+            // Lighter gridline for interior values; the 0 and max lines are
+            // drawn by the explicit baseline below + the top edge, so only
+            // label every integer and use a faint line for the in-between
+            // values so the chart isn't visually crowded.
+            return svg`
+              <line x1="${padLeft}" y1="${y}" x2="${w - padRight}" y2="${y}"
+                    stroke="var(--divider-color)" stroke-width="0.5" opacity="${v === 0 ? 0 : 0.35}"/>
+              <text x="${padLeft - 4}" y="${y + 3}" text-anchor="end"
+                    style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                    fill="var(--secondary-text-color)">${v}</text>
+            `;
+          })}
+          ${chartBody}
+          <line x1="${padLeft}" y1="${h - padBottom}" x2="${w - padRight}" y2="${h - padBottom}"
+                stroke="var(--divider-color)" stroke-width="1"/>
+          ${dayLabels.map((dl, i) => {
+            const x = padLeft + (i / Math.max(dayLabels.length - 1, 1)) * chartW;
+            const baseline = h - padBottom;
+            return svg`
+              ${dl.label ? svg`
+                <line x1="${x}" y1="${baseline}" x2="${x}" y2="${baseline + 4}"
+                      stroke="var(--divider-color)" stroke-width="1"/>
+                <text x="${x}" y="${baseline + 15}" text-anchor="middle"
+                      style="font-size: calc(10px + var(--pill-text-offset, 0px))"
+                      fill="var(--secondary-text-color)">${dl.label}</text>
+              ` : svg`
+                <line x1="${x}" y1="${baseline}" x2="${x}" y2="${baseline + 3}"
+                      stroke="var(--divider-color)" stroke-width="0.5" opacity="0.6"/>
+              `}
+            `;
+          })}
+        </svg>
+        ${this._renderEffectivenessBottomBar(metrics, allKeys, showViewToggle, showTrackerRow)}
+      </div>
+    `;
+  }
+
+  // Bottom control bar: the Avg/Individual view toggle and the per-tracker
+  // chips sit on ONE line, separated by a thin vertical divider. This keeps
+  // the graph's control surface compact and avoids a two-row stack. When
+  // there's only one metric (no view toggle, no tracker row), nothing renders.
+  private _renderEffectivenessBottomBar(
+    metrics: MetricEntity[],
+    allKeys: string[],
+    showViewToggle: boolean,
+    showTrackerRow: boolean,
+  ) {
+    if (!showViewToggle && !showTrackerRow) return nothing;
+    const c = this.controller;
+    const view = this.activeEffectivenessView;
+    const mkTab = (v: 'avg' | 'individual', labelKey: string, ariaKey: string) => html`
+      <button
+        class="eff-view-tab ${view === v ? 'active' : ''}"
+        role="tab"
+        aria-selected=${view === v}
+        aria-label=${localize(this._lang, ariaKey)}
+        @click=${() => c.setEffectivenessView(v)}
+      >${localize(this._lang, labelKey)}</button>
+    `;
+    return html`
+      <div class="eff-bottom-bar">
+        ${showViewToggle ? html`
+          <div class="eff-view-toggle" role="tablist">
+            ${mkTab('avg', 'graphs.effectiveness_avg', 'aria.effectiveness_avg')}
+            ${mkTab('individual', 'graphs.effectiveness_individual', 'aria.effectiveness_individual')}
+          </div>
+          <span class="eff-bottom-separator"></span>
+        ` : nothing}
+        ${showTrackerRow ? html`
+          <div class="eff-tracker-row">
+            ${metrics.map((m) => {
+              const color = this._metricColor(m.metricKey, allKeys);
+              const on = this.effectivenessVisible.has(m.metricKey);
+              return html`
+                <button
+                  class="eff-tracker-chip ${on ? 'on' : 'off'}"
+                  aria-pressed=${on}
+                  aria-label=${m.label}
+                  @click=${() => c.toggleEffectivenessMetric(m.metricKey)}
+                >
+                  <span class="eff-swatch" style="background:${color}"></span>
+                  <span class="eff-tracker-label">${m.label}</span>
+                </button>
+              `;
+            })}
+          </div>
+        ` : nothing}
       </div>
     `;
   }
@@ -467,8 +789,8 @@ export class AxDoseGraphsPanel extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 40px;
+      height: 40px;
       border: none;
       border-radius: 50%;
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
@@ -491,7 +813,7 @@ export class AxDoseGraphsPanel extends LitElement {
     }
 
     .nav-title {
-      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 500;
       color: var(--secondary-text-color, #666);
       min-width: 100px;
@@ -525,8 +847,8 @@ export class AxDoseGraphsPanel extends LitElement {
     }
 
     .timeframe-chip {
-      padding: 2px 6px;
-      font-size: 10px;
+      padding: 4px 10px;
+      font-size: 12px;
       font-weight: 500;
       border-radius: 4px;
       cursor: pointer;
@@ -566,7 +888,7 @@ export class AxDoseGraphsPanel extends LitElement {
     .bar-labels span {
       flex: 1;
       text-align: center;
-      font-size: calc(11px + var(--pill-text-offset, 0px));
+      font-size: calc(13px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       white-space: nowrap;
       line-height: 1.4;
@@ -607,7 +929,7 @@ export class AxDoseGraphsPanel extends LitElement {
     }
 
     .avg-label {
-      font-size: calc(11px + var(--pill-text-offset, 0px));
+      font-size: calc(12px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.3px;
@@ -615,9 +937,106 @@ export class AxDoseGraphsPanel extends LitElement {
     }
 
     .avg-value {
-      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-size: calc(16px + var(--pill-text-offset, 0px));
       font-weight: 600;
       color: var(--primary-text-color, #222);
+    }
+
+    /* ── Effectiveness graph ── */
+    .effectiveness-wrapper {
+      gap: 4px;
+    }
+
+    /* Bottom control bar: view toggle + separator + tracker chips on ONE
+       line. flex-wrap lets the tracker chips flow to a second line when there
+       are many custom metrics, but the view toggle and separator stay on the
+       first line with the first batch of chips. */
+    .eff-bottom-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 7px;
+      padding-top: 6px;
+    }
+
+    .eff-bottom-separator {
+      width: 1px;
+      align-self: stretch;
+      background: var(--divider-color, #e0e0e0);
+      opacity: 0.6;
+      min-height: 20px;
+    }
+
+    .eff-view-toggle {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .eff-view-tab {
+      padding: 5px 16px;
+      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-weight: 500;
+      border-radius: 999px;
+      cursor: pointer;
+      color: var(--secondary-text-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+      border: none;
+      font-family: inherit;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .eff-view-tab:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
+    }
+
+    .eff-view-tab.active {
+      color: var(--primary-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+      font-weight: 600;
+    }
+
+    .eff-tracker-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .eff-tracker-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: calc(12px + var(--pill-text-offset, 0px));
+      color: var(--primary-text-color);
+      transition: opacity 0.2s, background 0.2s;
+    }
+
+    .eff-tracker-chip:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.15);
+    }
+
+    .eff-tracker-chip.off {
+      opacity: 0.45;
+    }
+
+    .eff-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .eff-tracker-label {
+      white-space: nowrap;
     }
   `;
 }
