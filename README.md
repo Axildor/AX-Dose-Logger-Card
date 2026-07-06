@@ -41,7 +41,11 @@ This card requires the **AX Dose Logger** integration to be installed and config
 
 ## Features
 
-The card has four panes, selectable via tabs at the bottom:
+The card adapts its panes to the selected device type:
+
+- **Medicine devices** — four panes: Daily, Graphs, Stats, Tools (plus Tracking when effectiveness metrics exist).
+- **Master Tracker devices** (Caffeine Tracker / Alcohol Tracker) — five panes: Drinks, Graph, Inventory, Stats, Tools.
+- **Granular drink devices** (e.g. Coffee, Espresso) — a single redirect pane asking you to select the matching Caffeine/Alcohol Tracker device, since per-drink maintenance belongs on the granular device's own card.
 
 ### 📅 Daily
 - Take Pill button with next-dose countdown
@@ -65,6 +69,32 @@ The card has four panes, selectable via tabs at the bottom:
 - Mark last missed dose as taken
 - Reset dose history
 - Undo last dose
+
+## ☕ Drinks Card (Master Tracker Devices)
+
+Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicated Drinks card with five panes:
+
+### 🥤 Drinks
+- A centered substance title (Caffeine / Alcohol) at the top of the pane — same font size, weight, and placement as the Daily pane's medication name. Tapping it opens the device-info dialog, mirroring the Daily pane.
+- A two-column main row identical in layout to the Daily pane:
+  - **Left:** a tinted **Log Drink** button (matches the Daily Take Pill button style). Opens a popup listing every granular drink of that substance (e.g. Coffee, Espresso, Energy Drink for caffeine); pressing a drink logs it via that drink's Log Drink button (respects the per-drink cooldown sensor + card soft-disable).
+  - **Right:** two boxes with the same transparency and font sizes as the Daily pane's Safe to Take / Pills Left boxes — **In Body** (current body-mass rounded to a whole number + substance unit, mg / g) on top and **Disruption** (sleep-disruption band: None / Low / Moderate / High) on the bottom. Tapping either box opens its more-info dialog.
+- The Estimated Low Time readout moved to the Stats pane (it's no longer shown on the Drinks pane, to keep the two-box right column identical to the Daily pane).
+
+### 📊 Graph
+- 14-day bar graph of aggregated doses across every granular drink of the substance (how many and on which days).
+- Amount-in-body line graph of the master body-mass decay (mg caffeine / g alcohol) with the same timeframes as medicine (12H, 24H, 48H, 7D, 14D, 30D). The master tracker's body-mass sensor is labeled "Amount in Body" to align with medicine trackers.
+
+### 📦 Inventory
+- Two-column grid, one row per granular drink of the substance:
+  - **Left:** clickable refill box showing the drink's current stock. Tapping opens the refill dialog targeted at that drink's add-stock entity.
+  - **Right:** the drink's 7-day average plus a trailing average that runs as "N-Day Average" until 365 days elapse, then becomes "Yearly Average" (mirrors the medicine Stats reveal logic).
+
+### 📈 Stats
+- Amount in Last 24h (mg / g), Sleep Disruption, Estimated Low Time, plus the rolling averages (7, 14, 30, 365 days) and total doses aggregated across every granular drink of the substance.
+
+### 🔧 Tools
+- A per-granular-drink list of **Undo** and **Reset** buttons. Each opens a confirmation dialog before acting on that specific granular drink (the master tracker's aggregated history is preserved on a per-drink reset).
 
 ## Configuration Options (Not needed, for reference only)
 

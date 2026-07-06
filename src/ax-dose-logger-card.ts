@@ -20,7 +20,8 @@ import './components/tools-panel.js';
 import './components/tracking-panel.js';
 import './components/daily-panel.js';
 import './components/graphs-panel.js';
-import './components/caffeine-panel.js';
+import './components/drinks-panel.js';
+import './components/inventory-panel.js';
 import type {
   AxDoseLoggerCardConfig,
   AxDoseLoggerHass,
@@ -28,6 +29,7 @@ import type {
   ResolvedEntities,
   MetricEntity,
   DayBucket,
+  DrinkInfo,
 } from './types.js';
 
 // Re-export the types that downstream code (the editor module, panel components)
@@ -40,6 +42,7 @@ export type {
   ResolvedEntities,
   MetricEntity,
   DayBucket,
+  DrinkInfo,
 } from './types.js';
 
 // ──────────────────────────────────────────────
@@ -50,13 +53,28 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   @property({ attribute: false }) hass?: AxDoseLoggerHass;
   @property({ attribute: false }) config?: AxDoseLoggerCardConfig;
 
-  @state() private _activePane: 'daily' | 'graphs' | 'stats' | 'caffeine' | 'tools' | 'tracking' = 'daily';
+  @state() private _activePane: 'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking' = 'daily';
   @state() private _activeGraph: number = 0;
   @state() private _amountHistory: Array<{timestamp: string; value: number}> = [];
   @state() private _doseHistory: Array<[string, number]> = [];
   @state() private _showDeviceInfo: boolean = false;
   @state() private _showRefillDialog: boolean = false;
   @state() private _refillAmount: string = '';
+  // Refill dialog target. When undefined the dialog targets the medicine
+  // device's own addRefill entity (entities.addRefill); when set (Master
+  // Tracker Inventory panel) it targets a specific granular drink's
+  // add_stock number entity + shows that drink's name in the header.
+  @state() private _refillTarget: { addStockEntityId: string; drinkName: string } | null = null;
+  // Log Drink popup (Master Tracker Drinks panel). When open, shows a grid of
+  // granular drink buttons for the master's substance; pressing one calls
+  // button.press on that drink's DrinkLogButton and closes the dialog.
+  @state() private _showLogDrinkDialog: boolean = false;
+  @state() private _logDrinkSubstance: 'caffeine' | 'alcohol' | null = null;
+  // Sleep Disruption popup (Master Tracker Drinks panel). When open, renders
+  // a substance-aware markdown description of how the current body-mass load
+  // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
+  @state() private _showSleepDisruptionDialog: boolean = false;
+  @state() private _sleepDisruptionSubstance: 'caffeine' | 'alcohol' | null = null;
   @state() private _activeTimeframe: string = '48h';
   @state() private _activeBarTimeframe: string = '14d';
   // Effectiveness-graph state. Mirrors the bar/line graph pattern but keyed
@@ -248,6 +266,71 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       }
     }
 
+    // ── Master Tracker (Caffeine/Alcohol) + granular drink detection ──
+    // Master tracker entities use different suffixes (drink_master_*,
+    // sleep_disruption, estimated_low_time) than medicine entities, so the
+    // suffix loop above does not populate ResolvedEntities for them.  Detect
+    // them by state attributes (`drink_master: True` for masters,
+    // `device_type: "drink"` for granular drinks) and populate the master
+    // fields.  Granular drink devices set deviceType='drink' so render() can
+    // show the redirect placeholder.
+    let isMaster = false;
+    let isGranularDrink = false;
+    for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
+      if (entityInfo.device_id !== deviceId) continue;
+      const drinkMaster = this._getAttr(entityId, 'drink_master');
+      const dt = (this._getAttr(entityId, 'device_type') || '').toLowerCase();
+      if (drinkMaster === true) {
+        isMaster = true;
+        const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+        if (substance === 'caffeine' || substance === 'alcohol') result.substance = substance;
+        // Body-mass sensor: has pk_model attribute + no window_days.
+        if (this._getAttr(entityId, 'pk_model') && this._getAttr(entityId, 'window_days') === undefined) {
+          result.amountInBody = entityId;
+        }
+        // Avg sensors: have window_days attribute.
+        const wd = this._getAttr(entityId, 'window_days');
+        if (wd !== undefined && wd !== null) {
+          if (wd === 7) result.avg7Days = entityId;
+          else if (wd === 14) result.avg14Days = entityId;
+          else if (wd === 30) result.avg30Days = entityId;
+          else if (wd === 365) result.avgYearly = entityId;
+        }
+        // Master-specific sensors are classified by the backend `role` STATE
+        // ATTRIBUTE, NOT entity_id suffix. HA derives entity_id from
+        // slugify(translated_name), so the old suffix matches (e.g.
+        // `.sleep_disruption_caffeine`, `.drink_master_last_dose_caffeine`,
+        // `_daily_amount_`) never matched the name-derived entity_ids
+        // (sensor.caffeine_tracker_sleep_disruption, …_last_caffeine,
+        // …_amount_in_last_24h) → Disruption showed N/A, Last showed "Never",
+        // Amount-in-24h was undefined. State attributes survive renames and
+        // are present on hass.states (unlike unique_id, which the
+        // list_for_display websocket omits).
+        const masterRole = this._getAttr(entityId, 'role');
+        if (masterRole === 'daily_amount') result.amountLast24h = entityId;
+        else if (masterRole === 'sleep_disruption') result.sleepDisruption = entityId;
+        else if (masterRole === 'estimated_low_time') result.estimatedLowTime = entityId;
+        // Dedicated Master Tracker last-dose TIMESTAMP sensor — its state IS
+        // the last-dose timestamp (single source of truth), so the Daily
+        // panel's computeTimeSinceLastDose helper works unchanged for masters.
+        else if (masterRole === 'last_dose') result.lastDose = entityId;
+        // totalDoses maps to the body-mass sensor, which still carries the
+        // dose_count attribute for the Stats panel's total-doses row.
+        if (this._getAttr(entityId, 'dose_count') !== undefined && this._getAttr(entityId, 'pk_model')) {
+          result.totalDoses = entityId;
+        }
+      } else if (dt === 'drink') {
+        isGranularDrink = true;
+        const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+        if (substance === 'caffeine' || substance === 'alcohol') result.substance = substance;
+      }
+    }
+    if (isMaster) {
+      result.deviceType = 'drink_master';
+    } else if (isGranularDrink) {
+      result.deviceType = 'drink';
+    }
+
     return result;
   }
 
@@ -277,8 +360,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   }
 
   private _getStrengthUnit(entities: ResolvedEntities): string {
+    // Medicine devices expose a `strength` sensor with a `strength_unit` attr.
+    // Master Trackers have no strength sensor; read the native unit off the
+    // body-mass (amountInBody) sensor instead so alcohol masters show "g" and
+    // caffeine masters show "mg" in the Graph + Stats panels.
     const unit = this._getAttr(entities.strength, 'strength_unit');
-    return (typeof unit === 'string' && unit) ? unit : 'mg';
+    if (typeof unit === 'string' && unit) return unit;
+    const bodyUnit = this._getAttr(entities.amountInBody, 'unit_of_measurement');
+    return (typeof bodyUnit === 'string' && bodyUnit) ? bodyUnit : 'mg';
   }
 
   private _formatInteger(value: string): string {
@@ -519,15 +608,108 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   }
 
   private _handleRefill(entities: ResolvedEntities) {
-    if (!this.hass || !entities.addRefill) return;
+    if (!this.hass) return;
+    // Target is the Master Tracker Inventory override when set, otherwise the
+    // medicine device's own addRefill entity.
+    const targetEntityId = this._refillTarget?.addStockEntityId ?? entities.addRefill;
+    if (!targetEntityId) return;
     const value = parseFloat(this._refillAmount);
     if (isNaN(value) || value <= 0) return;
     this.hass.callService('number', 'set_value', {
-      entity_id: entities.addRefill,
+      entity_id: targetEntityId,
       value: value,
     });
     this._showRefillDialog = false;
     this._refillAmount = '';
+    this._refillTarget = null;
+  }
+
+  // ── Master Tracker Drinks actions ──────────
+  // Enumerate every granular drink device of a substance for the Log Drink
+  // popup, Inventory panel, and Tools panel.  Groups hass.entities by
+  // device_id after filtering on platform + device_type='drink' state attr +
+  // matching substance, then resolves each device's log/undo/reset buttons,
+  // stock + add_stock numbers, and 7/365-day avg sensors.
+  //
+  // Classification uses the backend `role` STATE ATTRIBUTE (set in
+  // _attr_extra_state_attributes on each granular entity), NOT the entity_id
+  // suffix. HA derives entity_id from slugify(translated_name)
+  // (async_generate_entity_id + util.slugify), and every drink entity sets
+  // _attr_has_entity_name = True, so the entity_id is the slugified *name*
+  // (e.g. DrinkStockNumber → number.coffee_inventory), NOT the unique_id stem
+  // (_drink_stock) — an entity_id-suffix match silently misses every entity
+  // except DrinkLogButton (whose "Log Drink" name coincidentally slugifies to
+  // log_drink). unique_id is NOT present on hass.entities either (HA's
+  // list_for_display websocket omits it — see _as_display_dict), so matching
+  // unique_id stems also fails. State attributes ARE present on
+  // hass.states[entityId].attributes, integration-controlled, and survive
+  // renames — the same approach already proven by device_type/substance/
+  // pk_model. Avg sensors also carry window_days to distinguish 7/365.
+  private _getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[] {
+    if (!this.hass) return [];
+    const byDevice: Record<string, DrinkInfo> = {};
+    for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
+      if (entityInfo.platform !== 'ax_dose_logger') continue;
+      const deviceId = entityInfo.device_id;
+      if (!deviceId) continue;
+      const dt = (this._getAttr(entityId, 'device_type') || '').toLowerCase();
+      if (dt !== 'drink') continue;
+      const sub = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+      if (sub !== substance) continue;
+      const info = byDevice[deviceId] ?? {
+        deviceId,
+        name: this.hass.devices?.[deviceId]?.name || entityInfo.name || entityId,
+        substance,
+      };
+      // Classify by the backend `role` state attribute (+ window_days for avg
+      // sensors). Store entity_id for state lookups / service calls.
+      const role = this._getAttr(entityId, 'role');
+      if (entityId.startsWith('button.')) {
+        if (role === 'log') info.logButtonEntityId = entityId;
+        else if (role === 'undo') info.undoButtonEntityId = entityId;
+        else if (role === 'reset') info.resetButtonEntityId = entityId;
+      } else if (entityId.startsWith('number.')) {
+        if (role === 'stock') info.stockEntityId = entityId;
+        else if (role === 'add_stock') info.addStockEntityId = entityId;
+      } else if (entityId.startsWith('sensor.')) {
+        if (role === 'avg') {
+          const wd = this._getAttr(entityId, 'window_days');
+          if (wd === 7) info.avg7EntityId = entityId;
+          else if (wd === 365) info.avg365EntityId = entityId;
+        }
+      }
+      byDevice[deviceId] = info;
+    }
+    return Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  // Days-since reveal for a granular drink, reading the history_start_date
+  // attribute on its 365-day avg sensor (DrinkAvgDosesSensor exposes it).
+  private _drinkDaysSinceReveal(avg365EntityId?: string): { hasDaysSensor: boolean; daysSince: number } {
+    if (!avg365EntityId) return { hasDaysSensor: false, daysSince: 0 };
+    const startIso = this._getAttr(avg365EntityId, 'history_start_date');
+    if (!startIso) return { hasDaysSensor: false, daysSince: 0 };
+    const start = new Date(startIso);
+    if (isNaN(start.getTime())) return { hasDaysSensor: false, daysSince: 0 };
+    const days = Math.floor((Date.now() - start.getTime()) / 86400000);
+    return { hasDaysSensor: true, daysSince: Math.max(0, days) };
+  }
+
+  private _logDrink(logButtonEntityId: string): void {
+    if (!this.hass || !logButtonEntityId) return;
+    this.hass.callService('button', 'press', { entity_id: logButtonEntityId });
+    this._showLogDrinkDialog = false;
+    this._logDrinkSubstance = null;
+  }
+
+  private _undoDrink(undoButtonEntityId: string): void {
+    if (!this.hass || !undoButtonEntityId) return;
+    this.hass.callService('button', 'press', { entity_id: undoButtonEntityId });
+  }
+
+  private _resetDrink(resetButtonEntityId: string): void {
+    if (!this.hass || !resetButtonEntityId) return;
+    this.hass.callService('button', 'press', { entity_id: resetButtonEntityId });
   }
 
   // ── Tools Actions ──────────────────────────
@@ -595,9 +777,23 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public showRefillDialog(): void {
     this._showRefillDialog = true;
     this._refillAmount = '';
+    this._refillTarget = null;
+  }
+  public showRefillDialogFor(addStockEntityId: string, drinkName: string): void {
+    this._refillTarget = { addStockEntityId, drinkName };
+    this._showRefillDialog = true;
+    this._refillAmount = '';
   }
   public showDeviceInfo(): void {
     this._showDeviceInfo = true;
+  }
+  public showLogDrinkDialog(substance: 'caffeine' | 'alcohol'): void {
+    this._logDrinkSubstance = substance;
+    this._showLogDrinkDialog = true;
+  }
+  public showSleepDisruptionDialog(substance: 'caffeine' | 'alcohol'): void {
+    this._sleepDisruptionSubstance = substance;
+    this._showSleepDisruptionDialog = true;
   }
   public setActiveGraph(idx: number): void {
     this._activeGraph = idx;
@@ -632,6 +828,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public computeTimeSinceLastDose(entities: ResolvedEntities): string { return this._computeTimeSinceLastDose(entities); }
   public bucketByDay(dayCount?: number): DayBucket[] { return this._bucketByDay(dayCount); }
   public daysSinceReveal(entities: ResolvedEntities): { hasDaysSensor: boolean; daysSince: number } { return this._daysSinceReveal(entities); }
+  public getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[] { return this._getDrinksOfSubstance(substance); }
+  public drinkDaysSinceReveal(avg365EntityId?: string): { hasDaysSensor: boolean; daysSince: number } { return this._drinkDaysSinceReveal(avg365EntityId); }
+  public logDrink(logButtonEntityId: string): void { this._logDrink(logButtonEntityId); }
+  public undoDrink(undoButtonEntityId: string): void { this._undoDrink(undoButtonEntityId); }
+  public resetDrink(resetButtonEntityId: string): void { this._resetDrink(resetButtonEntityId); }
   public handleTakePill(entities: ResolvedEntities): void { this._handleTakePill(entities); }
   public handleUndoDose(entities: ResolvedEntities): void { this._handleUndoDose(entities); }
   public handleRefill(entities: ResolvedEntities): void { this._handleRefill(entities); }
@@ -671,7 +872,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   // ── Pane Switching ─────────────────────────
 
-  private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'caffeine' | 'tools' | 'tracking'): void {
+  private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking'): void {
     if (paneId === this._activePane) return; // Guard: skip redundant execution
     this._activePane = paneId;
     // Tell HA's layout engine to re-measure the card height. card-resize is
@@ -711,13 +912,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   }
 
   private _renderRefillDialog(entities: ResolvedEntities) {
+    // Header shows the drink name when refilling a granular drink from the
+    // Master Tracker Inventory panel; otherwise the generic refill title.
+    const header = this._refillTarget
+      ? localize(this._lang, 'dialog.refill.title_drink', { name: this._refillTarget.drinkName })
+      : localize(this._lang, 'dialog.refill.title');
+    const close = () => { this._showRefillDialog = false; this._refillAmount = ''; this._refillTarget = null; };
     return html`
       <ha-dialog
         open
         width="small"
-        @closed=${() => { this._showRefillDialog = false; this._refillAmount = ''; }}
+        @closed=${close}
       >
-        <div slot="header" class="dialog-header">${localize(this._lang, 'dialog.refill.title')}</div>
+        <div slot="header" class="dialog-header">${header}</div>
         <div class="dialog-body">
           <input
             type="number"
@@ -730,13 +937,51 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           />
         </div>
         <div class="custom-action-bar">
-          <button class="dialog-btn dialog-btn--muted"
-                  @click=${() => { this._showRefillDialog = false; this._refillAmount = ''; }}>
+          <button class="dialog-btn dialog-btn--muted" @click=${close}>
             ${localize(this._lang, 'dialog.cancel')}
           </button>
-          <button class="dialog-btn"
-                  @click=${() => this._handleRefill(entities)}>
+          <button class="dialog-btn" @click=${() => this._handleRefill(entities)}>
             ${localize(this._lang, 'dialog.refill.confirm')}
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+  }
+
+  // Log Drink popup (Master Tracker Drinks panel). Shows a grid of granular
+  // drink buttons for the master's substance; pressing one calls button.press
+  // on that drink's DrinkLogButton and closes the dialog.
+  private _renderLogDrinkDialog() {
+    const substance = this._logDrinkSubstance;
+    if (!substance) return nothing;
+    const drinks = this._getDrinksOfSubstance(substance);
+    const close = () => { this._showLogDrinkDialog = false; this._logDrinkSubstance = null; };
+    return html`
+      <ha-dialog
+        open
+        width="small"
+        @closed=${close}
+      >
+        <div slot="header" class="dialog-header">${localize(this._lang, 'dialog.log_drink.title')}</div>
+        <div class="dialog-body">
+          ${drinks.length === 0
+            ? html`<div class="tools-dialog-descriptor">${localize(this._lang, 'dialog.log_drink.empty')}</div>`
+            : html`<div class="log-drink-grid">
+                ${drinks.map((d) => html`
+                  <button
+                    class="dialog-btn log-drink-btn"
+                    ?disabled=${!d.logButtonEntityId}
+                    @click=${() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId)}
+                  >
+                    <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
+                    <span>${d.name}</span>
+                  </button>
+                `)}
+              </div>`}
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn dialog-btn--muted" @click=${close}>
+            ${localize(this._lang, 'dialog.cancel')}
           </button>
         </div>
       </ha-dialog>
@@ -994,6 +1239,36 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   // ── Pane 4: Tools ──────────────────────────
 
+  private _renderSleepDisruptionDialog() {
+    const substance = this._sleepDisruptionSubstance;
+    if (!substance) return nothing;
+    const close = () => { this._showSleepDisruptionDialog = false; this._sleepDisruptionSubstance = null; };
+    const mdKey = substance === 'alcohol'
+      ? 'dialog.sleep_disruption.alcohol'
+      : 'dialog.sleep_disruption.caffeine';
+    return html`
+      <ha-dialog
+        open
+        width="small"
+        @closed=${close}
+      >
+        <div slot="header" class="dialog-header">
+          <ha-icon icon="mdi:sleep"></ha-icon>
+          ${localize(this._lang, 'dialog.sleep_disruption.title')}
+        </div>
+        <div class="dialog-body">
+          <ha-markdown .content=${localize(this._lang, mdKey)}></ha-markdown>
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn" @click=${close}>
+            <ha-icon icon="mdi:close"></ha-icon>
+            <span>${localize(this._lang, 'dialog.sleep_disruption.close')}</span>
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+  }
+
   private _renderToolsDialog() {
     const dialog = this._toolsDialog;
     if (!dialog) return nothing;
@@ -1115,23 +1390,30 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   private _renderPaneSelector(entities: ResolvedEntities) {
     const hasMetrics = entities.metrics.length > 0;
-    // Caffeine pane is gated on a `device_type` state attribute (value
-    // "caffeine") emitted by the device's primary sensor. The backend does
-    // not yet emit this attribute for any device, so the pane stays hidden
-    // everywhere until a real caffeine device is configured. Mirrors the
-    // existing hasMetrics/tracking conditional-spread pattern. The lookup
-    // is defensive (lower-cased, nil-coalesced) since the backend will
-    // eventually emit snake_case values.
-    const deviceType = (this._getAttr(entities.nextDose, 'device_type') || '').toLowerCase();
-    const hasCaffeine = deviceType === 'caffeine';
-    const panes: Array<{ id: 'daily' | 'graphs' | 'stats' | 'caffeine' | 'tools' | 'tracking'; labelKey: string; icon: string }> = [
-      { id: 'daily', labelKey: 'pane.daily', icon: 'mdi:pill' },
-      { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
-      { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
-      ...(hasCaffeine ? [{ id: 'caffeine' as const, labelKey: 'pane.caffeine', icon: 'mdi:coffee' }] : []),
-      ...(hasMetrics ? [{ id: 'tracking' as const, labelKey: 'pane.tracking', icon: 'mdi:chart-sankey' }] : []),
-      { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
-    ];
+    // Nav set branches by device type:
+    //  - Master Tracker (drink_master): Drinks | Graph | Inventory | Stats | Tools
+    //  - Medicine (default): Daily | Graphs | Stats | Tools (+ Tracking if metrics)
+    // Granular drink devices render no nav bar (the redirect placeholder is
+    // shown instead — see render()).
+    type PaneId = 'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking';
+    let panes: Array<{ id: PaneId; labelKey: string; icon: string }>;
+    if (entities.deviceType === 'drink_master') {
+      panes = [
+        { id: 'drinks', labelKey: 'pane.drinks', icon: entities.substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee' },
+        { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
+        { id: 'inventory', labelKey: 'pane.inventory', icon: 'mdi:package-variant-closed' },
+        { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
+        { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
+      ];
+    } else {
+      panes = [
+        { id: 'daily', labelKey: 'pane.daily', icon: 'mdi:pill' },
+        { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
+        { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
+        ...(hasMetrics ? [{ id: 'tracking' as PaneId, labelKey: 'pane.tracking', icon: 'mdi:chart-sankey' }] : []),
+        { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
+      ];
+    }
 
     return html`
       <div class="pane-selector">
@@ -1175,22 +1457,39 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
     const entities = this._resolveEntities();
 
+    // Granular drink device: render a single redirect placeholder pane and no
+    // nav bar. The user must select the Master Tracker (Caffeine/Alcohol)
+    // device to get the full Drinks card.
+    if (entities.deviceType === 'drink') {
+      const substanceLabel = entities.substance === 'alcohol'
+        ? localize(this._lang, 'drinks.redirect_alcohol')
+        : localize(this._lang, 'drinks.redirect_caffeine');
+      return html`
+        <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
+          <div class="card-content">
+            <div class="caffeine-placeholder">
+              <ha-icon icon=${entities.substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee'}></ha-icon>
+              <span>${substanceLabel}</span>
+            </div>
+          </div>
+        </ha-card>
+      `;
+    }
+
     // Auto-fallback: if the user is on the tracking pane but no tracking items exist
     // (e.g. they were removed in the options flow), fall back to the daily pane.
     if (this._activePane === 'tracking' && entities.metrics.length === 0) {
       this._activePane = 'daily';
     }
-
-    // Auto-fallback: if the user is on the caffeine pane but the device is not
-    // a caffeine device (e.g. the device_type attribute was removed or the
-    // device was switched), fall back to the daily pane. Mirrors the tracking
-    // fallback above. The backend does not yet emit device_type, so any
-    // lingering _activePane === 'caffeine' (e.g. from a dev session) is
-    // bounced here.
-    if (this._activePane === 'caffeine' &&
-        (this._getAttr(entities.nextDose, 'device_type') || '').toLowerCase() !== 'caffeine') {
-      this._activePane = 'daily';
-    }
+    // Auto-fallback: master-tracker panes only exist on master trackers;
+    // medicine-only panes only exist on medicine devices. If the device was
+    // switched (or a stale _activePane lingers from a prior device), bounce
+    // to the device's first pane.
+    const isMaster = entities.deviceType === 'drink_master';
+    const masterPanes: Array<string> = ['drinks', 'inventory'];
+    const medicinePanes: Array<string> = ['daily', 'tracking'];
+    if (isMaster && medicinePanes.includes(this._activePane)) this._activePane = 'drinks';
+    if (!isMaster && masterPanes.includes(this._activePane)) this._activePane = 'daily';
 
     return html`
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
@@ -1198,13 +1497,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-daily-panel>` : nothing}
           ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : nothing}
           ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-stats-panel>` : nothing}
-          ${this._activePane === 'caffeine' ? html`<ax-dose-caffeine-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-caffeine-panel>` : nothing}
+          ${this._activePane === 'drinks' ? html`<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-drinks-panel>` : nothing}
+          ${this._activePane === 'inventory' ? html`<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-inventory-panel>` : nothing}
           ${this._activePane === 'tools' ? html`<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : nothing}
           ${this._activePane === 'tracking' ? html`<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : nothing}
         </div>
         ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector(entities) : nothing}
         ${this._showDeviceInfo ? this._renderDeviceInfoDialog(entities) : nothing}
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : nothing}
+        ${this._showLogDrinkDialog ? this._renderLogDrinkDialog() : nothing}
+        ${this._showSleepDisruptionDialog ? this._renderSleepDisruptionDialog() : nothing}
         ${this._toolsDialog ? this._renderToolsDialog() : nothing}
         ${this._overrideDialog ? this._renderOverrideDialog() : nothing}
         ${this._trackingOverrideDialog ? this._renderTrackingOverrideDialog() : nothing}
@@ -1250,6 +1552,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._showDeviceInfo = false;
     this._showRefillDialog = false;
     this._refillAmount = '';
+    this._refillTarget = null;
+    this._showLogDrinkDialog = false;
+    this._logDrinkSubstance = null;
+    this._showSleepDisruptionDialog = false;
+    this._sleepDisruptionSubstance = null;
     this._toolsDialog = null;
     this._overrideDialog = null;
 
@@ -1316,6 +1623,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       '_showDeviceInfo',
       '_showRefillDialog',
       '_refillAmount',
+      '_refillTarget',
+      '_showLogDrinkDialog',
+      '_logDrinkSubstance',
+      '_showSleepDisruptionDialog',
+      '_sleepDisruptionSubstance',
       '_toolsDialog',
       '_overrideDialog',
       '_trackingOverrideDialog',
@@ -1326,7 +1638,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // The 30s tick refreshes time-relative panes (daily/stats). The graphs and
     // tools panes don't depend on wall-clock time, so skip the tick there to
     // avoid needless SVG re-renders.
-    if (changedProps.has('_tick') && (this._activePane === 'daily' || this._activePane === 'stats')) {
+    if (changedProps.has('_tick') && (this._activePane === 'daily' || this._activePane === 'stats' || this._activePane === 'drinks' || this._activePane === 'inventory')) {
       return true;
     }
 
@@ -1387,6 +1699,22 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           this._effectivenessHistory = {};
           this._fetchEffectivenessHistory(entities);
         }
+      } else if (changedProperties.has('hass')) {
+        // A relevant entity changed while the graphs pane is open (shouldUpdate
+        // already gated on _relevantStateChanged, so a watched sensor — lastDose,
+        // total, amountInBody, an effectiveness number — actually updated, not a
+        // system-wide state tick). Re-fetch so the bar/line/effectiveness graphs
+        // reflect a just-taken dose (or undo/reset) without requiring the user to
+        // navigate away and back. The per-fetch race-guard tokens discard any
+        // in-flight stale results after their `await` resolves, and the REST
+        // endpoint reads in-memory store data (no DB query), so this is cheap.
+        // Note: this branch does NOT fire on the _tick timer (shouldUpdate
+        // excludes _tick for the graphs pane), so there is no periodic polling.
+        this._fetchDoseHistory(entities);
+        this._fetchAmountHistory(entities);
+        if (entities.metrics.length) {
+          this._fetchEffectivenessHistory(entities);
+        }
       }
     }
     // Clean up _pendingTracking: once HA confirms logged_today=true for an
@@ -1409,7 +1737,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       case 'stats': return 7;
       case 'tools': return 6;
       case 'tracking': return 6;
-      case 'caffeine': return 6;
+      case 'drinks': return 6;
+      case 'inventory': return 8;
       default: return 5; // daily
     }
   }
@@ -1571,6 +1900,24 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
     .dialog-btn ha-icon {
       --mdc-icon-size: 24px;
+    }
+
+    /* ── Log Drink popup (Master Tracker) ───── */
+
+    .log-drink-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .log-drink-btn {
+      flex-direction: column;
+      gap: 6px;
+      padding: 14px 8px;
+      font-size: calc(14px + var(--pill-text-offset, 0px));
+    }
+    .log-drink-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     /* ── Refill Dialog ──────────────────────── */

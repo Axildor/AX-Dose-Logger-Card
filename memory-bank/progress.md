@@ -2009,3 +2009,290 @@ Each chip pair is a `type: 'grid'` row with an entity picker (external label abo
 2. **Reversible to Option B** — keep `chip_N_label` text-field floating label, drop only the entity label, if per-slot identification is later requested.
 3. **`installEditorGridAlignment()` kept** — still needed for Safe-to-Take + take-pill grids; now a harmless no-op for chip grids.
 4. **Frontend-only, editor-only** — no backend, config-flow, sensor, runtime, or README impact.
+
+## Drinks Card for Master Tracker Devices (2026-06-28)
+
+Full Drinks card rendered when the selected device is a Master Tracker (Caffeine Tracker / Alcohol Tracker): 5-item nav (Drinks | Graph | Inventory | Stats | Tools) + per-granular-drink Log Drink / Undo / Reset. Granular drink devices show a redirect placeholder; medicine devices unchanged. Depends on backend Drinks Card Backend Support (substance + device_type attrs, master rename, REST master history).
+
+### Steps
+- [x] Step 1 (F1): `src/types.ts` — 5 new `ResolvedEntities` fields (`amountLast24h`, `sleepDisruption`, `estimatedLowTime`, `deviceType`, `substance`) + `DrinkInfo` interface + 7 new `CardController` methods (`getDrinksOfSubstance`, `drinkDaysSinceReveal`, `showRefillDialogFor`, `showLogDrinkDialog`, `logDrink`, `undoDrink`, `resetDrink`); `DrinkInfo` re-exported
+- [x] Step 2 (F1): `src/ax-dose-logger-card.ts` — `_computeEntities` master + granular detection branch (attribute-based: `drink_master: True` / `device_type: "drink"`); master fields populated into existing `ResolvedEntities` shape
+- [x] Step 3 (F2): `render()` granular-drink redirect placeholder pane (no nav) when `deviceType==='drink'`; substance-specific message
+- [x] Step 4 (F3): `_renderPaneSelector` branches nav set by `deviceType` (master → Drinks/Graph/Inventory/Stats/Tools; medicine → Daily/Graphs/Stats/Tools/+Tracking); `_handlePaneChange` + grid-options switch + auto-fallback updated for `'drinks'`/`'inventory'` pane ids; `caffeine-panel.js` import → `drinks-panel.js` + `inventory-panel.js`; `_activePane` union type updated
+- [x] Step 5 (F4): `src/components/drinks-panel.ts` (NEW, replaces `caffeine-panel.ts`) — substance header + Log Drink button → `showLogDrinkDialog` + Sleep Disruption + Estimated Low Time readout
+- [x] Step 6 (F4): `_renderLogDrinkDialog` (ha-dialog grid of granular drink buttons; `button.press` on each drink's `DrinkLogButton`); `_logDrink`/`_undoDrink`/`_resetDrink` controller methods; `_showLogDrinkDialog`/`_logDrinkSubstance`/`_refillTarget` @state
+- [x] Step 7 (F5): `src/components/inventory-panel.ts` (NEW) — 2-column per-granular-drink grid; col 1 clickable refill box → `showRefillDialogFor`; col 2 7-day avg + trailing-dynamic avg via `drinkDaysSinceReveal`
+- [x] Step 8 (F5): `_handleRefill` generalized to use `_refillTarget?.addStockEntityId ?? entities.addRefill`; `_renderRefillDialog` header shows drink name when target set; `showRefillDialogFor` controller method
+- [x] Step 9 (F6): Graph panel works for masters via F1 mapping (`amountInBody`) + backend B3 (REST master history); `_getStrengthUnit` falls back to `amountInBody`'s `unit_of_measurement` (mg/g)
+- [x] Step 10 (F7): `src/components/stats-panel.ts` — 3 master rows (Amount in Last 24h, Sleep Disruption, Estimated Low Time) guarded by `if (e.x)`; medicine rows auto-skip (fields undefined)
+- [x] Step 11 (F8): `src/components/tools-panel.ts` — master branch (`_renderMasterTools`): per-granular-drink Undo + Reset list, each via `openToolsDialog`; `.drink-tool-row` CSS
+- [x] Step 12: `src/localize.ts` — ~22 new keys (pane.drinks/inventory, drinks.*, inventory.*, stats.amount_last_24h/sleep_disruption/estimated_low_time, tools.drinks_header/undo_drink/reset_drink + descriptors, dialog.refill.title_drink, dialog.log_drink.*); kept `pane.caffeine` + `caffeine.placeholder` one release
+- [x] Step 13: `shouldUpdate` + `connectedCallback` reset updated for new dialog state + drinks/inventory tick refresh; `.log-drink-grid`/`.log-drink-btn` CSS added
+- [x] Step 14: Verify — `yarn run build` clean (exit 0, no warnings); `ruff check` + `py_compile` on backend deps clean
+- [x] Step 15: Memory bank update — activeContext.md (Current Status rewritten + previous archived + stray-EOF cleanup), progress.md (this section), projectstructure.md (new components in tree)
+
+### Key decisions
+1. Master + granular detection via state attributes (`drink_master: True` / `device_type: "drink"`), not suffixes — robust to suffix drift; one branch populates the master `ResolvedEntities` shape Graph/Stats already consume.
+2. `button.press` for Log Drink (user-confirmed) — reuses cooldown sensor wiring + card soft-disable.
+3. Refill dialog generalized (`showRefillDialogFor` + `_refillTarget`), not duplicated — one dialog surface, medicine + drinks callers.
+4. Trailing-dynamic avg reuses medicine reveal logic via `drinkDaysSinceReveal` (reads `history_start_date` on the 365-day avg sensor) + existing `stats.avg_running`/`stats.avg_yearly` keys.
+5. Master nav = Drinks | Graph | Inventory | Stats | Tools (user-confirmed); Tools kept with per-granular-drink Undo/Reset (user-confirmed Option B).
+6. Amount-in-body line graph kept for masters (user-confirmed) — recorder has history for the renamed master sensor; bar graph reads aggregated master history via backend B3.
+7. Granular drink → redirect placeholder (user-confirmed) — no half-empty medicine card.
+8. Translation-only master rename (backend B2) + attribute-based frontend mapping — stable unique_ids preserved (no registry migration); frontend maps master body-mass sensor into `amountInBody` by `drink_master: True` + `pk_model` attrs.
+9. `_getStrengthUnit` fallback to `amountInBody.unit_of_measurement` for masters (mg caffeine / g alcohol).
+10. Plan: `plans/drinks-panel-master-tracker-plan.md` (resolved decisions: Tools=keep per-drink, Log=button.press, line graph=keep).
+
+
+## Drinks Panel Layout/Style Parity with Daily Panel (2026-06-28)
+
+### Goal
+Make the Drinks (master tracker) pane match the Daily (medicine) pane for layout, font sizes, and title location, and make the Drinks title clickable to open the device-info dialog (full Daily parity, per user-confirmed scope).
+
+### Checklist
+- [x] Plan: `plans/drinks-panel-daily-layout-parity-plan.md` (title parity + container parity + clickable-title scope)
+- [x] `src/components/drinks-panel.ts` — replaced left-aligned `.drinks-header` (substance icon + 18px title span) with a centered `.drinks-title` mirroring `.med-name` (20px, weight 600, centered, no icon, `cursor: pointer`); title text = substance label (`drinks.caffeine`/`drinks.alcohol`)
+- [x] Made `.drinks-title` interactive — `role="button"`, `tabindex="0"`, `aria-label` from `dialog.device_info.aria`, `@click` → `controller.showDeviceInfo()`, `@keydown` → `controller.onKeyActivate(...)` (identical to Daily `.med-name`)
+- [x] Aligned `.pane-drinks` container with `.pane-daily` — `gap` 16px→12px, dropped `padding: 8px 4px;`
+- [x] Removed unused `substanceIcon` local + `.drinks-header ha-icon` CSS rule
+- [x] `README.md` — added bullet to 🥤 Drinks pane section noting the centered substance title matches Daily's medication name in size/weight/placement and opens the device-info dialog on tap
+- [x] Verify — `yarn run build` clean (exit 0, no warnings)
+- [x] Memory bank update — activeContext.md (Current Status rewritten + new What Was Changed subsection + prior status archived under Previous Context), progress.md (this section). projectstructure.md unchanged (no files added/renamed/deleted; only edits to existing drinks-panel.ts + README + dist).
+
+### Key decisions
+1. **Title is the substance label, not the device name** — Daily's `.med-name` shows the medication name; the Drinks master has no single "drink name" string, so the substance label (`drinks.caffeine` / `drinks.alcohol`) is the natural centered title. Keeps the visual treatment identical to `.med-name` without introducing a new data source.
+2. **Leading substance icon dropped for parity** — `.med-name` has no icon. Removing `mdi:coffee`/`mdi:glass-wine` from the title row makes the two panes' title treatments pixel-for-pixel consistent. The icon was decorative only (the label already conveys the substance).
+3. **Clickability in scope (user-confirmed)** — Originally planned as visual-only parity; the user confirmed the Drinks title should also open the device-info dialog to fully match Daily. Reuses the existing `controller.showDeviceInfo()` + `controller.onKeyActivate()` controller surface (no new controller method needed).
+4. **Container gap/padding parity** — `.pane-daily` is `column; gap: 12px;` with no padding. `.pane-drinks` was `column; gap: 16px; padding: 8px 4px;`. Tightening to 12px + dropping the padding aligns vertical rhythm between the two panes.
+5. **Drinks-specific body content untouched** — `.log-drink-btn`, `.sleep-row`, `.sleep-cell`, `.sleep-label`, `.sleep-value` are Drinks-only content (no Daily equivalent), so they are out of the "same layout and style as Daily" scope and were left as-is.
+6. **Frontend-only, CSS+template** — no backend, localization-key, or controller-surface changes (the title reuses existing `dialog.device_info.aria` + `showDeviceInfo`/`onKeyActivate`).
+
+
+## Drinks Pane Full Layout/Style Parity with Daily Pane (2026-06-28)
+
+### Goal
+Make the Drinks (master tracker) pane mirror the Daily (medicine) pane layout exactly — same two-column `.daily-main` row, same tinted-primary button style, same `.stat-pill` box transparency and font sizes, same centered clickable title — but with caffeine/alcohol-relevant boxes (Log Drink button left; In Body + Sleep Disruption right).
+
+### Checklist
+- [x] Plan: `plans/drinks-panel-daily-layout-parity-plan.md` (full two-column parity + Estimated Low Time removal decision)
+- [x] `src/components/drinks-panel.ts` — full body rewrite: `.daily-main` flex row with LEFT `.log-drink-btn.safe` (styled verbatim like Daily's `.take-pill-btn.safe`: 28px icon + 18px weight-550 label, rgba primary 0.12 bg / 0.2 hover, `:active` scale 0.96, `flex: 1`) + RIGHT `.stats-column` (flex 1, gap 10px) with 2 `.stat-pill` boxes
+- [x] Top right box **In Body** — `mdi:chart-bell-curve` + `stats.amount_in_body` label + `getState(amountInBody) + ' ' + getStrengthUnit(e)` value (mg/g; `daily.na` fallback)
+- [x] Bottom right box **Sleep Disruption** — `mdi:bed-clock` + `drinks.sleep_disruption` label + title-cased `entities.sleepDisruption` state (`daily.na` fallback)
+- [x] Both boxes clickable → `controller.openMoreInfo(entityId)` with `role="button"`/`tabindex="0"`/`aria-label`/`@click`/`@keydown`→`controller.onKeyActivate(...)` (identical accessibility wiring to Daily clickable stat-pills; gated on entity existing)
+- [x] Copied Daily's `.daily-main`/`.stats-column`/`.stat-pill`/`.stat-pill ha-icon`/`.stat-label`/`.stat-value` CSS verbatim into drinks-panel.ts `static styles` (rgba primary 0.06 bg, 0.12 hover, 15px uppercase label, 18px weight-600 value, 20px primary-tinted icon) — pixel-identical transparency + font sizes
+- [x] Removed old `.log-drink-btn` solid-filled style + `.sleep-row`/`.sleep-cell`/`.sleep-label`/`.sleep-value` CSS rules + the `formatTime`/`formatDateTime` import (only used by the deleted Estimated Low Time cell)
+- [x] Removed Estimated Low Time cell from the Drinks pane (user-confirmed: keep strictly 2 right boxes, identical to Daily); `entities.estimatedLowTime` + backend `_computeEntities` detection + Stats pane row unchanged
+- [x] `src/localize.ts` — removed orphaned `drinks.estimated_low` key; `stats.estimated_low_time` retained (Stats panel still uses it)
+- [x] `README.md` — rewrote 🥤 Drinks pane section to describe the two-column layout + the Estimated Low Time → Stats pane move
+- [x] Verify — `yarn run build` clean (exit 0, no warnings) after the drinks-panel.ts rewrite and again after the localize.ts edit
+- [x] Memory bank update — activeContext.md (Current Status rewritten for full layout parity + new What Was Changed subsection + prior title-only parity demoted), progress.md (this section). projectstructure.md unchanged (no files added/renamed/deleted).
+
+### Key decisions
+1. **Two-column `.daily-main` parity** — Daily's main row is a flex pair: `.take-pill-btn` (left, `flex: 1`) + `.stats-column` (right, `flex: 1`, gap 10px, two `.stat-pill` boxes). The Drinks pane now uses the identical structure, with the Log Drink button as the left `flex: 1` element and In Body / Sleep Disruption as the two right `.stat-pill` boxes.
+2. **Log Drink button uses `.take-pill-btn.safe` styling, not a solid fill** — The prior Drinks pane used a solid `var(--primary-color)` background button. Daily's Take Pill button is a tinted translucent primary (`rgba primary 0.12`, primary-color text). Switching to the tinted style makes the two panes' primary action buttons visually consistent.
+3. **Box transparency + fonts copied verbatim** — `.stat-pill` bg `rgba(--rgb-primary-color, 0.06)`, hover 0.12, no border; `.stat-label` 15px uppercase letter-spaced 0.5px; `.stat-value` 18px weight-600 `margin-left: auto`; `.stat-pill ha-icon` 20px primary opacity 0.7. Copied rule-for-rule from `daily-panel.ts` so the boxes are pixel-identical to Daily's Safe to Take / Pills Left boxes.
+4. **In Body value = state + substance unit** — Matches the Stats pane's `stats.amount_in_body` row format (`getState(amountInBody) + ' ' + getStrengthUnit(e)`). `getStrengthUnit` already falls back to `amountInBody.unit_of_measurement` for masters (mg caffeine / g alcohol).
+5. **Sleep Disruption title-cased** — First letter uppercased, rest unchanged (matches the swapped Safe-to-Take box convention from `daily-panel.ts`). Handles `none`→`None`, `low`→`Low`, etc. without over-transforming underscored states.
+6. **Boxes clickable → more-info** — Mirrors the Daily clickable stat-pills (`role="button"`, `tabindex="0"`, `aria-label`, `@click`/`@keydown`→`onKeyActivate`→`openMoreInfo`). Reuses existing controller methods; no new surface. Gated on the entity existing so a missing sensor renders a non-clickable box instead of a broken handler.
+7. **Estimated Low Time removed from Drinks pane (user-confirmed)** — Daily has exactly 2 right boxes, so the third Drinks cell was removed to keep the layout identical. The info is preserved in the Stats pane (which already renders an Estimated Low Time row from `entities.estimatedLowTime`), so no data is lost — only the Drinks-pane duplicate. Backend detection + `ResolvedEntities.estimatedLowTime` unchanged.
+8. **Orphaned localize key removed** — `drinks.estimated_low` had no remaining references after the cell deletion; removed to keep the localize map clean. `stats.estimated_low_time` retained (Stats panel still references it).
+9. **Frontend-only** — no backend, controller-surface, or new localize keys. Reuses `controller.openMoreInfo` / `onKeyActivate` / `showDeviceInfo` / `getStrengthUnit` / `showLogDrinkDialog` and existing `stats.amount_in_body` / `drinks.sleep_disruption` / `daily.na` / `dialog.device_info.aria` keys.
+
+
+## Drinks Pane Label/Icon/Decimal Refinements (2026-06-28)
+
+### Goal
+The two right-column boxes on the Drinks pane both wrapped to two lines (stretching the card) because their labels were too long for the narrow right column. Shorten the labels, swap the sleep icon, and round the In Body value to a whole number on the card. Companion backend change: master body-mass sensor rounds to 1 decimal (was 2).
+
+### Checklist
+- [x] `src/components/drinks-panel.ts` — In Body box label key `stats.amount_in_body` → `drinks.in_body` ("In Body"); In Body value rounded to 0 decimals via `Math.round(parseFloat(rawBody))` (raw-string fallback if non-numeric); Sleep Disruption box icon `mdi:bed-clock` → `mdi:sleep`; label key `drinks.sleep_disruption` → `drinks.disruption` ("Disruption"); aria-labels updated to the new keys
+- [x] `src/localize.ts` — added `drinks.in_body` = 'In Body' + `drinks.disruption` = 'Disruption' (after `drinks.log_drink`); `stats.amount_in_body` + `drinks.sleep_disruption` retained
+- [x] `README.md` — 🥤 Drinks right-box bullet updated ("In Body" notes whole-number rounding; "Sleep Disruption" → "Disruption")
+- [x] Backend companion: `custom_components/ax_dose_logger/sensors/drink_master.py` `round(data.body_mass, 2)` → `round(data.body_mass, 1)` (master body-mass sensor stores 1 decimal; other HA UIs follow that)
+- [x] Verify — `yarn run build` clean (exit 0, no warnings); `python3 -m py_compile custom_components/ax_dose_logger/sensors/drink_master.py` OK
+- [x] Memory bank update — frontend activeContext.md (Current Status rewritten + new What Was Changed subsection + prior full-layout-parity demoted to Prior) + this progress section; backend activeContext.md + progress.md updated for the drink_master.py decimal change
+
+### Key decisions
+1. **Shorter labels, not smaller font** — The two-line wrap was caused by label length ("AMOUNT IN BODY", "SLEEP DISRUPTION") in the narrow right column, not by font size. Shortening to "IN BODY" / "DISRUPTION" keeps Daily-verbatim font sizes (15px uppercase label, 18px weight-600 value) while fitting on one line, so the card height matches Daily.
+2. **New `drinks.*` keys, not reusing `stats.*`** — `stats.amount_in_body` ("Amount in Body") is still used by the Stats pane row, so a separate shorter `drinks.in_body` ("In Body") avoids changing the Stats pane label. Same for `drinks.disruption` vs `drinks.sleep_disruption` (the latter retained for any aria/Stats references).
+3. **Card rounds to 0 decimals; backend stores 1 decimal (user-confirmed split)** — The In Body box shows `Math.round(parseFloat(state))` for a clean integer; the backend master body-mass sensor now stores 1 decimal (`round(data.body_mass, 1)`), so more-info / dashboards / recorder history show 1 decimal. This preserves sub-integer precision in the data while keeping the card compact.
+4. **`mdi:sleep` icon** — Per user request, replaces `mdi:bed-clock` on the Sleep Disruption box. Purely cosmetic; the box still opens the sleep-disruption sensor's more-info dialog on tap.
+5. **Frontend + backend in one task** — The decimal change spans both repos (frontend display rounding + backend sensor rounding). Both repos' memory banks cross-reference.
+
+## Drinks Pane Log Drink Button — Substance-Aware Icon + Last Counter (2026-06-28)
+
+### Planning
+- [x] Inspect `src/components/drinks-panel.ts` (current Log Drink button: hardcoded `mdi:plus-circle-outline`, no sub-line)
+- [x] Inspect `src/components/daily-panel.ts` (reference `.take-pill-btn` icon + `.take-sub` "Last" pattern)
+- [x] Confirm `computeTimeSinceLastDose(e)` works for drink masters (resolver maps `entities.lastDose` from the pk_model body-mass sensor's `last_dose_time` attribute at `ax-dose-logger-card.ts:308`)
+- [x] Confirm `daily.last` localize key already exists; no new key needed
+- [x] Confirm icon is a pure default per user direction (no config schema change yet)
+
+### Implementation
+- [x] `src/components/drinks-panel.ts` — render body: add `logDrinkIcon` local (alcohol → `mdi:glass-mug-variant`, else `mdi:coffee`) + `timeSince = c.computeTimeSinceLastDose(e)`
+- [x] `src/components/drinks-panel.ts` — template: `<ha-icon icon="${logDrinkIcon}">` replaces `mdi:plus-circle-outline`; add `.take-sub` "Last: {timeSince}" line beneath `.take-label`
+- [x] `src/components/drinks-panel.ts` — CSS: add `.take-sub` (16px+offset, weight 450, opacity 0.9) + `.take-sub-segment` (nowrap) verbatim from `daily-panel.ts`
+
+### Verification
+- [x] `yarn run build` — clean (exit 0, no warnings); `dist/ax-dose-logger-card.js` rebuilt
+
+### Documentation
+- [x] `memory-bank/activeContext.md` — Current Status + What Was Changed + Files Modified + Key Design Decisions updated; prior status archived
+- [x] `memory-bank/progress.md` — this section added
+- [x] No `README.md` change (small visual refinement within an existing pane; no end-user install/config change)
+- [x] No `projectstructure.md` change (no file added/removed/renamed)
+
+### Key decisions
+1. **Substance-aware default icon, not user-configurable (yet)** — `mdi:coffee`/`mdi:glass-mug-variant` keyed off `e.substance`. A future `log_drink_icon` config override mirroring `take_pill_icon` is planned; the local is structured so that swap is a one-line `${c.config?.log_drink_icon || logDrinkIcon}` change.
+2. **Reuse `computeTimeSinceLastDose` + `entities.lastDose`, no backend change** — The resolver already maps `entities.lastDose` for drink masters from the pk_model body-mass sensor's `last_dose_time` attribute, so the Daily pane's controller helper works unchanged in the Drinks pane.
+3. **Reuse `daily.last` localize key** — Keeps the strings file lean and produces byte-identical "Last: …" text to the Daily pane.
+4. **Single-segment sub-line (no Next/Overdue)** — Drink masters have no schedule concept, so the sub-line is the single "Last: …" segment, matching the Daily pane's simplest branch.
+5. **CSS copied verbatim from `daily-panel.ts`** — `.take-sub` + `.take-sub-segment` are byte-identical for pixel-identical visual treatment.
+6. **Frontend-only** — No backend/Python changes; the required attribute already exists.
+
+
+## Drinks Pane "Last" Never Bug — Master Last-Dose Sensor Retarget (2026-06-28)
+
+### Goal
+After the substance-aware icon + "Last" sub-line was added to the Drinks pane Log Drink button, the "Last" counter showed "Never" for Master Tracker devices. Root cause: `computeTimeSinceLastDose` reads `entities.lastDose`'s **state** as a timestamp, but the resolver mapped `lastDose` for masters to the **body-mass sensor** (whose state is a number like `42.3`, not a timestamp — `last_dose_time` lived only as an **attribute** on that sensor). `new Date("42.3")` is invalid → "Never". Fix per HA best practice: add a dedicated backend `SensorDeviceClass.TIMESTAMP` sensor (`DrinkMasterLastDoseSensor`) whose state IS the master `last_dose_time`, then retarget the frontend resolver to it.
+
+### Checklist
+- [x] Diagnose: `_computeTimeSinceLastDose` reads state, not attributes; master `lastDose` resolved to body-mass sensor (number state) → "Never"
+- [x] Confirm HA best practice: one entity = one semantic concept; TIMESTAMP device class for timestamp facts (mirrors medicine `PillLastDoseSensor`)
+- [x] Backend: new `custom_components/ax_dose_logger/sensors/drink_master_last_dose.py` + registration in `sensor.py` + translation keys + remove redundant `last_dose_time` attribute from `drink_master.py` (tracked in the backend repo's memory bank)
+- [x] Frontend: `src/ax-dose-logger-card.ts` `_computeEntities` master branch — `result.lastDose` now mapped by entity-id suffix (`.drink_master_last_dose_caffeine` / `_alcohol`); dropped the body-mass `last_dose_time`-attribute fallback; `result.totalDoses` (via `dose_count` attr) unchanged
+- [x] Verify — `yarn run build` exit 0, clean; `dist/ax-dose-logger-card.js` rebuilt
+- [x] Verify — backend `python3 -m py_compile` + `hass -c ./config --script check_config` exit 0 (tracked in the backend repo)
+- [x] Memory bank update — frontend activeContext.md (Current Status + What Was Changed + Files Modified + Key Design Decisions updated to reflect the retarget) + this progress section; backend activeContext.md + progress.md + projectstructure.md updated (cross-referenced)
+
+### Key decisions
+1. **Resolver retarget by entity-id suffix, not a `deviceType` branch** — `result.lastDose` is mapped by `.drink_master_last_dose_caffeine` / `_alcohol` suffix, identical to the existing `sleep_disruption` / `estimated_low_time` suffix matches. No `deviceType === 'drink_master'` special-case leaked into the generic `computeTimeSinceLastDose` helper.
+2. **`computeTimeSinceLastDose` unchanged** — The Daily pane's helper is reused as-is; the only fix was making `entities.lastDose` point at a real TIMESTAMP state for masters. No master-specific logic added to the frontend.
+3. **HA best practice drove the backend sensor** — The "Never" bug exposed an anti-pattern (reading a timestamp from an attribute of a non-timestamp entity). The HA-correct fix is a dedicated `SensorDeviceClass.TIMESTAMP` entity (one entity = one semantic concept; state-as-data, attributes-as-metadata), giving locale-aware more-info + history + standard state parsing for free. See the backend repo's memory bank for the full rationale.
+4. **Frontend + backend in one task** — The fix spans both repos. Both repos' memory banks cross-reference.
+
+## Sleep Disruption Pop-up Card (2026-07-06)
+**Goal**: Pressing the Disruption box in the Drinks pane (Master Tracker card) opens a substance-aware pop-up with the curated Sleep Disruption description (markdown), replacing the native HA more-info dialog.
+
+### Steps completed
+- [x] Inspect Drinks pane ([`src/components/drinks-panel.ts`](src/components/drinks-panel.ts)) + the card's existing dialog infrastructure (`ha-dialog`, `_showLogDrinkDialog`, `_toolsDialog`, view-entry reset, `_persistStates` array).
+- [x] Draft plan in [`plans/sleep-disruption-popup-plan.md`](plans/sleep-disruption-popup-plan.md).
+- [x] Add localize keys in [`src/localize.ts`](src/localize.ts): `dialog.sleep_disruption.title`, `dialog.sleep_disruption.close`, `dialog.sleep_disruption.caffeine` (markdown via array-literal `.join('\n')`), `dialog.sleep_disruption.alcohol` (markdown via array-literal `.join('\n')`).
+- [x] Add `showSleepDisruptionDialog(substance: 'caffeine' | 'alcohol'): void` to the `CardController` interface in [`src/types.ts`](src/types.ts).
+- [x] Add `_showSleepDisruptionDialog` + `_sleepDisruptionSubstance` `@state` fields, public `showSleepDisruptionDialog`, private `_renderSleepDisruptionDialog` (ha-dialog + ha-markdown + Close action bar), render-chain wiring, view-entry reset, and `_persistStates` entries in [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts).
+- [x] Swap the Drinks pane Disruption box `@click` + `@keydown` handlers from `c.openMoreInfo(e.sleepDisruption!)` → `c.showSleepDisruptionDialog(substance!)` (guarded on `e.sleepDisruption && substance`) in [`src/components/drinks-panel.ts`](src/components/drinks-panel.ts).
+- [x] Verify: `cd /workspaces/lovelace-pill-logger-card && yarn run build` — exit 0, no warnings.
+- [x] Update [`memory-bank/activeContext.md`](memory-bank/activeContext.md) + [`memory-bank/progress.md`](memory-bank/progress.md).
+
+### Key decisions
+1. **Replace more-info, don't stack dialogs** — The native more-info only showed raw sensor attributes; the curated markdown description is the value the user asked for. more-info is still reachable from the In Body box + HA's entity registry, so no functionality is lost.
+2. **`ha-markdown` for rich content (HA standard)** — The description uses bold + bullets; `ha-markdown` is HA's native markdown element, globally registered in Lovelace (no import needed, same as `ha-icon`/`ha-dialog` already used in this card).
+3. **Substance passed as a method argument, no new entity lookups** — The Drinks pane already computes `substance = e.substance` from the resolver; it's passed straight into `showSleepDisruptionDialog(substance)`.
+4. **Markdown stored as array-literal `.join('\n')` in the localize map** — Keeps all user-facing text in [`src/localize.ts`](src/localize.ts) (the card's single-string-map convention) and satisfies the `Record<string, string>` type without escaping headaches.
+5. **`width="small"` + `.custom-action-bar` + `.dialog-header`** — Matches the device-info / tools / override dialogs exactly.
+6. **No backend / coordinator / store / migration changes** — Pure presentational frontend change; `should_poll`-irrelevant.
+7. **No README change** — Card UI tweak, not a user-facing feature/installation change per the README update rule.
+
+
+---
+
+## Inventory Panel — Visual Parity with Daily/Drinks + Drink/Master Entity Classifier "-" / N/A Fix (2026-07-06)
+
+**Goal**: (1) Fix the Master Tracker Inventory panel showing `-` for the stock count + 7-day avg + trailing-dynamic avg, the Drinks-pane Disruption N/A, and the Drinks-pane Last "Never" (all one bug class). (2) Bring the Inventory panel's card styling into visual parity with the Daily and Drinks panes.
+
+### Steps completed
+- [x] Read frontend memory bank ([`memory-bank/activeContext.md`](memory-bank/activeContext.md)) + inspect the Inventory/Daily/Drinks panel sources ([`src/components/inventory-panel.ts`](src/components/inventory-panel.ts), [`src/components/daily-panel.ts`](src/components/daily-panel.ts), [`src/components/drinks-panel.ts`](src/components/drinks-panel.ts)).
+- [x] Inspect backend drink number/avg/button unique_ids + translations: [`custom_components/ax_dose_logger/number.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/number.py) (`_drink_stock`, `_drink_add_stock`), [`sensors/drink_avg_doses.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/sensors/drink_avg_doses.py) (`_drink_avg_{window_days}`), [`button.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/button.py) (`_log_drink`, `_undo`, `_reset`), [`strings.json`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/strings.json) (translated names "Inventory", "Add Stock", "Avg Daily Drinks (N Days)", "Log Drink", "Undo Drink", "Reset History").
+- [x] Confirm HA entity-id generation rule: `entity_id = slugify(translated_name)` via [`async_generate_entity_id`](../../usr/src/homeassistant/homeassistant/helpers/entity.py:114) + [`util.slugify`](../../usr/src/homeassistant/homeassistant/util/__init__.py:39) — NOT derived from `unique_id`.
+- [x] Identify root cause of the `-` / N/A bug: [`_getDrinksOfSubstance`](src/ax-dose-logger-card.ts:632) + the `_computeEntities` master branch classified entities by `entity_id` suffix, but the suffixes are `unique_id` stems; the name-derived entity_ids never match (e.g. `number.coffee_inventory` has no `_drink_stock` suffix; `sensor.caffeine_tracker_sleep_disruption` has no `.sleep_disruption_caffeine` suffix). Only `DrinkLogButton` matched by coincidence ("Log Drink" → `log_drink`).
+- [x] Identify the visual misalignment: Inventory `.stat-pill`/`.avg-cell` used `--card-background-color` + `1px border` + `14px 16px`/`10px` + `24px` icon (no opacity) + `16px/700` value + non-uppercase label, diverging from the Daily/Drinks primary-tinted `rgba(rgb-primary, 0.06)` transparency baseline.
+- [x] Draft architecture plan in [`plans/inventory-panel-parity-and-sensor-fix-plan.md`](plans/inventory-panel-parity-and-sensor-fix-plan.md).
+- [x] Confirm the uppercase-label design decision with the user: **keep the drink name in natural case** ("Coffee", "Espresso") via a per-element `text-transform` override; inherit all other Daily/Drinks label styling.
+- [x] **First fix attempt (FAILED)**: add `unique_id?: string` to `AxDoseLoggerHass.entities` + switch `_getDrinksOfSubstance` to `entityInfo.unique_id?.endsWith(...)`. Build clean, but live test showed everything WORSE (Log Drink popup buttons unpressable, refill boxes non-clickable, all values still `-`).
+- [x] Diagnose the failed fix: `unique_id` is NOT present on the frontend `hass.entities` map — HA's `config/entity_registry/list_for_display` websocket populates it from `_as_display_dict` ([`entity_registry.py:265`](../../usr/src/homeassistant/homeassistant/helpers/entity_registry.py:265)), which emits only `ei`+`pl`+display fields, OMITTING `unique_id`. So `entityInfo.unique_id` was always `undefined` → every `uid.endsWith(...)` failed.
+- [x] Identify the correct fix: classify by a backend `role` STATE ATTRIBUTE (present on `hass.states[entityId].attributes`, integration-controlled, survives renames — proven by `device_type`/`substance`/`pk_model`).
+- [x] Confirm the cross-repo (backend `role` attributes + frontend reclassify) scope with the user.
+- [x] REVERT the failed `unique_id` type addition in [`src/types.ts`](src/types.ts) (net change: none).
+- [x] Switch `_getDrinksOfSubstance` classification to `this._getAttr(entityId, 'role')` (+ `window_days` for avg 7/365) in [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts).
+- [x] Replace the 4 broken entity_id suffix matches in the `_computeEntities` master branch (`sleepDisruption`/`estimatedLowTime`/`lastDose`/`amountLast24h`) with `role` attribute matches in [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts).
+- [x] Backend companion: add `role` attribute to 10 entities in [`number.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/number.py), [`button.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/button.py), [`drink_avg_doses.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/sensors/drink_avg_doses.py), [`drink_master_sleep_disruption.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/sensors/drink_master_sleep_disruption.py), [`drink_master_last_dose.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/sensors/drink_master_last_dose.py), [`drink_master_daily_amount.py`](../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/sensors/drink_master_daily_amount.py) (see backend repo memory bank).
+- [x] Rewrite the Inventory panel static styles in [`src/components/inventory-panel.ts`](src/components/inventory-panel.ts) to the Daily/Drinks parity baseline (primary-tinted transparency, no border, `12px 14px`/`8px`, `20px` icon at `opacity: 0.7`, `18px/600` value) with the natural-case `.stat-label` override; preserve the 2-column `.inv-row` grid + 380px responsive fallback.
+- [x] Verify: `python3 -m py_compile` on all 6 backend files (ALL PY OK) + `yarn run build` (exit 0, no warnings).
+- [x] Update both repos' [`memory-bank/activeContext.md`](memory-bank/activeContext.md) + [`memory-bank/progress.md`](memory-bank/progress.md).
+
+### Key decisions
+1. **Classify by a backend `role` STATE ATTRIBUTE, not `entity_id` suffix and not `unique_id** — Two matching keys were tried: (a) `entity_id` suffix — HA derives `entity_id` from `slugify(translated_name)`, and every entity sets `_attr_has_entity_name = True`, so the entity_id is the slugified name (`DrinkStockNumber` → `number.coffee_inventory`, no `_drink_stock` suffix) — the old suffix match silently missed every entity except `DrinkLogButton` (coincidental `log_drink` slug). (b) `entityInfo.unique_id` — NOT present on the frontend `hass.entities` map (`list_for_display` websocket omits it via `_as_display_dict`); the first fix's `unique_id` switch made everything worse. State attributes ARE present on `hass.states[entityId].attributes`, integration-controlled, and survive renames — the HA-correct, robust key. Stored `DrinkInfo`/`ResolvedEntities` fields stay as `entity_id`s; only the matching key changes.
+2. **One resolver fix repairs five symptoms** — The `role`-based classification fixes the Inventory `-` (stock + 7-day avg + trailing-dynamic avg), unblocks `drinkDaysSinceReveal`, repairs the Drinks-pane Disruption N/A + Last "Never" (master `_computeEntities` suffix matches were the same bug class), restores the master Amount-in-24h Stats row, AND silently repairs the Tools panel's Undo/Reset. No per-panel fork.
+3. **Visual parity via verbatim Daily/Drinks CSS + one per-element case override** — `.stat-pill`/`.stat-label`/`.stat-value` adopted the Daily/Drinks baseline; the 2-column `.inv-row` grid + responsive fallback preserved; `.avg-cell` adopts the same primary-tinted surface.
+4. **Natural-case drink-name label (user-confirmed 2026-07-06)** — `.stat-label` omits `text-transform: uppercase` because col-1's label is a proper-noun drink name, unlike Daily's generic "SAFE TO TAKE"/"PILLS LEFT". All other Daily/Drinks label styling inherited.
+5. **Backend `role` attribute is additive, no migration** — Set in `_attr_extra_state_attributes`; existing entries gain it on next HA restart. No entity-registry / unique_id / translation / stored-data-shape change.
+6. **README NOT updated** — UI tweak + silent bug fix; no new user-facing feature/installation step per the README update rule.
+7. **Document the failed unique_id attempt to prevent recurrence** — The `unique_id` switch is a tempting-but-wrong approach that "looks" like HA best practice but fails because the frontend entity-registry display dict omits `unique_id`. The memory bank + plan explicitly record this so the same mistake isn't repeated on future classifier work.
+
+
+---
+
+## Tools Panel — Box Style Parity with Daily/Drinks Cards (2026-07-06)
+
+**Goal**: Make the boxes in the Tools panel share the same surface/UI style as the `.stat-pill` boxes in the Daily and Drinks panes (primary-tinted transparency, no border, matching icon/typography treatment, matching hover), so the card has one consistent "box" vocabulary across all panes.
+
+### Steps completed
+- [x] Read frontend memory bank ([`memory-bank/activeContext.md`](memory-bank/activeContext.md)) + inspect the Daily/Drinks/Tools panel sources ([`src/components/daily-panel.ts`](src/components/daily-panel.ts), [`src/components/drinks-panel.ts`](src/components/drinks-panel.ts), [`src/components/tools-panel.ts`](src/components/tools-panel.ts)).
+- [x] Identify the visual mismatch: Tools `.tool-btn` used `--card-background-color` solid fill + `1px border` + `24px` icon (no opacity) + `0.06` hover WITH a primary `border-color` change; `.drink-tool-row` used the same solid-card + border pattern. Daily/Drinks `.stat-pill` use primary-tinted `rgba(rgb-primary, 0.06)` transparency, no border, `20px` icon at `opacity: 0.7`, `0.12` hover.
+- [x] Draft architecture plan in [`plans/tools-panel-box-style-parity-plan.md`](plans/tools-panel-box-style-parity-plan.md).
+- [x] Confirm the interpretation decision with the user: **align the SURFACE only** (background, border, icon size/opacity, hover, container spacing); preserve the column action-button layout (icon over label, no value slot); give `.danger` buttons an error-tinted surface.
+- [x] Restyle `.tools-panel` container: drop `padding: 8px 4px;`, `gap: 16px` → `12px` (Daily/Drinks container parity).
+- [x] Restyle `.tool-btn`: `background` → `rgba(rgb-primary, 0.06)`, `border: 1px solid divider` → `border: none`, `padding: 14px 8px` → `12px 14px`; drop `border-color` from the transition list (keep `background` + `transform`). Column action-button layout preserved.
+- [x] Restyle `.tool-btn ha-icon`: `--mdc-icon-size: 24px` → `20px`, add `opacity: 0.7`.
+- [x] Restyle `.tool-btn:hover`: `0.06` → `0.12` bg; drop the `border-color` rule (no border to color).
+- [x] Add `.tool-btn.danger` base (`background: rgba(rgb-error, 0.06)`) + `.tool-btn.danger ha-icon` (`color: error-color`) + `.tool-btn.danger:hover` (`background: rgba(rgb-error, 0.12)`) — error-tinted equivalent of the primary surface, mirroring Daily's `.take-pill-btn.danger` semantic.
+- [x] Restyle `.drink-tool-row` (Master Tracker per-drink rows): `--card-background-color` → `rgba(rgb-primary, 0.06)`, drop the `1px solid divider` border. Keep `border-radius`, `padding`, `flex-wrap`.
+- [x] Verify `.drink-tool-btn` (Master Tracker mini Undo/Reset buttons) inherits the new surface automatically — they carry both `tool-btn` and `danger` classes (render lines 123/129), so the `.tool-btn` + `.tool-btn.danger` rules apply; the `.drink-tool-btn` override only adjusts row layout + 20px icon, unchanged.
+- [x] Build: `yarn run build` in `/workspaces/lovelace-pill-logger-card` — exit 0, no warnings.
+- [x] Update [`memory-bank/activeContext.md`](memory-bank/activeContext.md) + [`memory-bank/progress.md`](memory-bank/progress.md).
+
+### Key decisions
+1. **Align the SURFACE, preserve the column action-button layout (user-confirmed)** — Tools boxes are action buttons (icon over label, no value), unlike Daily/Drinks stat-pills (row: icon + label + value). The user-confirmed interpretation: share the surface (background, border, icon, hover, container spacing), NOT force the buttons into a row with an empty value slot. The card now has one consistent "box" vocabulary; the action-button purpose is preserved.
+2. **`.danger` uses the error-tinted equivalent of the primary surface** — Resting `rgba(rgb-error, 0.06)`, hover `0.12`, error-colored icon. Mirrors Daily's `.take-pill-btn.danger` semantic (error tint at half the take-pill fill strength for the resting state). Danger buttons are still the same "box vocabulary", just tinted with the error color.
+3. **CSS-only change; render/TS logic untouched** — No backend / coordinator / store / localize / types / config-flow change. No entity, no config field, no translation affected.
+4. **Master-tracker `.drink-tool-row` follows the same surface treatment** — The per-granular-drink row container now uses the primary-tinted 0.06 surface with no border, matching the rest of the card. The mini Undo/Reset buttons inside inherit via `.tool-btn` + `.tool-btn.danger`.
+5. **README NOT updated** — A visual style tweak introduces no new user-facing feature, entity, config field, or installation step per the README update rule (same decision as the Inventory parity pass).
+6. **No projectstructure.md change** — No files added, renamed, deleted, or repurposed.
+
+
+---
+
+## Inventory Panel Box Height Parity with Stats Panel (2026-07-06)
+
+**Goal**: Make the boxes in the Inventory panel the same height as the boxes in the Stats panel.
+
+### Steps completed
+- [x] Read frontend memory bank ([`memory-bank/activeContext.md`](memory-bank/activeContext.md)) + inspect the Inventory and Stats panel sources ([`src/components/inventory-panel.ts`](src/components/inventory-panel.ts), [`src/components/stats-panel.ts`](src/components/stats-panel.ts)).
+- [x] Root-cause the height mismatch: Inventory `.inv-row` is a 2-column CSS grid with default `align-items: stretch`. Col-2 `.avg-cell` stacks two `.avg-line` rows (7-day avg + trailing-dynamic avg) at 18px value + `padding: 12px 14px` + `gap: 6px` → ~84px natural height; col-1 `.stat-pill` stretches to that ~84px. Stats `.stat-cell` (16px icon + 14px label header + 18px value, `padding: 10px 8px`, `gap: 4px`) → ~72px natural height. Inventory boxes were ~12px taller than Stats boxes.
+- [x] Draft architecture plan in [`plans/inventory-stats-box-height-parity-plan.md`](plans/inventory-stats-box-height-parity-plan.md).
+- [x] Confirm the interpretation decision with the user: **compress the `.avg-cell` to fit the Stats height** (reduce avg-value 18px→16px, padding 12px→10px, gap 6px→4px so both Inventory boxes shrink to ~72px matching Stats). Rejected alternatives: grow the Stats boxes to the taller height; set a shared explicit min-height.
+- [x] Edit [`src/components/inventory-panel.ts`](src/components/inventory-panel.ts) static `styles` block (CSS only; render/TS logic unchanged): `.avg-cell` `padding: 12px 14px` → `10px 14px`, `gap: 6px` → `4px` (match Stats `.stat-cell` 10px vertical + 4px gap); `.avg-value` `font-size: calc(18px + var(--pill-text-offset, 0px))` → `calc(16px + var(--pill-text-offset, 0px))`. Updated the `.avg-cell` comment block to document the height-parity rationale. `.stat-label`/`.stat-value`/`.avg-label`/`.stat-pill`/`.inv-row` grid + 380px responsive fallback all unchanged (col-1 `.stat-pill` follows the compressed col-2 via grid stretch, no `.stat-pill` CSS change needed).
+- [x] Build: `yarn run build` in `/workspaces/lovelace-pill-logger-card` — exit 0, no warnings.
+- [x] Update [`memory-bank/activeContext.md`](memory-bank/activeContext.md) + [`memory-bank/progress.md`](memory-bank/progress.md).
+
+### Key decisions
+1. **Compress the taller panel to match the reference, not grow the reference (user-confirmed)** — The Stats panel is the reference target; the Inventory `.avg-cell`'s two stacked lines made it the taller box. Compressing the `.avg-cell` metrics (padding/gap/value-size) to match the Stats `.stat-cell` natural height (~72px) is the content-driven approach. The col-1 `.stat-pill` follows automatically via grid `align-items: stretch` — no `.stat-pill` CSS change is required.
+2. **No shared explicit min-height** — A shared `min-height` was rejected: it is a floor, not a ceiling, so it would not compress the Inventory row when content overflows, and pairing it with `max-height` + overflow would risk clipping the two-line `.avg-cell`. Matching the natural content height by tuning padding/gap/value-size keeps the box self-sizing if a long translated label ever wraps.
+3. **Preserve prior Daily/Drinks visual-parity decisions** — `.stat-label`/`.stat-value` (Daily/Drinks verbatim) and `.avg-label` (13px secondary-text) stay unchanged; only the `.avg-cell` container metrics + `.avg-value` font-size are adjusted. The `.avg-value` 18px→16px is the one deviation from the earlier "sized to match `.stat-value` for visual parity" note; the height-parity goal takes precedence for col-2's two-line cell.
+4. **CSS-only change; render/TS logic untouched** — No backend / coordinator / store / localize / types / config-flow change. No entity, no config field, no translation affected.
+5. **README NOT updated** — A visual style tweak introduces no new user-facing feature, entity, config field, or installation step per the README update rule.
+6. **No projectstructure.md change** — No files added, renamed, deleted, or repurposed.
+
+## 14-Day Bar Graph Live Refresh
+- [x] Step 1: Context grounding — read backend `views.py`, `store.py`, `coordinator.py`, `sensors/total.py`, `sensors/last_dose.py`, `sensors/drink_last_dose.py`, `sensors/drink_master_last_dose.py`; frontend `ax-dose-logger-card.ts` (`_fetchDoseHistory`, `_fetchAmountHistory`, `_fetchEffectivenessHistory`, `updated`, `shouldUpdate`, `_relevantStateChanged`, `_bucketByDay`), `components/graphs-panel.ts`
+- [x] Step 2: Investigate which sensor/attribute the 14-day bar graph uses — confirmed it is fed by the custom REST endpoint `/api/ax_dose_logger/history/{device_id}`, not a sensor (medicine → `store.get_history(entry_id)`; master trackers → `store.get_drink_master(substance)`)
+- [x] Step 3: Confirm the data source is reliable post-persistence-fix — `store.schedule_save_history` updates the in-memory slice synchronously before the debounced disk save; `async_take_dose` appends to `coordinator.data.dose_history` synchronously before `_save()`; the REST endpoint reads in-memory data
+- [x] Step 4: Identify the root cause — frontend `updated()` only re-fetches on `_activePane` / `_activeTimeframe` / `_activeEffectivenessTimeframe`; a dose taken while the graphs pane is open updates `hass` (gated through by `shouldUpdate`/`_relevantStateChanged`) but `render()` reads the stale `this._doseHistory` → the bar for today does not increment until the user navigates away and back
+- [x] Step 5: Evaluate whether a better sensor exists — no: `PillTotalSensor` is cumulative (not per-day dose events); `PillLastDoseSensor.timestamps` attribute is capped at 100 entries + pruned 365d (8 doses/day × 14d = 112 > 100 → clipped for heavy schedules) and omits strength; `DrinkMasterLastDoseSensor` has the same cap and is single-last-timestamp; HA recorder has async write latency. The REST endpoint is the correct uncapped full-history source.
+- [x] Step 6: Write architecture plan — `plans/14-day-graph-refresh-fix-plan.md`
+- [x] Step 7: Present findings + plan to user — approved
+- [x] Step 8: Implement the fix — added an `else if (changedProperties.has('hass'))` branch in `updated()` (after the `_activeEffectivenessTimeframe` branch, inside the `if (this._activePane === 'graphs' ...)` block) that re-fetches `_fetchDoseHistory` + `_fetchAmountHistory` + `_fetchEffectivenessHistory` when a relevant entity changes while the graphs pane is open
+- [x] Step 9: Build verification — `yarn run build` exit 0, no warnings (`dist/ax-dose-logger-card.js` rebuilt)
+- [x] Step 10: Update memory-bank files — `activeContext.md` (new Current Status + archived prior), `progress.md` (this section)
+- [ ] Step 11: No `projectstructure.md` change (no files added/renamed/deleted/repurposed); no README change (silent bug fix, not a user-facing feature/installation change)
+- [ ] Step 12: No backend change (the data source was already correct)

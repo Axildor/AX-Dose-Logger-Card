@@ -322,6 +322,8 @@ const translations = {
         'pane.stats': 'Stats',
         'pane.tools': 'Tools',
         'pane.caffeine': 'Caffeine',
+        'pane.drinks': 'Drinks',
+        'pane.inventory': 'Inventory',
         // ── Daily pane ──
         'daily.take_pill': 'Take Pill',
         'daily.limit_reached': 'LIMIT REACHED',
@@ -368,6 +370,9 @@ const translations = {
         'stats.adherence_30_day': '30-Day Adherence',
         'stats.adherence_365_day': '365-Day Adherence',
         'stats.adherence_running': '{days}-Day Adherence',
+        'stats.amount_last_24h': 'Amount in Last 24h',
+        'stats.sleep_disruption': 'Sleep Disruption',
+        'stats.estimated_low_time': 'Estimated Low Time',
         // ── Averages grid (short labels) ──
         'averages.avg_7_day': '7-Day Avg',
         'averages.avg_14_day': '14-Day Avg',
@@ -379,7 +384,19 @@ const translations = {
         'averages.adh_30_day': '30d Adh',
         'averages.adh_365_day': '365d Adh',
         'averages.adh_running': '{days}d Adh',
-        // ── Caffeine pane (scaffold) ──
+        // ── Drinks pane (Master Tracker) ──
+        'drinks.caffeine': 'Caffeine',
+        'drinks.alcohol': 'Alcohol',
+        'drinks.log_drink': 'Log Drink',
+        'drinks.in_body': 'In Body',
+        'drinks.disruption': 'Disruption',
+        'drinks.sleep_disruption': 'Sleep Disruption',
+        'drinks.redirect_caffeine': 'Please select the Caffeine device to view this drink.',
+        'drinks.redirect_alcohol': 'Please select the Alcohol device to view this drink.',
+        // ── Inventory pane (Master Tracker) ──
+        'inventory.empty': 'No drinks of this category configured.',
+        'inventory.avg_7_day': '7-Day Avg',
+        // ── Caffeine pane (legacy scaffold, retained one release) ──
         'caffeine.placeholder': 'Caffeine tracking — coming soon',
         // ── Tracking pane ──
         'pane.tracking': 'Tracking',
@@ -403,6 +420,11 @@ const translations = {
         'tools.desc.mark_adherence_taken': 'Marks the most recent missed dose slot as taken for adherence calculation only. Does NOT add a dose to the pharmacokinetics model or dose count.',
         'tools.desc.reset_history': 'Clears ALL dose history across every sensor — adherence, Amount in Body, totals, and last dose. This cannot be undone.',
         'tools.desc.undo_dose': 'Removes the most recently logged dose from all sensors, including the pharmacokinetics model and adherence calculation.',
+        'tools.drinks_header': 'Drink Maintenance',
+        'tools.undo_drink': 'Undo {name}',
+        'tools.reset_drink': 'Reset {name}',
+        'tools.desc.undo_drink': "Removes the most recently logged drink of this granular device from the master tracker and this drink's own stats.",
+        'tools.desc.reset_drink': 'Clears ALL dose history for this granular drink — totals, last dose, and averages. The master tracker keeps its aggregated history. This cannot be undone.',
         // ── Dialogs ──
         'dialog.warning': 'Warning',
         'dialog.cancel': 'Cancel',
@@ -410,12 +432,40 @@ const translations = {
         'dialog.refill.title': 'Refill Medication',
         'dialog.refill.placeholder': 'Enter number of pills',
         'dialog.refill.confirm': 'Refill',
+        'dialog.refill.title_drink': 'Refill {name}',
+        'dialog.log_drink.title': 'Log Drink',
+        'dialog.log_drink.empty': 'No drinks of this category configured.',
         'dialog.override.body_scheduled': 'Your next scheduled dose is not until {time}. Take a dose now anyway?',
         'dialog.override.body_as_needed': 'Your next safe dose is not until {time}. Take a dose now anyway?',
         'dialog.override.confirm': 'Override',
         'dialog.device_info.button': 'To Device info',
         'dialog.device_info.aria': 'View device info',
         'dialog.refill.aria': 'Refill medication',
+        // ── Sleep Disruption dialog (Master Tracker) ──
+        'dialog.sleep_disruption.title': 'Sleep Disruption',
+        'dialog.sleep_disruption.close': 'Close',
+        'dialog.sleep_disruption.caffeine': [
+            '### Caffeine Sleep Disruption',
+            '',
+            '* **None (0 - 10 mg):** Negligible impact. Normal sleep cycles and melatonin production.',
+            '* **Low (11 - 30 mg):** Minor shift. Deep sleep remains mostly stable.',
+            '* **Moderate (31 - 60 mg):** Hidden disruption. Measurable drop in deep sleep and an elevated resting heart rate.',
+            '* **High (61+ mg):** Severe disruption. Increased tossing and turning, frequent micro-awakenings, and delayed sleep onset.',
+            '* **Note on "Immunity":** Even if you easily fall asleep with caffeine in your system, it still chemically blocks your deep, restorative sleep phases. You are unconscious, but not resting.',
+            '',
+            '*See README for full biological breakdown.*',
+        ].join('\n'),
+        'dialog.sleep_disruption.alcohol': [
+            '### Alcohol Sleep Disruption',
+            '',
+            '* **None (0 g):** Clean architecture. Normal resting heart rate and REM cycles.',
+            '* **Low (1 - 10 g):** Minor rebound. Slight, brief elevation in heart rate during the night.',
+            '* **Moderate (11 - 30 g):** Restless sleep. Mid-night awakenings, temperature dysregulation (sweating), and lowered Heart Rate Variability (HRV).',
+            '* **High (31+ g):** Severe stress. Spiked heart rate for hours, frequent waking, and stressful REM rebound (vivid dreams).',
+            '* **Note on "The Nightcap":** Using alcohol to fall asleep faster is a biological trap. You trade falling asleep quickly for destroying the restorative quality of the second half of your night.',
+            '',
+            '*See README for full biological breakdown.*',
+        ].join('\n'),
         // ── Config form labels ──
         'config.device_id': 'Device',
         'config.big_text': 'Large Text',
@@ -1126,6 +1176,28 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
             const label = (hasDays && days < 365) ? localize(this._lang, 'stats.adherence_running', { days }) : localize(this._lang, 'stats.adherence_365_day');
             rows.push({ label, value: c.getState(e.adherence365Days) + '%', icon: 'mdi:check-decagram', entityId: e.adherence365Days });
         }
+        // ── Master Tracker (Caffeine/Alcohol) extra rows ──
+        // These fields are only populated by the master-tracker branch of
+        // _computeEntities; medicine + granular drink devices leave them
+        // undefined so the guards skip the rows.
+        if (e.amountLast24h) {
+            const v = c.getState(e.amountLast24h);
+            rows.push({ label: localize(this._lang, 'stats.amount_last_24h'), value: (v === 'unknown' || v === 'unavailable' ? '-' : v + ' ' + c.getStrengthUnit(e)), icon: 'mdi:calendar-clock', entityId: e.amountLast24h });
+        }
+        if (e.sleepDisruption) {
+            const v = c.getState(e.sleepDisruption);
+            rows.push({ label: localize(this._lang, 'stats.sleep_disruption'), value: (v === 'unknown' || v === 'unavailable' ? '-' : v), icon: 'mdi:bed-clock', entityId: e.sleepDisruption });
+        }
+        if (e.estimatedLowTime) {
+            const v = c.getState(e.estimatedLowTime);
+            let display = '-';
+            if (v && v !== 'unknown' && v !== 'unavailable') {
+                const dt = new Date(v);
+                if (!isNaN(dt.getTime()))
+                    display = dt.toLocaleString();
+            }
+            rows.push({ label: localize(this._lang, 'stats.estimated_low_time'), value: display, icon: 'mdi:clock-alert-outline', entityId: e.estimatedLowTime });
+        }
         return b `
       <div class="pane pane-stats">
         <div class="stats-grid ${this._config?.stats_3_columns ? 'three-col' : ''}">
@@ -1272,7 +1344,63 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
             this.controller.hass.callService('button', 'press', { entity_id: entities.undoButton });
         });
     }
+    // ── Master Tracker per-granular-drink tools ──
+    // When the selected device is a Master Tracker, render a per-granular-drink
+    // list of Undo + Reset buttons (one row per granular drink of the
+    // substance). Each action opens the shared tools confirmation dialog.
+    _handleDrinkUndo(drink) {
+        if (!this.controller.hass || !drink.undoButtonEntityId)
+            return;
+        this.controller.openToolsDialog(localize(this._lang, 'tools.undo_drink', { name: drink.name }), localize(this._lang, 'tools.desc.undo_drink'), () => { this.controller.undoDrink(drink.undoButtonEntityId); });
+    }
+    _handleDrinkReset(drink) {
+        if (!this.controller.hass || !drink.resetButtonEntityId)
+            return;
+        this.controller.openToolsDialog(localize(this._lang, 'tools.reset_drink', { name: drink.name }), localize(this._lang, 'tools.desc.reset_drink'), () => { this.controller.resetDrink(drink.resetButtonEntityId); });
+    }
+    _renderMasterTools() {
+        const substance = this.entities.substance;
+        if (!substance) {
+            return b `<div class="tools-panel"><div class="tools-empty">${localize(this._lang, 'tools.empty')}</div></div>`;
+        }
+        const drinks = this.controller.getDrinksOfSubstance(substance);
+        const substanceIcon = substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee';
+        if (drinks.length === 0) {
+            return b `<div class="tools-panel"><div class="tools-empty">${localize(this._lang, 'tools.empty')}</div></div>`;
+        }
+        return b `
+      <div class="tools-panel">
+        <div class="tools-section-header">${localize(this._lang, 'tools.drinks_header')}</div>
+        ${drinks.map((d) => b `
+          <div class="drink-tool-row">
+            <div class="drink-tool-name">
+              <ha-icon icon="${substanceIcon}"></ha-icon>
+              <span>${d.name}</span>
+            </div>
+            <div class="drink-tool-actions">
+              ${d.undoButtonEntityId ? b `
+                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkUndo(d)}>
+                  <ha-icon icon="mdi:undo"></ha-icon>
+                  <span>${localize(this._lang, 'tools.undo_dose')}</span>
+                </button>
+              ` : A}
+              ${d.resetButtonEntityId ? b `
+                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkReset(d)}>
+                  <ha-icon icon="mdi:history"></ha-icon>
+                  <span>${localize(this._lang, 'tools.reset_history')}</span>
+                </button>
+              ` : A}
+            </div>
+          </div>
+        `)}
+      </div>
+    `;
+    }
     render() {
+        // Master Tracker branch: per-granular-drink Undo/Reset list.
+        if (this.entities.deviceType === 'drink_master') {
+            return this._renderMasterTools();
+        }
         const e = this.entities;
         const hasAdhTools = !!(e.adherenceResetButton || e.adherenceCoverButton);
         const hasGenTools = !!(e.resetButton || e.undoButton);
@@ -1338,10 +1466,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
 };
 AxDoseToolsPanel.styles = i$3 `
     .tools-panel {
-      padding: 8px 4px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .tools-empty {
@@ -1375,35 +1502,76 @@ AxDoseToolsPanel.styles = i$3 `
       align-items: center;
       justify-content: center;
       gap: 6px;
-      padding: 14px 8px;
-      border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
+      padding: 12px 14px;
+      border: none;
       border-radius: var(--ha-card-border-radius, 12px);
-      background: var(--card-background-color, var(--primary-background-color, #fff));
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       color: var(--primary-text-color, #222);
       font-size: calc(14px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, transform 0.1s;
+      transition: background 0.2s, transform 0.1s;
     }
 
     .tool-btn ha-icon {
-      --mdc-icon-size: 24px;
+      --mdc-icon-size: 20px;
       color: var(--primary-color, #03a9f4);
+      opacity: 0.7;
     }
 
     .tool-btn:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
-      border-color: var(--primary-color, #03a9f4);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
 
     .tool-btn:active {
       transform: scale(0.98);
     }
 
-    .tool-btn.danger:hover {
+    .tool-btn.danger {
       background: rgba(var(--rgb-error-color, 219, 68, 55), 0.06);
-      border-color: var(--error-color, #db4437);
     }
+
+    .tool-btn.danger ha-icon {
+      color: var(--error-color, #db4437);
+    }
+
+    .tool-btn.danger:hover {
+      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.12);
+    }
+
+    /* ── Master Tracker per-granular-drink rows ── */
+    .drink-tool-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--ha-card-border-radius, 12px);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      flex-wrap: wrap;
+    }
+    .drink-tool-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color);
+    }
+    .drink-tool-name ha-icon {
+      --mdc-icon-size: 22px;
+      color: var(--primary-color);
+    }
+    .drink-tool-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .drink-tool-btn {
+      flex-direction: row;
+      padding: 8px 12px;
+      font-size: calc(13px + var(--pill-text-offset, 0px));
+    }
+    .drink-tool-btn ha-icon { --mdc-icon-size: 20px; }
   `;
 __decorate([
     n({ attribute: false })
@@ -2930,63 +3098,460 @@ AxDoseGraphsPanel = AxDoseGraphsPanel_1 = __decorate([
 ], AxDoseGraphsPanel);
 
 // ──────────────────────────────────────────────
-// AX Dose Logger Card — Caffeine Pane (Pane 6, scaffold)
+// AX Dose Logger Card — Drinks Pane (Master Tracker, Pane "drinks")
 // ──────────────────────────────────────────────
-// New pane reserved for a future Caffeine tracking feature. This is a scaffold
-// only for Scope 3 — it proves the extraction pattern on a brand-new panel and
-// reserves the nav slot. Real feature content (caffeine intake logging, half-life
-// graph, daily totals) is a separate task that needs a backend spec.
-let AxDoseCaffeinePanel = class AxDoseCaffeinePanel extends i {
+// Shown when the selected device is a Master Tracker (Caffeine Tracker /
+// Alcohol Tracker). Layout mirrors the Daily pane exactly:
+//   - Centered .drinks-title (20px, weight 600, opens device-info dialog)
+//     — identical to Daily's .med-name.
+//   - .daily-main two-column row:
+//       Left  (.log-drink-btn, flex:1): tinted-primary "Log Drink" button
+//              styled like Daily's .take-pill-btn.safe (icon + label column).
+//       Right (.stats-column, flex:1, gap 10px): two .stat-pill boxes
+//              using Daily's transparency + 15px uppercase label / 18px
+//              weight-600 value:
+//                Top    "In Body"         — entities.amountInBody + unit (mg/g)
+//                Bottom "Sleep Disruption" — entities.sleepDisruption state
+//   No chips row (Drinks master has no chip config). Estimated Low Time was
+//   intentionally removed to keep exactly 2 right boxes, identical to Daily.
+let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
     get _lang() {
         return this.controller.lang;
     }
     render() {
+        const c = this.controller;
+        const e = this.entities;
+        const substance = e.substance;
+        const substanceLabel = substance === 'alcohol'
+            ? localize(this._lang, 'drinks.alcohol')
+            : localize(this._lang, 'drinks.caffeine');
+        // Default icon by substance — mirrors Daily's per-state icon convention.
+        // A user-configurable log_drink_icon override is planned but not yet wired
+        // into the config schema; this default covers both substances.
+        const logDrinkIcon = substance === 'alcohol'
+            ? 'mdi:glass-mug-variant'
+            : 'mdi:coffee';
+        // "Last" counter — identical to Daily's take-sub. The resolver populates
+        // entities.lastDose for drink masters from the pk_model body-mass sensor's
+        // last_dose_time attribute (see ax-dose-logger-card.ts), so the controller
+        // helper works here without any backend change. Drink masters have no
+        // Next/Overdue concept (no schedule), so the sub-line is the single
+        // "Last: …" segment, matching Daily's simplest branch.
+        const timeSince = c.computeTimeSinceLastDose(e);
+        // In Body value — master body-mass sensor + substance unit (mg/g).
+        // Card displays the value rounded to 0 decimals (integer); the backend
+        // sensor stores 1 decimal (see drink_master.py), but the card box shows
+        // a clean integer for compactness.
+        const unit = c.getStrengthUnit(e);
+        const rawBody = e.amountInBody ? c.getState(e.amountInBody) : '';
+        const bodyKnown = !!(e.amountInBody && rawBody && rawBody !== 'unknown' && rawBody !== 'unavailable');
+        const bodyNum = parseFloat(rawBody);
+        const inBodyValue = bodyKnown
+            ? `${isNaN(bodyNum) ? rawBody : Math.round(bodyNum)} ${unit}`
+            : localize(this._lang, 'daily.na');
+        // Sleep Disruption readout (None/Low/Moderate/High) — title-cased first
+        // letter, matching the swapped Safe-to-Take box display convention.
+        const rawSleep = e.sleepDisruption ? c.getState(e.sleepDisruption) : '';
+        const sleepKnown = !!(e.sleepDisruption && rawSleep && rawSleep !== 'unknown' && rawSleep !== 'unavailable');
+        const sleepValue = sleepKnown
+            ? (rawSleep.charAt(0).toUpperCase() + rawSleep.slice(1))
+            : localize(this._lang, 'daily.na');
         return b `
-      <div class="pane pane-caffeine">
-        <div class="caffeine-placeholder">
-          <ha-icon icon="mdi:coffee"></ha-icon>
-          <span>${localize(this._lang, 'caffeine.placeholder')}</span>
+      <div class="pane pane-drinks">
+        <div class="drinks-title"
+             role="button" tabindex="0"
+             aria-label=${localize(this._lang, 'dialog.device_info.aria')}
+             @click=${() => c.showDeviceInfo()}
+             @keydown=${(ev) => c.onKeyActivate(ev, () => c.showDeviceInfo())}
+        >${substanceLabel}</div>
+
+        <div class="daily-main">
+          <button
+            class="log-drink-btn safe"
+            aria-label=${localize(this._lang, 'drinks.log_drink')}
+            ?disabled=${!substance}
+            @click=${() => substance && c.showLogDrinkDialog(substance)}
+          >
+            <ha-icon icon="${logDrinkIcon}"></ha-icon>
+            <span class="take-label">${localize(this._lang, 'drinks.log_drink')}</span>
+            <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
+          </button>
+
+          <div class="stats-column">
+            <div class="stat-pill"
+                 role="button"
+                 tabindex="0"
+                 aria-label=${localize(this._lang, 'drinks.in_body')}
+                 @click=${e.amountInBody ? () => c.openMoreInfo(e.amountInBody) : null}
+                 @keydown=${e.amountInBody ? (ev) => c.onKeyActivate(ev, () => c.openMoreInfo(e.amountInBody)) : null}>
+              <ha-icon icon="mdi:chart-bell-curve"></ha-icon>
+              <span class="stat-label">${localize(this._lang, 'drinks.in_body')}</span>
+              <span class="stat-value">${inBodyValue}</span>
+            </div>
+            <div class="stat-pill"
+                 role="button"
+                 tabindex="0"
+                 aria-label=${localize(this._lang, 'drinks.disruption')}
+                 @click=${e.sleepDisruption && substance ? () => c.showSleepDisruptionDialog(substance) : null}
+                 @keydown=${e.sleepDisruption && substance ? (ev) => c.onKeyActivate(ev, () => c.showSleepDisruptionDialog(substance)) : null}>
+              <ha-icon icon="mdi:sleep"></ha-icon>
+              <span class="stat-label">${localize(this._lang, 'drinks.disruption')}</span>
+              <span class="stat-value">${sleepValue}</span>
+            </div>
+          </div>
         </div>
       </div>
     `;
     }
 };
-AxDoseCaffeinePanel.styles = i$3 `
-    .pane-caffeine {
+AxDoseDrinksPanel.styles = i$3 `
+    .pane-drinks {
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
 
-    .caffeine-placeholder {
+    .drinks-title {
+      font-size: calc(20px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
+      text-align: center;
+      cursor: pointer;
+    }
+
+    /* ── .daily-main / .stats-column — verbatim from daily-panel.ts ── */
+    .daily-main {
+      display: flex;
+      gap: 12px;
+    }
+
+    .stats-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    /* ── Log Drink button — styled like Daily's .take-pill-btn.safe ── */
+    .log-drink-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: var(--ha-card-border-radius, 12px);
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .log-drink-btn:active {
+      transform: scale(0.96);
+    }
+
+    .log-drink-btn.safe {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+
+    .log-drink-btn.safe:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    .log-drink-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .log-drink-btn ha-icon {
+      --mdc-icon-size: 28px;
+      margin-bottom: 2px;
+    }
+
+    .take-label {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 550;
+    }
+
+    /* ── .take-sub — verbatim from daily-panel.ts ── */
+    .take-sub {
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: 450;
+      opacity: 0.9;
+    }
+
+    .take-sub-segment {
+      white-space: nowrap;
+    }
+
+    /* ── .stat-pill / .stat-label / .stat-value — verbatim from daily-panel.ts ── */
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      border-radius: var(--ha-card-border-radius, 12px);
+      cursor: pointer;
+    }
+
+    .stat-pill:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    }
+
+    .stat-pill ha-icon {
+      --mdc-icon-size: 20px;
+      color: var(--primary-color, #03a9f4);
+      opacity: 0.7;
+    }
+
+    .stat-label {
+      font-size: calc(15px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #666);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
+      margin-left: auto;
+    }
+  `;
+__decorate([
+    n({ attribute: false })
+], AxDoseDrinksPanel.prototype, "controller", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDrinksPanel.prototype, "entities", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDrinksPanel.prototype, "hass", void 0);
+AxDoseDrinksPanel = __decorate([
+    t('ax-dose-drinks-panel')
+], AxDoseDrinksPanel);
+
+// ──────────────────────────────────────────────
+// AX Dose Logger Card — Inventory Pane (Master Tracker, Pane "inventory")
+// ──────────────────────────────────────────────
+// 2-column grid, one row per granular drink of the master's substance:
+//   col 1: clickable refill box (drink name + stock value) → opens the
+//          refill dialog targeted at that drink's add_stock number entity.
+//   col 2: 7-day avg + trailing-dynamic-to-365-day avg (reuses the medicine
+//          "Running N-Day Avg" reveal logic via drinkDaysSinceReveal, reading
+//          history_start_date on the 365-day avg sensor).
+let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
+    get _lang() {
+        return this.controller.lang;
+    }
+    render() {
+        const c = this.controller;
+        const substance = this.entities.substance;
+        if (!substance)
+            return A;
+        const drinks = c.getDrinksOfSubstance(substance);
+        if (drinks.length === 0) {
+            return b `
+        <div class="pane pane-inventory">
+          <div class="inv-empty">
+            <ha-icon icon="mdi:package-variant-closed"></ha-icon>
+            <span>${localize(this._lang, 'inventory.empty')}</span>
+          </div>
+        </div>
+      `;
+        }
+        const substanceIcon = substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee';
+        return b `
+      <div class="pane pane-inventory">
+        <div class="inv-grid">
+          ${drinks.map((d) => this._renderRow(d, substanceIcon))}
+        </div>
+      </div>
+    `;
+    }
+    _renderRow(d, substanceIcon) {
+        const c = this.controller;
+        // Column 1 — refill box.
+        const stockState = d.stockEntityId ? c.getState(d.stockEntityId) : '';
+        const stockNum = parseInt(stockState, 10);
+        const stockDisplay = isNaN(stockNum) ? '-' : c.formatInteger(String(stockNum));
+        const canRefill = !!d.addStockEntityId;
+        // Column 2 — averages.
+        const avg7 = d.avg7EntityId ? c.getState(d.avg7EntityId) : '';
+        const avg7Display = (avg7 && avg7 !== 'unknown' && avg7 !== 'unavailable') ? avg7 : '-';
+        const { hasDaysSensor, daysSince } = c.drinkDaysSinceReveal(d.avg365EntityId);
+        const avg365 = d.avg365EntityId ? c.getState(d.avg365EntityId) : '';
+        const avg365Display = (avg365 && avg365 !== 'unknown' && avg365 !== 'unavailable') ? avg365 : '-';
+        // Trailing dynamic label: "Running N-Day Avg" until 365 days, then "Year Avg".
+        const trailingLabel = (hasDaysSensor && daysSince < 365)
+            ? localize(this._lang, 'stats.avg_running', { days: String(daysSince) })
+            : localize(this._lang, 'stats.avg_yearly');
+        return b `
+      <div class="inv-row">
+        <div
+          class="stat-pill ${canRefill ? 'clickable' : ''}"
+          role=${canRefill ? 'button' : A}
+          tabindex=${canRefill ? '0' : A}
+          aria-label=${localize(this._lang, 'dialog.refill.aria')}
+          @click=${canRefill && d.addStockEntityId ? () => c.showRefillDialogFor(d.addStockEntityId, d.name) : null}
+          @keydown=${canRefill ? (ev) => c.onKeyActivate(ev, () => d.addStockEntityId && c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
+        >
+          <ha-icon icon="${substanceIcon}"></ha-icon>
+          <span class="stat-label">${d.name}</span>
+          <span class="stat-value">${stockDisplay}</span>
+        </div>
+        <div class="avg-cell">
+          <div class="avg-line">
+            <span class="avg-label">${localize(this._lang, 'inventory.avg_7_day')}</span>
+            <span class="avg-value">${avg7Display}</span>
+          </div>
+          <div class="avg-line">
+            <span class="avg-label">${trailingLabel}</span>
+            <span class="avg-value">${avg365Display}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    }
+};
+AxDoseInventoryPanel.styles = i$3 `
+    /* ── Container parity with .pane-daily / .pane-drinks ── */
+    .pane-inventory {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .inv-empty {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 8px;
       padding: 40px 16px;
-      color: var(--secondary-text-color, #666);
+      color: var(--secondary-text-color);
       font-size: calc(16px + var(--pill-text-offset, 0px));
       text-align: center;
     }
+    .inv-empty ha-icon { --mdc-icon-size: 40px; opacity: 0.4; }
 
-    .caffeine-placeholder ha-icon {
-      --mdc-icon-size: 40px;
-      opacity: 0.4;
+    .inv-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .inv-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* ── .stat-pill — verbatim from daily-panel.ts / drinks-panel.ts ──
+       (primary-tinted transparency, no border, 12px 14px padding, 8px gap,
+       20px primary-tinted icon at opacity 0.7). */
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      border-radius: var(--ha-card-border-radius, 12px);
+    }
+    .stat-pill.clickable {
+      cursor: pointer;
+    }
+    .stat-pill.clickable:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    }
+    .stat-pill.clickable:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+    .stat-pill ha-icon {
+      --mdc-icon-size: 20px;
+      color: var(--primary-color, #03a9f4);
+      opacity: 0.7;
+    }
+
+    /* ── .stat-label — Daily/Drinks parity for size/color/letter-spacing,
+       with a per-element case override: text-transform: uppercase is
+       intentionally OMITTED because col-1's label is the drink's configured
+       proper-noun name ("Coffee", "Espresso"), which should keep its
+       natural case. The sub-labels in .avg-cell below keep natural case
+       too (they were never uppercased). */
+    .stat-label {
+      flex: 1;
+      font-size: calc(15px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #666);
+      letter-spacing: 0.5px;
+    }
+
+    /* ── .stat-value — verbatim from daily-panel.ts / drinks-panel.ts ── */
+    .stat-value {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
+      margin-left: auto;
+    }
+
+    /* ── .avg-cell — col-2 averages box. No Daily equivalent; adopts the
+       same primary-tinted transparency surface as .stat-pill for parity,
+       keeps its two-row .avg-line internal layout. Padding/gap compressed
+       (12px→10px / 6px→4px) and .avg-value sized 18px→16px so the cell's
+       natural height matches the Stats panel's .stat-cell (~72px); the
+       col-1 .stat-pill stretches to the same height via grid
+       align-items: stretch, so both Inventory boxes match the Stats box
+       height. */
+    .avg-cell {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      padding: 10px 14px;
+      border-radius: var(--ha-card-border-radius, 12px);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+    }
+    .avg-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .avg-label {
+      font-size: calc(13px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #666);
+    }
+    /* ── .avg-value — sized to match .stat-value for visual parity ── */
+    .avg-value {
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
+      margin-left: auto;
+    }
+
+    @media (max-width: 380px) {
+      .inv-row { grid-template-columns: 1fr; }
     }
   `;
 __decorate([
     n({ attribute: false })
-], AxDoseCaffeinePanel.prototype, "controller", void 0);
+], AxDoseInventoryPanel.prototype, "controller", void 0);
 __decorate([
     n({ attribute: false })
-], AxDoseCaffeinePanel.prototype, "entities", void 0);
+], AxDoseInventoryPanel.prototype, "entities", void 0);
 __decorate([
     n({ attribute: false })
-], AxDoseCaffeinePanel.prototype, "hass", void 0);
-AxDoseCaffeinePanel = __decorate([
-    t('ax-dose-caffeine-panel')
-], AxDoseCaffeinePanel);
+], AxDoseInventoryPanel.prototype, "hass", void 0);
+AxDoseInventoryPanel = __decorate([
+    t('ax-dose-inventory-panel')
+], AxDoseInventoryPanel);
 
 // ──────────────────────────────────────────────
 // AxDoseLoggerCard — Main Card Class (Container)
@@ -3001,6 +3566,21 @@ class AxDoseLoggerCard extends i {
         this._showDeviceInfo = false;
         this._showRefillDialog = false;
         this._refillAmount = '';
+        // Refill dialog target. When undefined the dialog targets the medicine
+        // device's own addRefill entity (entities.addRefill); when set (Master
+        // Tracker Inventory panel) it targets a specific granular drink's
+        // add_stock number entity + shows that drink's name in the header.
+        this._refillTarget = null;
+        // Log Drink popup (Master Tracker Drinks panel). When open, shows a grid of
+        // granular drink buttons for the master's substance; pressing one calls
+        // button.press on that drink's DrinkLogButton and closes the dialog.
+        this._showLogDrinkDialog = false;
+        this._logDrinkSubstance = null;
+        // Sleep Disruption popup (Master Tracker Drinks panel). When open, renders
+        // a substance-aware markdown description of how the current body-mass load
+        // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
+        this._showSleepDisruptionDialog = false;
+        this._sleepDisruptionSubstance = null;
         this._activeTimeframe = '48h';
         this._activeBarTimeframe = '14d';
         // Effectiveness-graph state. Mirrors the bar/line graph pattern but keyed
@@ -3202,6 +3782,83 @@ class AxDoseLoggerCard extends i {
                 }
             }
         }
+        // ── Master Tracker (Caffeine/Alcohol) + granular drink detection ──
+        // Master tracker entities use different suffixes (drink_master_*,
+        // sleep_disruption, estimated_low_time) than medicine entities, so the
+        // suffix loop above does not populate ResolvedEntities for them.  Detect
+        // them by state attributes (`drink_master: True` for masters,
+        // `device_type: "drink"` for granular drinks) and populate the master
+        // fields.  Granular drink devices set deviceType='drink' so render() can
+        // show the redirect placeholder.
+        let isMaster = false;
+        let isGranularDrink = false;
+        for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
+            if (entityInfo.device_id !== deviceId)
+                continue;
+            const drinkMaster = this._getAttr(entityId, 'drink_master');
+            const dt = (this._getAttr(entityId, 'device_type') || '').toLowerCase();
+            if (drinkMaster === true) {
+                isMaster = true;
+                const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+                if (substance === 'caffeine' || substance === 'alcohol')
+                    result.substance = substance;
+                // Body-mass sensor: has pk_model attribute + no window_days.
+                if (this._getAttr(entityId, 'pk_model') && this._getAttr(entityId, 'window_days') === undefined) {
+                    result.amountInBody = entityId;
+                }
+                // Avg sensors: have window_days attribute.
+                const wd = this._getAttr(entityId, 'window_days');
+                if (wd !== undefined && wd !== null) {
+                    if (wd === 7)
+                        result.avg7Days = entityId;
+                    else if (wd === 14)
+                        result.avg14Days = entityId;
+                    else if (wd === 30)
+                        result.avg30Days = entityId;
+                    else if (wd === 365)
+                        result.avgYearly = entityId;
+                }
+                // Master-specific sensors are classified by the backend `role` STATE
+                // ATTRIBUTE, NOT entity_id suffix. HA derives entity_id from
+                // slugify(translated_name), so the old suffix matches (e.g.
+                // `.sleep_disruption_caffeine`, `.drink_master_last_dose_caffeine`,
+                // `_daily_amount_`) never matched the name-derived entity_ids
+                // (sensor.caffeine_tracker_sleep_disruption, …_last_caffeine,
+                // …_amount_in_last_24h) → Disruption showed N/A, Last showed "Never",
+                // Amount-in-24h was undefined. State attributes survive renames and
+                // are present on hass.states (unlike unique_id, which the
+                // list_for_display websocket omits).
+                const masterRole = this._getAttr(entityId, 'role');
+                if (masterRole === 'daily_amount')
+                    result.amountLast24h = entityId;
+                else if (masterRole === 'sleep_disruption')
+                    result.sleepDisruption = entityId;
+                else if (masterRole === 'estimated_low_time')
+                    result.estimatedLowTime = entityId;
+                // Dedicated Master Tracker last-dose TIMESTAMP sensor — its state IS
+                // the last-dose timestamp (single source of truth), so the Daily
+                // panel's computeTimeSinceLastDose helper works unchanged for masters.
+                else if (masterRole === 'last_dose')
+                    result.lastDose = entityId;
+                // totalDoses maps to the body-mass sensor, which still carries the
+                // dose_count attribute for the Stats panel's total-doses row.
+                if (this._getAttr(entityId, 'dose_count') !== undefined && this._getAttr(entityId, 'pk_model')) {
+                    result.totalDoses = entityId;
+                }
+            }
+            else if (dt === 'drink') {
+                isGranularDrink = true;
+                const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+                if (substance === 'caffeine' || substance === 'alcohol')
+                    result.substance = substance;
+            }
+        }
+        if (isMaster) {
+            result.deviceType = 'drink_master';
+        }
+        else if (isGranularDrink) {
+            result.deviceType = 'drink';
+        }
         return result;
     }
     // ── Chip Helpers ───────────────────────────
@@ -3226,8 +3883,15 @@ class AxDoseLoggerCard extends i {
         return getAttr(this.hass, entityId, attr);
     }
     _getStrengthUnit(entities) {
+        // Medicine devices expose a `strength` sensor with a `strength_unit` attr.
+        // Master Trackers have no strength sensor; read the native unit off the
+        // body-mass (amountInBody) sensor instead so alcohol masters show "g" and
+        // caffeine masters show "mg" in the Graph + Stats panels.
         const unit = this._getAttr(entities.strength, 'strength_unit');
-        return (typeof unit === 'string' && unit) ? unit : 'mg';
+        if (typeof unit === 'string' && unit)
+            return unit;
+        const bodyUnit = this._getAttr(entities.amountInBody, 'unit_of_measurement');
+        return (typeof bodyUnit === 'string' && bodyUnit) ? bodyUnit : 'mg';
     }
     _formatInteger(value) {
         return formatInteger(value);
@@ -3452,17 +4116,126 @@ class AxDoseLoggerCard extends i {
         });
     }
     _handleRefill(entities) {
-        if (!this.hass || !entities.addRefill)
+        if (!this.hass)
+            return;
+        // Target is the Master Tracker Inventory override when set, otherwise the
+        // medicine device's own addRefill entity.
+        const targetEntityId = this._refillTarget?.addStockEntityId ?? entities.addRefill;
+        if (!targetEntityId)
             return;
         const value = parseFloat(this._refillAmount);
         if (isNaN(value) || value <= 0)
             return;
         this.hass.callService('number', 'set_value', {
-            entity_id: entities.addRefill,
+            entity_id: targetEntityId,
             value: value,
         });
         this._showRefillDialog = false;
         this._refillAmount = '';
+        this._refillTarget = null;
+    }
+    // ── Master Tracker Drinks actions ──────────
+    // Enumerate every granular drink device of a substance for the Log Drink
+    // popup, Inventory panel, and Tools panel.  Groups hass.entities by
+    // device_id after filtering on platform + device_type='drink' state attr +
+    // matching substance, then resolves each device's log/undo/reset buttons,
+    // stock + add_stock numbers, and 7/365-day avg sensors.
+    //
+    // Classification uses the backend `role` STATE ATTRIBUTE (set in
+    // _attr_extra_state_attributes on each granular entity), NOT the entity_id
+    // suffix. HA derives entity_id from slugify(translated_name)
+    // (async_generate_entity_id + util.slugify), and every drink entity sets
+    // _attr_has_entity_name = True, so the entity_id is the slugified *name*
+    // (e.g. DrinkStockNumber → number.coffee_inventory), NOT the unique_id stem
+    // (_drink_stock) — an entity_id-suffix match silently misses every entity
+    // except DrinkLogButton (whose "Log Drink" name coincidentally slugifies to
+    // log_drink). unique_id is NOT present on hass.entities either (HA's
+    // list_for_display websocket omits it — see _as_display_dict), so matching
+    // unique_id stems also fails. State attributes ARE present on
+    // hass.states[entityId].attributes, integration-controlled, and survive
+    // renames — the same approach already proven by device_type/substance/
+    // pk_model. Avg sensors also carry window_days to distinguish 7/365.
+    _getDrinksOfSubstance(substance) {
+        if (!this.hass)
+            return [];
+        const byDevice = {};
+        for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
+            if (entityInfo.platform !== 'ax_dose_logger')
+                continue;
+            const deviceId = entityInfo.device_id;
+            if (!deviceId)
+                continue;
+            const dt = (this._getAttr(entityId, 'device_type') || '').toLowerCase();
+            if (dt !== 'drink')
+                continue;
+            const sub = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+            if (sub !== substance)
+                continue;
+            const info = byDevice[deviceId] ?? {
+                deviceId,
+                name: this.hass.devices?.[deviceId]?.name || entityInfo.name || entityId,
+                substance,
+            };
+            // Classify by the backend `role` state attribute (+ window_days for avg
+            // sensors). Store entity_id for state lookups / service calls.
+            const role = this._getAttr(entityId, 'role');
+            if (entityId.startsWith('button.')) {
+                if (role === 'log')
+                    info.logButtonEntityId = entityId;
+                else if (role === 'undo')
+                    info.undoButtonEntityId = entityId;
+                else if (role === 'reset')
+                    info.resetButtonEntityId = entityId;
+            }
+            else if (entityId.startsWith('number.')) {
+                if (role === 'stock')
+                    info.stockEntityId = entityId;
+                else if (role === 'add_stock')
+                    info.addStockEntityId = entityId;
+            }
+            else if (entityId.startsWith('sensor.')) {
+                if (role === 'avg') {
+                    const wd = this._getAttr(entityId, 'window_days');
+                    if (wd === 7)
+                        info.avg7EntityId = entityId;
+                    else if (wd === 365)
+                        info.avg365EntityId = entityId;
+                }
+            }
+            byDevice[deviceId] = info;
+        }
+        return Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+    }
+    // Days-since reveal for a granular drink, reading the history_start_date
+    // attribute on its 365-day avg sensor (DrinkAvgDosesSensor exposes it).
+    _drinkDaysSinceReveal(avg365EntityId) {
+        if (!avg365EntityId)
+            return { hasDaysSensor: false, daysSince: 0 };
+        const startIso = this._getAttr(avg365EntityId, 'history_start_date');
+        if (!startIso)
+            return { hasDaysSensor: false, daysSince: 0 };
+        const start = new Date(startIso);
+        if (isNaN(start.getTime()))
+            return { hasDaysSensor: false, daysSince: 0 };
+        const days = Math.floor((Date.now() - start.getTime()) / 86400000);
+        return { hasDaysSensor: true, daysSince: Math.max(0, days) };
+    }
+    _logDrink(logButtonEntityId) {
+        if (!this.hass || !logButtonEntityId)
+            return;
+        this.hass.callService('button', 'press', { entity_id: logButtonEntityId });
+        this._showLogDrinkDialog = false;
+        this._logDrinkSubstance = null;
+    }
+    _undoDrink(undoButtonEntityId) {
+        if (!this.hass || !undoButtonEntityId)
+            return;
+        this.hass.callService('button', 'press', { entity_id: undoButtonEntityId });
+    }
+    _resetDrink(resetButtonEntityId) {
+        if (!this.hass || !resetButtonEntityId)
+            return;
+        this.hass.callService('button', 'press', { entity_id: resetButtonEntityId });
     }
     // ── Tools Actions ──────────────────────────
     _openToolsDialog(title, descriptor, onConfirm) {
@@ -3524,9 +4297,23 @@ class AxDoseLoggerCard extends i {
     showRefillDialog() {
         this._showRefillDialog = true;
         this._refillAmount = '';
+        this._refillTarget = null;
+    }
+    showRefillDialogFor(addStockEntityId, drinkName) {
+        this._refillTarget = { addStockEntityId, drinkName };
+        this._showRefillDialog = true;
+        this._refillAmount = '';
     }
     showDeviceInfo() {
         this._showDeviceInfo = true;
+    }
+    showLogDrinkDialog(substance) {
+        this._logDrinkSubstance = substance;
+        this._showLogDrinkDialog = true;
+    }
+    showSleepDisruptionDialog(substance) {
+        this._sleepDisruptionSubstance = substance;
+        this._showSleepDisruptionDialog = true;
     }
     setActiveGraph(idx) {
         this._activeGraph = idx;
@@ -3559,6 +4346,11 @@ class AxDoseLoggerCard extends i {
     computeTimeSinceLastDose(entities) { return this._computeTimeSinceLastDose(entities); }
     bucketByDay(dayCount) { return this._bucketByDay(dayCount); }
     daysSinceReveal(entities) { return this._daysSinceReveal(entities); }
+    getDrinksOfSubstance(substance) { return this._getDrinksOfSubstance(substance); }
+    drinkDaysSinceReveal(avg365EntityId) { return this._drinkDaysSinceReveal(avg365EntityId); }
+    logDrink(logButtonEntityId) { this._logDrink(logButtonEntityId); }
+    undoDrink(undoButtonEntityId) { this._undoDrink(undoButtonEntityId); }
+    resetDrink(resetButtonEntityId) { this._resetDrink(resetButtonEntityId); }
     handleTakePill(entities) { this._handleTakePill(entities); }
     handleUndoDose(entities) { this._handleUndoDose(entities); }
     handleRefill(entities) { this._handleRefill(entities); }
@@ -3634,13 +4426,19 @@ class AxDoseLoggerCard extends i {
     `;
     }
     _renderRefillDialog(entities) {
+        // Header shows the drink name when refilling a granular drink from the
+        // Master Tracker Inventory panel; otherwise the generic refill title.
+        const header = this._refillTarget
+            ? localize(this._lang, 'dialog.refill.title_drink', { name: this._refillTarget.drinkName })
+            : localize(this._lang, 'dialog.refill.title');
+        const close = () => { this._showRefillDialog = false; this._refillAmount = ''; this._refillTarget = null; };
         return b `
       <ha-dialog
         open
         width="small"
-        @closed=${() => { this._showRefillDialog = false; this._refillAmount = ''; }}
+        @closed=${close}
       >
-        <div slot="header" class="dialog-header">${localize(this._lang, 'dialog.refill.title')}</div>
+        <div slot="header" class="dialog-header">${header}</div>
         <div class="dialog-body">
           <input
             type="number"
@@ -3653,13 +4451,51 @@ class AxDoseLoggerCard extends i {
           />
         </div>
         <div class="custom-action-bar">
-          <button class="dialog-btn dialog-btn--muted"
-                  @click=${() => { this._showRefillDialog = false; this._refillAmount = ''; }}>
+          <button class="dialog-btn dialog-btn--muted" @click=${close}>
             ${localize(this._lang, 'dialog.cancel')}
           </button>
-          <button class="dialog-btn"
-                  @click=${() => this._handleRefill(entities)}>
+          <button class="dialog-btn" @click=${() => this._handleRefill(entities)}>
             ${localize(this._lang, 'dialog.refill.confirm')}
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+    }
+    // Log Drink popup (Master Tracker Drinks panel). Shows a grid of granular
+    // drink buttons for the master's substance; pressing one calls button.press
+    // on that drink's DrinkLogButton and closes the dialog.
+    _renderLogDrinkDialog() {
+        const substance = this._logDrinkSubstance;
+        if (!substance)
+            return A;
+        const drinks = this._getDrinksOfSubstance(substance);
+        const close = () => { this._showLogDrinkDialog = false; this._logDrinkSubstance = null; };
+        return b `
+      <ha-dialog
+        open
+        width="small"
+        @closed=${close}
+      >
+        <div slot="header" class="dialog-header">${localize(this._lang, 'dialog.log_drink.title')}</div>
+        <div class="dialog-body">
+          ${drinks.length === 0
+            ? b `<div class="tools-dialog-descriptor">${localize(this._lang, 'dialog.log_drink.empty')}</div>`
+            : b `<div class="log-drink-grid">
+                ${drinks.map((d) => b `
+                  <button
+                    class="dialog-btn log-drink-btn"
+                    ?disabled=${!d.logButtonEntityId}
+                    @click=${() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId)}
+                  >
+                    <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
+                    <span>${d.name}</span>
+                  </button>
+                `)}
+              </div>`}
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn dialog-btn--muted" @click=${close}>
+            ${localize(this._lang, 'dialog.cancel')}
           </button>
         </div>
       </ha-dialog>
@@ -3888,6 +4724,36 @@ class AxDoseLoggerCard extends i {
         }
     }
     // ── Pane 4: Tools ──────────────────────────
+    _renderSleepDisruptionDialog() {
+        const substance = this._sleepDisruptionSubstance;
+        if (!substance)
+            return A;
+        const close = () => { this._showSleepDisruptionDialog = false; this._sleepDisruptionSubstance = null; };
+        const mdKey = substance === 'alcohol'
+            ? 'dialog.sleep_disruption.alcohol'
+            : 'dialog.sleep_disruption.caffeine';
+        return b `
+      <ha-dialog
+        open
+        width="small"
+        @closed=${close}
+      >
+        <div slot="header" class="dialog-header">
+          <ha-icon icon="mdi:sleep"></ha-icon>
+          ${localize(this._lang, 'dialog.sleep_disruption.title')}
+        </div>
+        <div class="dialog-body">
+          <ha-markdown .content=${localize(this._lang, mdKey)}></ha-markdown>
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn" @click=${close}>
+            <ha-icon icon="mdi:close"></ha-icon>
+            <span>${localize(this._lang, 'dialog.sleep_disruption.close')}</span>
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+    }
     _renderToolsDialog() {
         const dialog = this._toolsDialog;
         if (!dialog)
@@ -4002,23 +4868,25 @@ class AxDoseLoggerCard extends i {
     // ── Pane Selector ──────────────────────────
     _renderPaneSelector(entities) {
         const hasMetrics = entities.metrics.length > 0;
-        // Caffeine pane is gated on a `device_type` state attribute (value
-        // "caffeine") emitted by the device's primary sensor. The backend does
-        // not yet emit this attribute for any device, so the pane stays hidden
-        // everywhere until a real caffeine device is configured. Mirrors the
-        // existing hasMetrics/tracking conditional-spread pattern. The lookup
-        // is defensive (lower-cased, nil-coalesced) since the backend will
-        // eventually emit snake_case values.
-        const deviceType = (this._getAttr(entities.nextDose, 'device_type') || '').toLowerCase();
-        const hasCaffeine = deviceType === 'caffeine';
-        const panes = [
-            { id: 'daily', labelKey: 'pane.daily', icon: 'mdi:pill' },
-            { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
-            { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
-            ...(hasCaffeine ? [{ id: 'caffeine', labelKey: 'pane.caffeine', icon: 'mdi:coffee' }] : []),
-            ...(hasMetrics ? [{ id: 'tracking', labelKey: 'pane.tracking', icon: 'mdi:chart-sankey' }] : []),
-            { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
-        ];
+        let panes;
+        if (entities.deviceType === 'drink_master') {
+            panes = [
+                { id: 'drinks', labelKey: 'pane.drinks', icon: entities.substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee' },
+                { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
+                { id: 'inventory', labelKey: 'pane.inventory', icon: 'mdi:package-variant-closed' },
+                { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
+                { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
+            ];
+        }
+        else {
+            panes = [
+                { id: 'daily', labelKey: 'pane.daily', icon: 'mdi:pill' },
+                { id: 'graphs', labelKey: 'pane.graphs', icon: 'mdi:chart-bar' },
+                { id: 'stats', labelKey: 'pane.stats', icon: 'mdi:clipboard-list' },
+                ...(hasMetrics ? [{ id: 'tracking', labelKey: 'pane.tracking', icon: 'mdi:chart-sankey' }] : []),
+                { id: 'tools', labelKey: 'pane.tools', icon: 'mdi:wrench' },
+            ];
+        }
         return b `
       <div class="pane-selector">
         ${panes.map(pane => {
@@ -4056,34 +4924,56 @@ class AxDoseLoggerCard extends i {
       `;
         }
         const entities = this._resolveEntities();
+        // Granular drink device: render a single redirect placeholder pane and no
+        // nav bar. The user must select the Master Tracker (Caffeine/Alcohol)
+        // device to get the full Drinks card.
+        if (entities.deviceType === 'drink') {
+            const substanceLabel = entities.substance === 'alcohol'
+                ? localize(this._lang, 'drinks.redirect_alcohol')
+                : localize(this._lang, 'drinks.redirect_caffeine');
+            return b `
+        <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
+          <div class="card-content">
+            <div class="caffeine-placeholder">
+              <ha-icon icon=${entities.substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee'}></ha-icon>
+              <span>${substanceLabel}</span>
+            </div>
+          </div>
+        </ha-card>
+      `;
+        }
         // Auto-fallback: if the user is on the tracking pane but no tracking items exist
         // (e.g. they were removed in the options flow), fall back to the daily pane.
         if (this._activePane === 'tracking' && entities.metrics.length === 0) {
             this._activePane = 'daily';
         }
-        // Auto-fallback: if the user is on the caffeine pane but the device is not
-        // a caffeine device (e.g. the device_type attribute was removed or the
-        // device was switched), fall back to the daily pane. Mirrors the tracking
-        // fallback above. The backend does not yet emit device_type, so any
-        // lingering _activePane === 'caffeine' (e.g. from a dev session) is
-        // bounced here.
-        if (this._activePane === 'caffeine' &&
-            (this._getAttr(entities.nextDose, 'device_type') || '').toLowerCase() !== 'caffeine') {
+        // Auto-fallback: master-tracker panes only exist on master trackers;
+        // medicine-only panes only exist on medicine devices. If the device was
+        // switched (or a stale _activePane lingers from a prior device), bounce
+        // to the device's first pane.
+        const isMaster = entities.deviceType === 'drink_master';
+        const masterPanes = ['drinks', 'inventory'];
+        const medicinePanes = ['daily', 'tracking'];
+        if (isMaster && medicinePanes.includes(this._activePane))
+            this._activePane = 'drinks';
+        if (!isMaster && masterPanes.includes(this._activePane))
             this._activePane = 'daily';
-        }
         return b `
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
         <div class="card-content">
           ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-daily-panel>` : A}
           ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : A}
           ${this._activePane === 'stats' ? b `<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-stats-panel>` : A}
-          ${this._activePane === 'caffeine' ? b `<ax-dose-caffeine-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-caffeine-panel>` : A}
+          ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-drinks-panel>` : A}
+          ${this._activePane === 'inventory' ? b `<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-inventory-panel>` : A}
           ${this._activePane === 'tools' ? b `<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : A}
           ${this._activePane === 'tracking' ? b `<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : A}
         </div>
         ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector(entities) : A}
         ${this._showDeviceInfo ? this._renderDeviceInfoDialog(entities) : A}
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : A}
+        ${this._showLogDrinkDialog ? this._renderLogDrinkDialog() : A}
+        ${this._showSleepDisruptionDialog ? this._renderSleepDisruptionDialog() : A}
         ${this._toolsDialog ? this._renderToolsDialog() : A}
         ${this._overrideDialog ? this._renderOverrideDialog() : A}
         ${this._trackingOverrideDialog ? this._renderTrackingOverrideDialog() : A}
@@ -4126,6 +5016,11 @@ class AxDoseLoggerCard extends i {
         this._showDeviceInfo = false;
         this._showRefillDialog = false;
         this._refillAmount = '';
+        this._refillTarget = null;
+        this._showLogDrinkDialog = false;
+        this._logDrinkSubstance = null;
+        this._showSleepDisruptionDialog = false;
+        this._sleepDisruptionSubstance = null;
         this._toolsDialog = null;
         this._overrideDialog = null;
         // Start a 30s tick so time-relative panes (daily/stats) refresh their
@@ -4188,6 +5083,11 @@ class AxDoseLoggerCard extends i {
             '_showDeviceInfo',
             '_showRefillDialog',
             '_refillAmount',
+            '_refillTarget',
+            '_showLogDrinkDialog',
+            '_logDrinkSubstance',
+            '_showSleepDisruptionDialog',
+            '_sleepDisruptionSubstance',
             '_toolsDialog',
             '_overrideDialog',
             '_trackingOverrideDialog',
@@ -4198,7 +5098,7 @@ class AxDoseLoggerCard extends i {
         // The 30s tick refreshes time-relative panes (daily/stats). The graphs and
         // tools panes don't depend on wall-clock time, so skip the tick there to
         // avoid needless SVG re-renders.
-        if (changedProps.has('_tick') && (this._activePane === 'daily' || this._activePane === 'stats')) {
+        if (changedProps.has('_tick') && (this._activePane === 'daily' || this._activePane === 'stats' || this._activePane === 'drinks' || this._activePane === 'inventory')) {
             return true;
         }
         if (changedProps.has('hass')) {
@@ -4265,6 +5165,23 @@ class AxDoseLoggerCard extends i {
                     this._fetchEffectivenessHistory(entities);
                 }
             }
+            else if (changedProperties.has('hass')) {
+                // A relevant entity changed while the graphs pane is open (shouldUpdate
+                // already gated on _relevantStateChanged, so a watched sensor — lastDose,
+                // total, amountInBody, an effectiveness number — actually updated, not a
+                // system-wide state tick). Re-fetch so the bar/line/effectiveness graphs
+                // reflect a just-taken dose (or undo/reset) without requiring the user to
+                // navigate away and back. The per-fetch race-guard tokens discard any
+                // in-flight stale results after their `await` resolves, and the REST
+                // endpoint reads in-memory store data (no DB query), so this is cheap.
+                // Note: this branch does NOT fire on the _tick timer (shouldUpdate
+                // excludes _tick for the graphs pane), so there is no periodic polling.
+                this._fetchDoseHistory(entities);
+                this._fetchAmountHistory(entities);
+                if (entities.metrics.length) {
+                    this._fetchEffectivenessHistory(entities);
+                }
+            }
         }
         // Clean up _pendingTracking: once HA confirms logged_today=true for an
         // entity, remove it from the pending set so future changes use the real
@@ -4285,7 +5202,8 @@ class AxDoseLoggerCard extends i {
             case 'stats': return 7;
             case 'tools': return 6;
             case 'tracking': return 6;
-            case 'caffeine': return 6;
+            case 'drinks': return 6;
+            case 'inventory': return 8;
             default: return 5; // daily
         }
     }
@@ -4444,6 +5362,24 @@ AxDoseLoggerCard.styles = i$3 `
       --mdc-icon-size: 24px;
     }
 
+    /* ── Log Drink popup (Master Tracker) ───── */
+
+    .log-drink-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .log-drink-btn {
+      flex-direction: column;
+      gap: 6px;
+      padding: 14px 8px;
+      font-size: calc(14px + var(--pill-text-offset, 0px));
+    }
+    .log-drink-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     /* ── Refill Dialog ──────────────────────── */
 
     .refill-input {
@@ -4519,6 +5455,21 @@ __decorate([
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_refillAmount", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_refillTarget", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_showLogDrinkDialog", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_logDrinkSubstance", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_showSleepDisruptionDialog", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_sleepDisruptionSubstance", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_activeTimeframe", void 0);

@@ -8,6 +8,7 @@
 // editor-module and component imports owned by the container.
 
 import type { HomeAssistant, LovelaceCardConfig, ActionConfig } from 'custom-card-helpers';
+// DrinkInfo is defined in this file and referenced by CardController below.
 
 // ──────────────────────────────────────────────
 // Configuration / Home Assistant types
@@ -97,6 +98,40 @@ export interface ResolvedEntities {
   pillsLeft?: string;
   addRefill?: string;
   metrics: MetricEntity[];
+  // ── Master Tracker (Caffeine/Alcohol) extra fields ──
+  // Populated by the master-tracker branch of _computeEntities when the
+  // selected device is a Master Tracker. Medicine + granular drink devices
+  // leave these undefined so the Stats/Drinks panels' `if (e.x)` guards skip
+  // the master-specific rows.
+  /** 24h sum-of-strengths sensor (mg caffeine / g alcohol). */
+  amountLast24h?: string;
+  /** Categorical sleep-disruption sensor state (None/Low/Moderate/High). */
+  sleepDisruption?: string;
+  /** Timestamp sensor predicting when body-mass enters the Low band. */
+  estimatedLowTime?: string;
+  /** Device classification: undefined (medicine) | 'drink_master' | 'drink'. */
+  deviceType?: 'drink_master' | 'drink';
+  /** Substance when deviceType is drink_master or drink: 'caffeine'|'alcohol'. */
+  substance?: 'caffeine' | 'alcohol';
+}
+
+/**
+ * One granular drink of a substance, as enumerated by
+ * CardController.getDrinksOfSubstance() for the Master Tracker Drinks popup +
+ * Inventory + Tools panels.  Each field is the entity_id of the granular
+ * device's corresponding entity (or undefined if that entity is absent).
+ */
+export interface DrinkInfo {
+  deviceId: string;
+  name: string;
+  substance: 'caffeine' | 'alcohol';
+  logButtonEntityId?: string;
+  undoButtonEntityId?: string;
+  resetButtonEntityId?: string;
+  stockEntityId?: string;
+  addStockEntityId?: string;
+  avg7EntityId?: string;
+  avg365EntityId?: string;
 }
 
 export interface DayBucket {
@@ -157,6 +192,43 @@ export interface CardController {
   computeTimeSinceLastDose(entities: ResolvedEntities): string;
   bucketByDay(dayCount?: number): DayBucket[];
   daysSinceReveal(entities: ResolvedEntities): { hasDaysSensor: boolean; daysSince: number };
+  // ── Master Tracker (Drinks) helpers ──
+  /**
+   * Enumerate every granular drink device of a substance (caffeine/alcohol).
+   * Iterates hass.entities filtering by `platform === 'ax_dose_logger'` +
+   * `device_type === 'drink'` state attribute + matching `substance`, groups
+   * by device_id, and returns one DrinkInfo per granular drink with its
+   * log/undo/reset buttons, stock + add_stock numbers, and 7/365-day avg
+   * sensors.  Used by the Drinks (Log Drink popup), Inventory, and Tools
+   * panels of a Master Tracker card.
+   */
+  getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[];
+  /**
+   * Days-since-first-dose reveal for a granular drink, mirroring
+   * daysSinceReveal() but reading the `history_start_date` attribute on the
+   * drink's 365-day avg sensor (DrinkAvgDosesSensor exposes it) instead of a
+   * dedicated days_since_first_dose sensor.  Returns hasDaysSensor=false when
+   * the attribute is absent so callers fall back to showing all boxes.
+   */
+  drinkDaysSinceReveal(avg365EntityId?: string): { hasDaysSensor: boolean; daysSince: number };
+  /**
+   * Open the refill dialog targeted at a specific granular drink's add_stock
+   * number entity (Master Tracker Inventory panel).  The medicine
+   * showRefillDialog() hardcodes the card's own addRefill entity; this
+   * generalization accepts the target so the same dialog reuses across
+   * medicine + drinks.
+   */
+  showRefillDialogFor(addStockEntityId: string, drinkName: string): void;
+  /** Open the Log Drink popup for a substance (Master Tracker Drinks panel). */
+  showLogDrinkDialog(substance: 'caffeine' | 'alcohol'): void;
+  /** Open the substance-aware Sleep Disruption popup (Master Tracker Drinks panel). */
+  showSleepDisruptionDialog(substance: 'caffeine' | 'alcohol'): void;
+  /** Press a granular drink's Log Drink button (Master Tracker Drinks popup). */
+  logDrink(logButtonEntityId: string): void;
+  /** Press a granular drink's Undo button (Master Tracker Tools panel). */
+  undoDrink(undoButtonEntityId: string): void;
+  /** Press a granular drink's Reset button (Master Tracker Tools panel). */
+  resetDrink(resetButtonEntityId: string): void;
 
   // ── Actions the panels fire back to the container ──
   handleTakePill(entities: ResolvedEntities): void;

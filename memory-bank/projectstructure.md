@@ -12,8 +12,18 @@
 │   └── ax-dose-logger-card.js   # Compiled output (ES module)
 ├── src/
 │   ├── ax-dose-logger-card.ts   # Main source — card class, getConfigForm() schema, CSS, registrations
+│   ├── ax-dose-logger-editor.ts # Visual editor (getConfigForm schema + computeLabel/computeHelper)
+│   ├── helpers.ts            # Shared state helpers (getState/getAttr/formatInteger/computeNextDose/...)
 │   ├── localize.ts           # Localization helper — localize() function + English translation map
-│   ├── components/           # (empty — reserved for future component extraction)
+│   ├── types.ts              # Shared types (AxDoseLoggerCardConfig, ResolvedEntities, CardController, DrinkInfo)
+│   ├── components/           # Presentational panel components (extracted from the container)
+│   │   ├── daily-panel.ts        # Pane 1 — Take Pill button, Safe-to-Take box, Pills Left, chips
+│   │   ├── graphs-panel.ts       # Pane 2 — bar graph + amount-in-body line graph + effectiveness graph carousel
+│   │   ├── stats-panel.ts        # Pane 3 — statistics grid (medicine rows + master-specific rows)
+│   │   ├── drinks-panel.ts       # Drinks pane (Master Tracker) — Log Drink button + Sleep Disruption + Estimated Low
+│   │   ├── inventory-panel.ts    # Inventory pane (Master Tracker) — 2-col per-granular-drink refill + avgs; Daily/Drinks parity CSS + natural-case drink-name label; entities resolved by unique_id (not entity_id)
+│   │   ├── tools-panel.ts        # Tools pane — medicine maintenance buttons + master per-drink Undo/Reset
+│   │   └── tracking-panel.ts     # Tracking pane — effectiveness ha-slider per metric
 │   ├── helpers/              # (empty — reserved for future helper extraction)
 │   └── localize/
 │       └── languages/        # (empty — reserved for future localization)
@@ -33,7 +43,10 @@
 │   ├── refill-button-plan.md     # Refill button + dialog plan
 │   ├── pane1-overhaul-plan.md    # Next dose unboxed + refill button moved to stats column plan
 │   ├── take-pill-button-restructure-plan.md # Move next dose into take pill button, As Needed detection
-│   └── adherence-reset-override-plan.md # Adherence-only reset + mark-last-missed + dedicated Tools panel plan
+│   ├── adherence-reset-override-plan.md # Adherence-only reset + mark-last-missed + dedicated Tools panel plan
+│   ├── drinks-panel-daily-layout-parity-plan.md # Drinks pane Daily-layout parity plan
+│   ├── sleep-disruption-popup-plan.md # Drinks pane Disruption box → ha-dialog markdown pop-up plan
+│   └── inventory-panel-parity-and-sensor-fix-plan.md # Inventory Daily/Drinks CSS parity + unique_id resolver fix plan
 ├── memory-bank/
 │   ├── activeContext.md      # Current feature status and recent changes
 │   ├── progress.md           # Full history of completed work

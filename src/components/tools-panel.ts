@@ -10,7 +10,7 @@
 
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { CardController, ResolvedEntities, AxDoseLoggerHass } from '../types.js';
+import type { CardController, ResolvedEntities, AxDoseLoggerHass, DrinkInfo } from '../types.js';
 import { localize } from '../localize.js';
 
 @customElement('ax-dose-tools-panel')
@@ -77,7 +77,73 @@ export class AxDoseToolsPanel extends LitElement {
     );
   }
 
+  // ── Master Tracker per-granular-drink tools ──
+  // When the selected device is a Master Tracker, render a per-granular-drink
+  // list of Undo + Reset buttons (one row per granular drink of the
+  // substance). Each action opens the shared tools confirmation dialog.
+  private _handleDrinkUndo(drink: DrinkInfo): void {
+    if (!this.controller.hass || !drink.undoButtonEntityId) return;
+    this.controller.openToolsDialog(
+      localize(this._lang, 'tools.undo_drink', { name: drink.name }),
+      localize(this._lang, 'tools.desc.undo_drink'),
+      () => { this.controller.undoDrink(drink.undoButtonEntityId!); },
+    );
+  }
+
+  private _handleDrinkReset(drink: DrinkInfo): void {
+    if (!this.controller.hass || !drink.resetButtonEntityId) return;
+    this.controller.openToolsDialog(
+      localize(this._lang, 'tools.reset_drink', { name: drink.name }),
+      localize(this._lang, 'tools.desc.reset_drink'),
+      () => { this.controller.resetDrink(drink.resetButtonEntityId!); },
+    );
+  }
+
+  private _renderMasterTools(): unknown {
+    const substance = this.entities.substance;
+    if (!substance) {
+      return html`<div class="tools-panel"><div class="tools-empty">${localize(this._lang, 'tools.empty')}</div></div>`;
+    }
+    const drinks = this.controller.getDrinksOfSubstance(substance);
+    const substanceIcon = substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee';
+    if (drinks.length === 0) {
+      return html`<div class="tools-panel"><div class="tools-empty">${localize(this._lang, 'tools.empty')}</div></div>`;
+    }
+    return html`
+      <div class="tools-panel">
+        <div class="tools-section-header">${localize(this._lang, 'tools.drinks_header')}</div>
+        ${drinks.map((d) => html`
+          <div class="drink-tool-row">
+            <div class="drink-tool-name">
+              <ha-icon icon="${substanceIcon}"></ha-icon>
+              <span>${d.name}</span>
+            </div>
+            <div class="drink-tool-actions">
+              ${d.undoButtonEntityId ? html`
+                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkUndo(d)}>
+                  <ha-icon icon="mdi:undo"></ha-icon>
+                  <span>${localize(this._lang, 'tools.undo_dose')}</span>
+                </button>
+              ` : nothing}
+              ${d.resetButtonEntityId ? html`
+                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkReset(d)}>
+                  <ha-icon icon="mdi:history"></ha-icon>
+                  <span>${localize(this._lang, 'tools.reset_history')}</span>
+                </button>
+              ` : nothing}
+            </div>
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
   render() {
+    // Master Tracker branch: per-granular-drink Undo/Reset list.
+    if (this.entities.deviceType === 'drink_master') {
+      return this._renderMasterTools();
+    }
+
     const e = this.entities;
     const hasAdhTools = !!(e.adherenceResetButton || e.adherenceCoverButton);
     const hasGenTools = !!(e.resetButton || e.undoButton);
@@ -145,10 +211,9 @@ export class AxDoseToolsPanel extends LitElement {
 
   static styles = css`
     .tools-panel {
-      padding: 8px 4px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .tools-empty {
@@ -182,35 +247,76 @@ export class AxDoseToolsPanel extends LitElement {
       align-items: center;
       justify-content: center;
       gap: 6px;
-      padding: 14px 8px;
-      border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
+      padding: 12px 14px;
+      border: none;
       border-radius: var(--ha-card-border-radius, 12px);
-      background: var(--card-background-color, var(--primary-background-color, #fff));
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       color: var(--primary-text-color, #222);
       font-size: calc(14px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, transform 0.1s;
+      transition: background 0.2s, transform 0.1s;
     }
 
     .tool-btn ha-icon {
-      --mdc-icon-size: 24px;
+      --mdc-icon-size: 20px;
       color: var(--primary-color, #03a9f4);
+      opacity: 0.7;
     }
 
     .tool-btn:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
-      border-color: var(--primary-color, #03a9f4);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
 
     .tool-btn:active {
       transform: scale(0.98);
     }
 
-    .tool-btn.danger:hover {
+    .tool-btn.danger {
       background: rgba(var(--rgb-error-color, 219, 68, 55), 0.06);
-      border-color: var(--error-color, #db4437);
     }
+
+    .tool-btn.danger ha-icon {
+      color: var(--error-color, #db4437);
+    }
+
+    .tool-btn.danger:hover {
+      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.12);
+    }
+
+    /* ── Master Tracker per-granular-drink rows ── */
+    .drink-tool-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--ha-card-border-radius, 12px);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      flex-wrap: wrap;
+    }
+    .drink-tool-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: calc(15px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color);
+    }
+    .drink-tool-name ha-icon {
+      --mdc-icon-size: 22px;
+      color: var(--primary-color);
+    }
+    .drink-tool-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .drink-tool-btn {
+      flex-direction: row;
+      padding: 8px 12px;
+      font-size: calc(13px + var(--pill-text-offset, 0px));
+    }
+    .drink-tool-btn ha-icon { --mdc-icon-size: 20px; }
   `;
 }
 

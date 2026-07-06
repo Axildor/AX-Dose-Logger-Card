@@ -15,6 +15,8 @@ const translations: Record<string, Record<string, string>> = {
     'pane.stats': 'Stats',
     'pane.tools': 'Tools',
     'pane.caffeine': 'Caffeine',
+    'pane.drinks': 'Drinks',
+    'pane.inventory': 'Inventory',
 
     // ── Daily pane ──
     'daily.take_pill': 'Take Pill',
@@ -64,6 +66,9 @@ const translations: Record<string, Record<string, string>> = {
     'stats.adherence_30_day': '30-Day Adherence',
     'stats.adherence_365_day': '365-Day Adherence',
     'stats.adherence_running': '{days}-Day Adherence',
+    'stats.amount_last_24h': 'Amount in Last 24h',
+    'stats.sleep_disruption': 'Sleep Disruption',
+    'stats.estimated_low_time': 'Estimated Low Time',
 
     // ── Averages grid (short labels) ──
     'averages.avg_7_day': '7-Day Avg',
@@ -77,7 +82,21 @@ const translations: Record<string, Record<string, string>> = {
     'averages.adh_365_day': '365d Adh',
     'averages.adh_running': '{days}d Adh',
 
-    // ── Caffeine pane (scaffold) ──
+    // ── Drinks pane (Master Tracker) ──
+    'drinks.caffeine': 'Caffeine',
+    'drinks.alcohol': 'Alcohol',
+    'drinks.log_drink': 'Log Drink',
+    'drinks.in_body': 'In Body',
+    'drinks.disruption': 'Disruption',
+    'drinks.sleep_disruption': 'Sleep Disruption',
+    'drinks.redirect_caffeine': 'Please select the Caffeine device to view this drink.',
+    'drinks.redirect_alcohol': 'Please select the Alcohol device to view this drink.',
+
+    // ── Inventory pane (Master Tracker) ──
+    'inventory.empty': 'No drinks of this category configured.',
+    'inventory.avg_7_day': '7-Day Avg',
+
+    // ── Caffeine pane (legacy scaffold, retained one release) ──
     'caffeine.placeholder': 'Caffeine tracking — coming soon',
 
     // ── Tracking pane ──
@@ -104,6 +123,11 @@ const translations: Record<string, Record<string, string>> = {
     'tools.desc.mark_adherence_taken': 'Marks the most recent missed dose slot as taken for adherence calculation only. Does NOT add a dose to the pharmacokinetics model or dose count.',
     'tools.desc.reset_history': 'Clears ALL dose history across every sensor — adherence, Amount in Body, totals, and last dose. This cannot be undone.',
     'tools.desc.undo_dose': 'Removes the most recently logged dose from all sensors, including the pharmacokinetics model and adherence calculation.',
+    'tools.drinks_header': 'Drink Maintenance',
+    'tools.undo_drink': 'Undo {name}',
+    'tools.reset_drink': 'Reset {name}',
+    'tools.desc.undo_drink': "Removes the most recently logged drink of this granular device from the master tracker and this drink's own stats.",
+    'tools.desc.reset_drink': 'Clears ALL dose history for this granular drink — totals, last dose, and averages. The master tracker keeps its aggregated history. This cannot be undone.',
 
     // ── Dialogs ──
     'dialog.warning': 'Warning',
@@ -112,12 +136,41 @@ const translations: Record<string, Record<string, string>> = {
     'dialog.refill.title': 'Refill Medication',
     'dialog.refill.placeholder': 'Enter number of pills',
     'dialog.refill.confirm': 'Refill',
+    'dialog.refill.title_drink': 'Refill {name}',
+    'dialog.log_drink.title': 'Log Drink',
+    'dialog.log_drink.empty': 'No drinks of this category configured.',
     'dialog.override.body_scheduled': 'Your next scheduled dose is not until {time}. Take a dose now anyway?',
     'dialog.override.body_as_needed': 'Your next safe dose is not until {time}. Take a dose now anyway?',
     'dialog.override.confirm': 'Override',
     'dialog.device_info.button': 'To Device info',
     'dialog.device_info.aria': 'View device info',
     'dialog.refill.aria': 'Refill medication',
+
+    // ── Sleep Disruption dialog (Master Tracker) ──
+    'dialog.sleep_disruption.title': 'Sleep Disruption',
+    'dialog.sleep_disruption.close': 'Close',
+    'dialog.sleep_disruption.caffeine': [
+      '### Caffeine Sleep Disruption',
+      '',
+      '* **None (0 - 10 mg):** Negligible impact. Normal sleep cycles and melatonin production.',
+      '* **Low (11 - 30 mg):** Minor shift. Deep sleep remains mostly stable.',
+      '* **Moderate (31 - 60 mg):** Hidden disruption. Measurable drop in deep sleep and an elevated resting heart rate.',
+      '* **High (61+ mg):** Severe disruption. Increased tossing and turning, frequent micro-awakenings, and delayed sleep onset.',
+      '* **Note on "Immunity":** Even if you easily fall asleep with caffeine in your system, it still chemically blocks your deep, restorative sleep phases. You are unconscious, but not resting.',
+      '',
+      '*See README for full biological breakdown.*',
+    ].join('\n'),
+    'dialog.sleep_disruption.alcohol': [
+      '### Alcohol Sleep Disruption',
+      '',
+      '* **None (0 g):** Clean architecture. Normal resting heart rate and REM cycles.',
+      '* **Low (1 - 10 g):** Minor rebound. Slight, brief elevation in heart rate during the night.',
+      '* **Moderate (11 - 30 g):** Restless sleep. Mid-night awakenings, temperature dysregulation (sweating), and lowered Heart Rate Variability (HRV).',
+      '* **High (31+ g):** Severe stress. Spiked heart rate for hours, frequent waking, and stressful REM rebound (vivid dreams).',
+      '* **Note on "The Nightcap":** Using alcohol to fall asleep faster is a biological trap. You trade falling asleep quickly for destroying the restorative quality of the second half of your night.',
+      '',
+      '*See README for full biological breakdown.*',
+    ].join('\n'),
 
     // ── Config form labels ──
     'config.device_id': 'Device',

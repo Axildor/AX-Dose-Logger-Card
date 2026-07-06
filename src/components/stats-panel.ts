@@ -66,6 +66,28 @@ export class AxDoseStatsPanel extends LitElement {
       rows.push({ label, value: c.getState(e.adherence365Days) + '%', icon: 'mdi:check-decagram', entityId: e.adherence365Days });
     }
 
+    // ── Master Tracker (Caffeine/Alcohol) extra rows ──
+    // These fields are only populated by the master-tracker branch of
+    // _computeEntities; medicine + granular drink devices leave them
+    // undefined so the guards skip the rows.
+    if (e.amountLast24h) {
+      const v = c.getState(e.amountLast24h);
+      rows.push({ label: localize(this._lang, 'stats.amount_last_24h'), value: (v === 'unknown' || v === 'unavailable' ? '-' : v + ' ' + c.getStrengthUnit(e)), icon: 'mdi:calendar-clock', entityId: e.amountLast24h });
+    }
+    if (e.sleepDisruption) {
+      const v = c.getState(e.sleepDisruption);
+      rows.push({ label: localize(this._lang, 'stats.sleep_disruption'), value: (v === 'unknown' || v === 'unavailable' ? '-' : v), icon: 'mdi:bed-clock', entityId: e.sleepDisruption });
+    }
+    if (e.estimatedLowTime) {
+      const v = c.getState(e.estimatedLowTime);
+      let display = '-';
+      if (v && v !== 'unknown' && v !== 'unavailable') {
+        const dt = new Date(v);
+        if (!isNaN(dt.getTime())) display = dt.toLocaleString();
+      }
+      rows.push({ label: localize(this._lang, 'stats.estimated_low_time'), value: display, icon: 'mdi:clock-alert-outline', entityId: e.estimatedLowTime });
+    }
+
     return html`
       <div class="pane pane-stats">
         <div class="stats-grid ${this._config?.stats_3_columns ? 'three-col' : ''}">
