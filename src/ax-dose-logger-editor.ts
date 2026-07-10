@@ -228,17 +228,55 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             ],
           },
           {
-            type: 'grid',
-            name: '',
-            column_min_width: '200px',
+            type: 'expandable',
+            name: 'pills_left_box',
+            title: 'Pills Left Box',
+            flatten: true,
             schema: [
               {
-                name: 'pills_left_icon',
-                selector: { icon: {} },
+                name: 'pills_left_show_days_left',
+                selector: { boolean: {} },
               },
               {
-                name: 'pills_left_label',
-                selector: { text: {} },
+                name: 'pills_left_entity',
+                selector: {
+                  entity: {
+                    context: { filter_device_id: 'device_id' },
+                  },
+                },
+              },
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'pills_left_icon',
+                    selector: { icon: {} },
+                  },
+                  {
+                    name: 'pills_left_label',
+                    selector: { text: {} },
+                  },
+                ],
+              },
+              {
+                name: 'pills_left_tap_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+              {
+                name: 'pills_left_hold_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+              {
+                name: 'pills_left_double_tap_action',
+                selector: {
+                  ui_action: {},
+                },
               },
             ],
           },
@@ -320,6 +358,230 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'chip_4_label',
+                    selector: { text: {} },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      // ── Drinks Panel (Master Tracker) — mirrors the Daily Panel ──
+      // Same three-box override structure: In Body Box (entity swap + icon/
+      // label + actions), Disruption Box (Time to Low 3-option select +
+      // entity swap + icon/label + actions), and Custom Chips (4× entity +
+      // label pairs). The Disruption Box uses a single 3-option select
+      // ('disruption' / 'low_timestamp' / 'low_hours_until') instead of the
+      // Pills Left Box boolean toggle — the cleanest expression of three
+      // mutually-exclusive display modes (user-confirmed Option A).
+      {
+        type: 'expandable',
+        name: 'drinks_panel',
+        flatten: true,
+        schema: [
+          {
+            type: 'grid',
+            name: '',
+            column_min_width: '200px',
+            schema: [
+              {
+                name: 'log_drink_icon',
+                selector: { icon: {} },
+              },
+              {
+                name: 'log_drink_label',
+                selector: { text: {} },
+              },
+            ],
+          },
+          {
+            type: 'expandable',
+            name: 'in_body_box',
+            title: 'In Body Box',
+            flatten: true,
+            schema: [
+              {
+                name: 'in_body_entity',
+                selector: {
+                  entity: {
+                    context: { filter_device_id: 'device_id' },
+                  },
+                },
+              },
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'in_body_icon',
+                    selector: { icon: {} },
+                  },
+                  {
+                    name: 'in_body_label',
+                    selector: { text: {} },
+                  },
+                ],
+              },
+              {
+                name: 'in_body_tap_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+              {
+                name: 'in_body_hold_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+              {
+                name: 'in_body_double_tap_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+            ],
+          },
+          {
+            type: 'expandable',
+            name: 'disruption_box',
+            title: 'Disruption Box',
+            flatten: true,
+            schema: [
+              {
+                name: 'disruption_mode',
+                selector: {
+                  select: {
+                    options: [
+                      { value: 'disruption', label: localize('en', 'config.disruption_mode_disruption') },
+                      { value: 'low_timestamp', label: localize('en', 'config.disruption_mode_low_timestamp') },
+                      { value: 'low_hours_until', label: localize('en', 'config.disruption_mode_low_hours_until') },
+                    ],
+                  },
+                },
+              },
+              {
+                name: 'disruption_entity',
+                selector: {
+                  entity: {
+                    context: { filter_device_id: 'device_id' },
+                  },
+                },
+              },
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'disruption_icon',
+                    selector: { icon: {} },
+                  },
+                  {
+                    name: 'disruption_label',
+                    selector: { text: {} },
+                  },
+                ],
+              },
+              {
+                name: 'disruption_tap_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+              {
+                name: 'disruption_hold_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+              {
+                name: 'disruption_double_tap_action',
+                selector: {
+                  ui_action: {},
+                },
+              },
+            ],
+          },
+          {
+            type: 'expandable',
+            name: 'drink_chips',
+            title: 'Custom Chips',
+            flatten: true,
+            schema: [
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'drink_chip_1',
+                    selector: {
+                      entity: {
+                        context: { filter_device_id: 'device_id' },
+                      },
+                    },
+                  },
+                  {
+                    name: 'drink_chip_1_label',
+                    selector: { text: {} },
+                  },
+                ],
+              },
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'drink_chip_2',
+                    selector: {
+                      entity: {
+                        context: { filter_device_id: 'device_id' },
+                      },
+                    },
+                  },
+                  {
+                    name: 'drink_chip_2_label',
+                    selector: { text: {} },
+                  },
+                ],
+              },
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'drink_chip_3',
+                    selector: {
+                      entity: {
+                        context: { filter_device_id: 'device_id' },
+                      },
+                    },
+                  },
+                  {
+                    name: 'drink_chip_3_label',
+                    selector: { text: {} },
+                  },
+                ],
+              },
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'drink_chip_4',
+                    selector: {
+                      entity: {
+                        context: { filter_device_id: 'device_id' },
+                      },
+                    },
+                  },
+                  {
+                    name: 'drink_chip_4_label',
                     selector: { text: {} },
                   },
                 ],
@@ -412,6 +674,17 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       ) {
         return '';
       }
+      // Drink chip entity + label fields: same label-suppression rationale as
+      // the Daily-panel chips above (entity picker + text field cell-height
+      // equalization inside a 200px grid column).
+      if (
+        schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' ||
+        schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' ||
+        schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' ||
+        schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label'
+      ) {
+        return '';
+      }
       return localize(lang, 'config.' + schema.name);
     },
     computeHelper: (schema: any, _data: any, hass: any) => {
@@ -420,9 +693,10 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       // Layout/container nodes (grid, expandable) and nodes without a selector
       // have no input control, so helper text does not apply. Without this
       // guard, localize() returns the raw 'config.helper.<name>' key for
-      // containers (daily_panel, graphs_panel, stats_panel, chips,
-      // safe_to_take_box) that have no translation defined, which then
-      // renders as visible text under the expandable headers.
+      // containers (daily_panel, drinks_panel, graphs_panel, stats_panel,
+      // chips, drink_chips, safe_to_take_box, pills_left_box, in_body_box,
+      // disruption_box) that have no translation defined, which then renders as
+      // visible text under the expandable headers.
       if (
         schema.type === 'grid' ||
         schema.type === 'expandable' ||
@@ -435,6 +709,12 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       }
       if (name?.startsWith('chip_')) {
         return localize(lang, 'config.helper.chip');
+      }
+      if (name?.startsWith('drink_chip_') && name?.endsWith('_label')) {
+        return localize(lang, 'config.helper.drink_chip_label');
+      }
+      if (name?.startsWith('drink_chip_')) {
+        return localize(lang, 'config.helper.drink_chip');
       }
       return localize(lang, 'config.helper.' + name);
     },

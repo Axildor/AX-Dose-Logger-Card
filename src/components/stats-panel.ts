@@ -37,10 +37,28 @@ export class AxDoseStatsPanel extends LitElement {
 
     if (e.totalDoses) rows.push({ label: localize(this._lang, 'stats.total_doses'), value: c.getState(e.totalDoses), icon: 'mdi:counter', entityId: e.totalDoses });
     if (e.daysSinceFirstDose) rows.push({ label: localize(this._lang, 'stats.days_since_first_dose'), value: c.getState(e.daysSinceFirstDose), icon: 'mdi:calendar-start', entityId: e.daysSinceFirstDose });
+    if (e.daysLeft) {
+      // Days-left inventory-burn sensor. Scheduled medicine → "Days left"
+      // (integer, config-derived doses/day); As Needed + drinks + master →
+      // "Est. days left" (empirical 7-day average). The backend sets the
+      // `estimation` state attribute; the resolver mirrors it onto
+      // daysLeftEst so this row picks the matching label. Whole-number
+      // display via formatInteger matches the Amount in Body discipline.
+      const v = c.getState(e.daysLeft);
+      let display = '-';
+      if (v && v !== 'unknown' && v !== 'unavailable' && v !== 'None') {
+        const formatted = c.formatInteger(v);
+        display = (formatted && formatted !== 'unknown' && formatted !== 'unavailable') ? formatted + ' days' : '-';
+      }
+      const label = e.daysLeftEst
+        ? localize(this._lang, 'stats.days_left_est')
+        : localize(this._lang, 'stats.days_left');
+      rows.push({ label, value: display, icon: 'mdi:calendar-clock', entityId: e.daysLeft });
+    }
     if (e.lastDose) rows.push({ label: localize(this._lang, 'stats.last_dose'), value: c.computeTimeSinceLastDose(e), icon: 'mdi:clock-outline', entityId: e.lastDose });
     const strengthUnit = c.getStrengthUnit(e);
     if (e.strength) rows.push({ label: localize(this._lang, 'stats.strength'), value: c.formatInteger(c.getState(e.strength)) + ' ' + strengthUnit, icon: 'mdi:scale', entityId: e.strength });
-    if (e.amountInBody) rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: c.getState(e.amountInBody) + ' ' + strengthUnit, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
+    if (e.amountInBody) rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: c.formatInteger(c.getState(e.amountInBody)) + ' ' + strengthUnit, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
     if (e.steadyState) {
       const ss = c.getState(e.steadyState);
       const display = (ss === '0.0' || ss === '0') ? localize(this._lang, 'stats.steady_state_reached') : localize(this._lang, 'stats.steady_state_days', { days: ss });
@@ -83,9 +101,23 @@ export class AxDoseStatsPanel extends LitElement {
       let display = '-';
       if (v && v !== 'unknown' && v !== 'unavailable') {
         const dt = new Date(v);
-        if (!isNaN(dt.getTime())) display = dt.toLocaleString();
+        if (!isNaN(dt.getTime())) {
+          // HH:MM only (24-hour, no date, no seconds) — the backend keeps the
+          // TIMESTAMP device class so automations + the history graph still see
+          // the full datetime; the card surfaces just the time for compactness.
+          display = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
       }
-      rows.push({ label: localize(this._lang, 'stats.estimated_low_time'), value: display, icon: 'mdi:clock-alert-outline', entityId: e.estimatedLowTime });
+      rows.push({ label: localize(this._lang, 'stats.low_timestamp'), value: display, icon: 'mdi:clock-alert-outline', entityId: e.estimatedLowTime });
+    }
+    if (e.lowHoursUntil) {
+      const v = c.getState(e.lowHoursUntil);
+      let display = '-';
+      if (v && v !== 'unknown' && v !== 'unavailable' && v !== 'None') {
+        const num = parseFloat(v);
+        if (!isNaN(num)) display = num + ' h';
+      }
+      rows.push({ label: localize(this._lang, 'stats.low_hours_until'), value: display, icon: 'mdi:timer-sand', entityId: e.lowHoursUntil });
     }
 
     return html`

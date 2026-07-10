@@ -410,7 +410,7 @@ export class AxDoseGraphsPanel extends LitElement {
             <line x1="${padLeft}" y1="${currentY}" x2="${w - padRight}" y2="${currentY}"
                   stroke="var(--primary-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
             <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(12px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
-              Current: ${amountInBody} ${c.getStrengthUnit(entities)}
+              Current: ${Math.round(parseFloat(amountInBody))} ${c.getStrengthUnit(entities)}
             </text>
           ` : nothing}
 

@@ -114,8 +114,30 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 | `safe_to_take_double_tap_action` | action | _(none)_ | Action to perform when the Safe to Take box is double-tapped |
 | `pills_left_label` | string | `Pills left` | Label for the remaining-amount stat in the Daily pane. Change to match the form/unit, e.g. `Amount Left (ml)`, `Doses Left` |
 | `pills_left_icon` | icon | `mdi:pill` | Icon shown on the remaining-amount stat box in the Daily pane |
+| `pills_left_show_days_left` | boolean | `false` | Show the Days left sensor instead of Pills left. Keeps the Refill dialog as the default tap |
+| `pills_left_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the Pills Left box. Leave empty to use the built-in sensor. Tapping still opens the Refill dialog by default |
+| `pills_left_tap_action` | action | `refill` | Action when the Pills Left box is tapped. Defaults to the Refill dialog; a custom action overrides it |
+| `pills_left_hold_action` | action | _(none)_ | Action when the Pills Left box is long-pressed |
+| `pills_left_double_tap_action` | action | _(none)_ | Action when the Pills Left box is double-tapped |
+| `log_drink_icon` | icon | `mdi:coffee` / `mdi:glass-mug-variant` | Icon for the Log Drink button on the Drinks pane (Master Tracker cards). Substance-aware default |
+| `log_drink_label` | string | `Log Drink` | Label for the Log Drink button |
+| `in_body_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the In Body box. Leave empty to use the built-in sensor |
+| `in_body_icon` | icon | `mdi:chart-bell-curve` | Icon for the In Body box |
+| `in_body_label` | string | `In Body` | Label for the In Body box |
+| `in_body_tap_action` | action | `more-info` | Action when the In Body box is tapped |
+| `in_body_hold_action` | action | _(none)_ | Action when the In Body box is long-pressed |
+| `in_body_double_tap_action` | action | _(none)_ | Action when the In Body box is double-tapped |
+| `disruption_mode` | select | `disruption` | Display mode for the Disruption box. `disruption` = Sleep Disruption state (None/Low/Moderate/High); `low_timestamp` = Low - Timestamp (HH:MM); `low_hours_until` = Low - Hours Until countdown (X h). Overrides `disruption_entity` when set to a Low mode |
+| `disruption_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the Disruption box. Leave empty to use the built-in sensor. Overridden by the `disruption_mode` Low modes |
+| `disruption_icon` | icon | `mdi:sleep` / `mdi:clock-outline` / `mdi:timer-sand` | Icon for the Disruption box. Defaults to the mode-specific icon |
+| `disruption_label` | string | `Disruption` / `Low - Timestamp` / `Low - Hours Until` | Label for the Disruption box. Defaults to the mode-specific label |
+| `disruption_tap_action` | action | `popup` / `more-info` | Action when the Disruption box is tapped. Defaults to the Sleep Disruption popup (`disruption` mode) or more-info (Low modes) |
+| `disruption_hold_action` | action | _(none)_ | Action when the Disruption box is long-pressed |
+| `disruption_double_tap_action` | action | _(none)_ | Action when the Disruption box is double-tapped |
+| `drink_chip_1`–`drink_chip_4` | entity | _(empty)_ | Custom chips shown on the Drinks pane (Master Tracker cards). Up to 4 entities |
+| `drink_chip_1_label`–`drink_chip_4_label` | string | _(empty)_ | Optional label for each Drinks-pane chip. Leave empty to use the entity's friendly name |
 | `stats_3_columns` | boolean | `false` | Use 3-column layout for the stats pane |
-| `show_amount_in_body` | boolean | `true` | Show the "Amount in Body" line graph in the Graphs pane |
+| `show_amount_in_body` | boolean | `true` | Show the "Amount in Body" line graph in the Graphs pane. When on (and the device has a usable Amount in Body state), it is the default graph shown when navigating to the Graphs pane |
 | `amount_in_body_default_timeframe` | string | `48h` | Default timescale for the Amount in Body graph on card load. Options: `12h`, `24h`, `48h`, `7d`, `14d`, `30d`. Useful for medications where a shorter window (e.g. 12h) is more informative |
 | `show_day_avg_boxes` | boolean | `true` | Show rolling day-average boxes in the Stats pane |
 | `show_adherence_boxes` | boolean | `true` | Show adherence percentage boxes in the Stats pane |

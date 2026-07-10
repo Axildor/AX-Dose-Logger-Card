@@ -18,6 +18,7 @@
 
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { ActionConfig } from 'custom-card-helpers';
 import type { CardController, ResolvedEntities, AxDoseLoggerHass } from '../types.js';
 import { localize } from '../localize.js';
 
@@ -35,44 +36,122 @@ export class AxDoseDrinksPanel extends LitElement {
     const c = this.controller;
     const e = this.entities;
     const substance = e.substance;
+    const cfg = c.config;
     const substanceLabel = substance === 'alcohol'
       ? localize(this._lang, 'drinks.alcohol')
       : localize(this._lang, 'drinks.caffeine');
 
-    // Default icon by substance — mirrors Daily's per-state icon convention.
-    // A user-configurable log_drink_icon override is planned but not yet wired
-    // into the config schema; this default covers both substances.
-    const logDrinkIcon = substance === 'alcohol'
-      ? 'mdi:glass-mug-variant'
-      : 'mdi:coffee';
+    // Log Drink button overrides — icon/label fall back to substance-aware
+    // defaults when unset (mdi:coffee for caffeine, mdi:glass-mug-variant for
+    // alcohol; "Log Drink" label). Mirrors the Daily panel's take_pill_icon /
+    // take_pill_label overrides.
+    const logDrinkIcon = cfg?.log_drink_icon
+      || (substance === 'alcohol' ? 'mdi:glass-mug-variant' : 'mdi:coffee');
+    const logDrinkLabel = cfg?.log_drink_label || localize(this._lang, 'drinks.log_drink');
 
     // "Last" counter — identical to Daily's take-sub. The resolver populates
-    // entities.lastDose for drink masters from the pk_model body-mass sensor's
-    // last_dose_time attribute (see ax-dose-logger-card.ts), so the controller
+    // entities.lastDose for drink masters from the dedicated
+    // DrinkMasterLastDoseSensor (see ax-dose-logger-card.ts), so the controller
     // helper works here without any backend change. Drink masters have no
     // Next/Overdue concept (no schedule), so the sub-line is the single
     // "Last: …" segment, matching Daily's simplest branch.
     const timeSince = c.computeTimeSinceLastDose(e);
 
-    // In Body value — master body-mass sensor + substance unit (mg/g).
-    // Card displays the value rounded to 0 decimals (integer); the backend
-    // sensor stores 1 decimal (see drink_master.py), but the card box shows
-    // a clean integer for compactness.
-    const unit = c.getStrengthUnit(e);
-    const rawBody = e.amountInBody ? c.getState(e.amountInBody) : '';
-    const bodyKnown = !!(e.amountInBody && rawBody && rawBody !== 'unknown' && rawBody !== 'unavailable');
-    const bodyNum = parseFloat(rawBody);
-    const inBodyValue = bodyKnown
-      ? `${isNaN(bodyNum) ? rawBody : Math.round(bodyNum)} ${unit}`
-      : localize(this._lang, 'daily.na');
+    // ── In Body box — full override parity with the Daily Safe to Take box ──
+    // Display entity: configured in_body_entity wins; else the default
+    // amountInBody sensor. Swapped numeric → formatInteger + unit attr;
+    // swapped non-numeric → title-case. Default → Math.round + substance unit
+    // (mg/g) rounded to 0 decimals for compactness (unchanged from prior).
+    const inBodyDisplayEntity = c.getInBodyBoxEntity(e);
+    const inBodyRaw = inBodyDisplayEntity ? c.getState(inBodyDisplayEntity) : '';
+    const inBodyUnknown = !inBodyRaw || inBodyRaw === 'unknown' || inBodyRaw === 'unavailable';
+    const inBodyIsSwapped = !!(cfg?.in_body_entity && cfg.in_body_entity !== e.amountInBody);
+    const inBodyUnit = c.getStrengthUnit(e);
+    const inBodyBodyNum = parseFloat(inBodyRaw);
+    const inBodyValue = inBodyUnknown
+      ? localize(this._lang, 'daily.na')
+      : (inBodyIsSwapped
+        ? (isNaN(inBodyBodyNum)
+          ? (inBodyRaw.charAt(0).toUpperCase() + inBodyRaw.slice(1))
+          : c.formatInteger(inBodyRaw) + (c.getAttr(inBodyDisplayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(inBodyDisplayEntity, 'unit_of_measurement') : ''))
+        : `${isNaN(inBodyBodyNum) ? inBodyRaw : Math.round(inBodyBodyNum)} ${inBodyUnit}`);
+    const inBodyActionConfig: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig } = {
+      entity: inBodyDisplayEntity,
+      tap_action: cfg?.in_body_tap_action,
+      hold_action: cfg?.in_body_hold_action,
+      double_tap_action: cfg?.in_body_double_tap_action,
+    };
+    const ibHasCustomTap = !!cfg?.in_body_tap_action;
+    const ibHasHold = !!cfg?.in_body_hold_action;
+    const ibHasDblClick = !!cfg?.in_body_double_tap_action;
+    const inBodyClickable = ibHasCustomTap || ibHasHold || ibHasDblClick || !!inBodyDisplayEntity;
 
-    // Sleep Disruption readout (None/Low/Moderate/High) — title-cased first
-    // letter, matching the swapped Safe-to-Take box display convention.
-    const rawSleep = e.sleepDisruption ? c.getState(e.sleepDisruption) : '';
-    const sleepKnown = !!(e.sleepDisruption && rawSleep && rawSleep !== 'unknown' && rawSleep !== 'unavailable');
-    const sleepValue = sleepKnown
-      ? (rawSleep.charAt(0).toUpperCase() + rawSleep.slice(1))
-      : localize(this._lang, 'daily.na');
+    // ── Disruption box — Time to Low 3-option mode select + entity swap ──
+    // Mode priority (mirrors Pills Left Box days-left toggle): built-in mode
+    // swap wins over disruption_entity. 'disruption' (default) → Sleep
+    // Disruption state (None/Low/Moderate/High, title-cased); 'low_timestamp'
+    // → Low - Timestamp sensor formatted HH:MM; 'low_hours_until' → Low -
+    // Hours Until countdown sensor formatted X h. An entity swap follows the
+    // same numeric/title-case convention as the In Body box.
+    const disruptionMode = cfg?.disruption_mode || 'disruption';
+    const disruptionDisplayEntity = c.getDisruptionBoxEntity(e);
+    const disruptionRaw = disruptionDisplayEntity ? c.getState(disruptionDisplayEntity) : '';
+    const disruptionUnknown = !disruptionRaw || disruptionRaw === 'unknown' || disruptionRaw === 'unavailable';
+    const disruptionIsSwapped = !!(cfg?.disruption_entity && cfg.disruption_entity !== e.sleepDisruption
+      && disruptionMode === 'disruption');
+    // Display value per mode.
+    let disruptionValue = localize(this._lang, 'daily.na');
+    if (!disruptionUnknown) {
+      if (disruptionIsSwapped) {
+        const num = parseFloat(disruptionRaw);
+        disruptionValue = isNaN(num)
+          ? (disruptionRaw.charAt(0).toUpperCase() + disruptionRaw.slice(1))
+          : c.formatInteger(disruptionRaw) + (c.getAttr(disruptionDisplayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(disruptionDisplayEntity, 'unit_of_measurement') : '');
+      } else if (disruptionMode === 'low_timestamp') {
+        // Low - Timestamp sensor state is a full ISO datetime; display HH:MM
+        // (24-hour) matching the Stats panel format.
+        const dt = new Date(disruptionRaw);
+        disruptionValue = isNaN(dt.getTime())
+          ? localize(this._lang, 'daily.na')
+          : dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+      } else if (disruptionMode === 'low_hours_until') {
+        // Low - Hours Until is a DURATION (hours) numeric; display X h.
+        const num = parseFloat(disruptionRaw);
+        disruptionValue = isNaN(num) ? localize(this._lang, 'daily.na') : `${num} h`;
+      } else {
+        // disruption (default) → title-cased state.
+        disruptionValue = disruptionRaw.charAt(0).toUpperCase() + disruptionRaw.slice(1);
+      }
+    }
+    // Default icon/label switch per mode.
+    const disruptionDefaultIcon = disruptionMode === 'low_timestamp'
+      ? 'mdi:clock-outline'
+      : (disruptionMode === 'low_hours_until' ? 'mdi:timer-sand' : 'mdi:sleep');
+    const disruptionDefaultLabel = disruptionMode === 'low_timestamp'
+      ? localize(this._lang, 'stats.low_timestamp')
+      : (disruptionMode === 'low_hours_until' ? localize(this._lang, 'stats.low_hours_until') : localize(this._lang, 'drinks.disruption'));
+    const disruptionActionConfig: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig } = {
+      entity: disruptionDisplayEntity,
+      tap_action: cfg?.disruption_tap_action,
+      hold_action: cfg?.disruption_hold_action,
+      double_tap_action: cfg?.disruption_double_tap_action,
+    };
+    const dHasCustomTap = !!cfg?.disruption_tap_action;
+    const dHasHold = !!cfg?.disruption_hold_action;
+    const dHasDblClick = !!cfg?.disruption_double_tap_action;
+    // Tap fallback: Sleep Disruption popup when mode='disruption' + substance;
+    // else more-info on the display entity (matches the Low-modes' default).
+    const disruptionTapFallback = () => {
+      if (disruptionMode === 'disruption' && substance) {
+        c.showSleepDisruptionDialog(substance);
+      } else if (disruptionDisplayEntity) {
+        c.openMoreInfo(disruptionDisplayEntity);
+      }
+    };
+    const disruptionClickable = dHasCustomTap || dHasHold || dHasDblClick || !!disruptionDisplayEntity || (disruptionMode === 'disruption' && !!substance);
+
+    // ── Custom chips (Drinks panel) — parallel to the Daily panel chips ──
+    const drinkChipEntities = c.getDrinkChipEntities();
 
     return html`
       <div class="pane pane-drinks">
@@ -86,38 +165,62 @@ export class AxDoseDrinksPanel extends LitElement {
         <div class="daily-main">
           <button
             class="log-drink-btn safe"
-            aria-label=${localize(this._lang, 'drinks.log_drink')}
+            aria-label=${logDrinkLabel}
             ?disabled=${!substance}
             @click=${() => substance && c.showLogDrinkDialog(substance)}
           >
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
-            <span class="take-label">${localize(this._lang, 'drinks.log_drink')}</span>
+            <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
           </button>
 
           <div class="stats-column">
-            <div class="stat-pill"
+            <div class="stat-pill ${inBodyClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex="0"
-                 aria-label=${localize(this._lang, 'drinks.in_body')}
-                 @click=${e.amountInBody ? () => c.openMoreInfo(e.amountInBody!) : null}
-                 @keydown=${e.amountInBody ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.openMoreInfo(e.amountInBody!)) : null}>
-              <ha-icon icon="mdi:chart-bell-curve"></ha-icon>
-              <span class="stat-label">${localize(this._lang, 'drinks.in_body')}</span>
+                 tabindex=${inBodyClickable ? '0' : nothing}
+                 aria-label=${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}
+                 @click=${inBodyClickable ? (ev: MouseEvent) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity) : null}
+                 @keydown=${inBodyClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleInBodyBoxAction(null, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
+                 @contextmenu=${ibHasHold ? (ev: Event) => { ev.preventDefault(); c.handleInBodyBoxAction(null, 'hold', inBodyActionConfig, inBodyDisplayEntity); } : null}
+                 @dblclick=${ibHasDblClick ? () => c.handleInBodyBoxAction(null, 'double_tap', inBodyActionConfig, inBodyDisplayEntity) : null}>
+              <ha-icon icon="${cfg?.in_body_icon || 'mdi:chart-bell-curve'}"></ha-icon>
+              <span class="stat-label">${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}</span>
               <span class="stat-value">${inBodyValue}</span>
             </div>
-            <div class="stat-pill"
+            <div class="stat-pill ${disruptionClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex="0"
-                 aria-label=${localize(this._lang, 'drinks.disruption')}
-                 @click=${e.sleepDisruption && substance ? () => c.showSleepDisruptionDialog(substance!) : null}
-                 @keydown=${e.sleepDisruption && substance ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showSleepDisruptionDialog(substance!)) : null}>
-              <ha-icon icon="mdi:sleep"></ha-icon>
-              <span class="stat-label">${localize(this._lang, 'drinks.disruption')}</span>
-              <span class="stat-value">${sleepValue}</span>
+                 tabindex=${disruptionClickable ? '0' : nothing}
+                 aria-label=${cfg?.disruption_label || disruptionDefaultLabel}
+                 @click=${disruptionClickable ? (ev: MouseEvent) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback) : null}
+                 @keydown=${disruptionClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleDisruptionBoxAction(null, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
+                 @contextmenu=${dHasHold ? (ev: Event) => { ev.preventDefault(); c.handleDisruptionBoxAction(null, 'hold', disruptionActionConfig, disruptionDisplayEntity); } : null}
+                 @dblclick=${dHasDblClick ? () => c.handleDisruptionBoxAction(null, 'double_tap', disruptionActionConfig, disruptionDisplayEntity) : null}>
+              <ha-icon icon="${cfg?.disruption_icon || disruptionDefaultIcon}"></ha-icon>
+              <span class="stat-label">${cfg?.disruption_label || disruptionDefaultLabel}</span>
+              <span class="stat-value">${disruptionValue}</span>
             </div>
           </div>
         </div>
+
+        ${drinkChipEntities.length > 0
+          ? html`
+              <div class="chips-row">
+                ${drinkChipEntities.map((chip) => {
+                  const chipState = c.getState(chip.entityId);
+                  const chipName = chip.label
+                    || c.hass?.states[chip.entityId]?.attributes?.friendly_name
+                    || chip.entityId;
+                  const chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement');
+                  return html`
+                    <div class="chip">
+                      <span class="chip-name">${chipName}</span>
+                      <span class="chip-value">${c.formatInteger(chipState)}${chipUnit ? ' ' + chipUnit : ''}</span>
+                    </div>
+                  `;
+                })}
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }
@@ -215,10 +318,13 @@ export class AxDoseDrinksPanel extends LitElement {
       padding: 12px 14px;
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
+    }
+
+    .stat-pill.clickable {
       cursor: pointer;
     }
 
-    .stat-pill:hover {
+    .stat-pill.clickable:hover {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
 
@@ -240,6 +346,40 @@ export class AxDoseDrinksPanel extends LitElement {
       font-weight: 600;
       color: var(--primary-text-color, #222);
       margin-left: auto;
+    }
+
+    /* ── Custom chips — verbatim from daily-panel.ts ── */
+    .chips-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 6px;
+      background: var(--chip-background, rgba(128,128,128,0.08));
+      border-radius: 10px;
+    }
+
+    .chip-name {
+      font-size: calc(12px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #666);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .chip-value {
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
     }
   `;
 }

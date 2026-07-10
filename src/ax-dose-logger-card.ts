@@ -65,11 +65,25 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // Tracker Inventory panel) it targets a specific granular drink's
   // add_stock number entity + shows that drink's name in the header.
   @state() private _refillTarget: { addStockEntityId: string; drinkName: string } | null = null;
+  // Device-info dialog target. When undefined the dialog shows the Master
+  // Tracker (or medicine) device name + navigates to the card's configured
+  // device; when set (Inventory panel averages-box click) it shows the
+  // granular drink's name + navigates to that drink's own device page.
+  @state() private _deviceInfoTarget: { deviceId: string; name: string } | null = null;
   // Log Drink popup (Master Tracker Drinks panel). When open, shows a grid of
   // granular drink buttons for the master's substance; pressing one calls
   // button.press on that drink's DrinkLogButton and closes the dialog.
   @state() private _showLogDrinkDialog: boolean = false;
   @state() private _logDrinkSubstance: 'caffeine' | 'alcohol' | null = null;
+  // Predicted Low-band timestamp per drink (Log Drink popup). Keyed by the
+  // drink's logButtonEntityId; value is the ISO low_time string or null.
+  // Populated on dialog open via the backend predict_low REST endpoint so the
+  // user sees the predicted impact ("Low: hh:mm") before pressing a drink.
+  // "Low: —" (null) means the drink would not lift body-mass above the Low
+  // band, so there is no predicted descent — an explicit "safe" signal.
+  @state() private _drinkLowPredictions: Record<string, string | null> = {};
+  // Race-guard token for the predict_low fetches (mirrors _amountFetchToken).
+  @state() private _predictLowToken: number = 0;
   // Sleep Disruption popup (Master Tracker Drinks panel). When open, renders
   // a substance-aware markdown description of how the current body-mass load
   // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
@@ -243,6 +257,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         else if (entityId.endsWith('_adherence_365_days')) result.adherence365Days = entityId;
         else if (entityId.endsWith('_days_since_first_dose')) result.daysSinceFirstDose = entityId;
         else if (entityId.endsWith('_days_to_steady_state')) result.steadyState = entityId;
+        // Days-left inventory-burn sensor. Two suffixes exist (scheduled
+        // "_days_left" vs As Needed "_days_left_est"); longest-first so the
+        // shorter suffix doesn't shadow the longer. The estimation flag is
+        // read from the backend `estimation` state attribute so the Stats
+        // row picks the matching label ("Days left" vs "Est. days left").
+        else if (entityId.endsWith('_days_left_est')) {
+          result.daysLeft = entityId;
+          result.daysLeftEst = true;
+        }
+        else if (entityId.endsWith('_days_left')) {
+          result.daysLeft = entityId;
+          result.daysLeftEst = false;
+        }
         else if (entityId.endsWith('_strength')) result.strength = entityId;
       } else if (entityId.startsWith('button.')) {
         if (entityId.endsWith('_take')) result.takeButton = entityId;
@@ -310,10 +337,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         if (masterRole === 'daily_amount') result.amountLast24h = entityId;
         else if (masterRole === 'sleep_disruption') result.sleepDisruption = entityId;
         else if (masterRole === 'estimated_low_time') result.estimatedLowTime = entityId;
+        else if (masterRole === 'low_hours_until') result.lowHoursUntil = entityId;
         // Dedicated Master Tracker last-dose TIMESTAMP sensor — its state IS
         // the last-dose timestamp (single source of truth), so the Daily
         // panel's computeTimeSinceLastDose helper works unchanged for masters.
         else if (masterRole === 'last_dose') result.lastDose = entityId;
+        // Days-left inventory-burn sensor — Master Tracker aggregates every
+        // granular drink inventory of its substance. The backend always sets
+        // estimation=true on the master variant (empirical 7-day avg), so the
+        // Stats row uses the "Est. days left" label.
+        else if (masterRole === 'days_left') {
+          result.daysLeft = entityId;
+          result.daysLeftEst = true;
+        }
         // totalDoses maps to the body-mass sensor, which still carries the
         // dose_count attribute for the Stats panel's total-doses row.
         if (this._getAttr(entityId, 'dose_count') !== undefined && this._getAttr(entityId, 'pk_model')) {
@@ -323,6 +359,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         isGranularDrink = true;
         const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
         if (substance === 'caffeine' || substance === 'alcohol') result.substance = substance;
+        // Granular drink days-left sensor (classified by role like the master
+        // variant). Granular devices redirect to the Master Tracker so the
+        // Stats panel never renders for them, but resolving the field keeps
+        // the classifier complete and available for any future surface.
+        if (this._getAttr(entityId, 'role') === 'days_left') {
+          result.daysLeft = entityId;
+          result.daysLeftEst = true;
+        }
       }
     }
     if (isMaster) {
@@ -785,11 +829,50 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._refillAmount = '';
   }
   public showDeviceInfo(): void {
+    this._deviceInfoTarget = null;
+    this._showDeviceInfo = true;
+  }
+  public showDeviceInfoFor(deviceId: string, name: string): void {
+    this._deviceInfoTarget = { deviceId, name };
     this._showDeviceInfo = true;
   }
   public showLogDrinkDialog(substance: 'caffeine' | 'alcohol'): void {
     this._logDrinkSubstance = substance;
     this._showLogDrinkDialog = true;
+    this._fetchDrinkLowPredictions(substance);
+  }
+
+  // Fetch the predicted Low-band timestamp for every granular drink of the
+  // substance, in parallel, via the backend predict_low REST endpoint. The
+  // backend builds a throwaway what-if dose list (current master history +
+  // this drink's dose_strength + drinking_duration) and forecasts the
+  // post-dose peak + Low-band ETA — the real coordinator state is never
+  // mutated, so closing the popup without pressing a drink has no effect.
+  // Results are race-guarded by _predictLowToken so a stale substance switch
+  // can't clobber the current dialog.
+  private async _fetchDrinkLowPredictions(substance: 'caffeine' | 'alcohol'): Promise<void> {
+    if (!this.hass) return;
+    const drinks = this._getDrinksOfSubstance(substance);
+    const token = ++this._predictLowToken;
+    // Reset so a freshly-opened dialog shows "—" placeholders until the
+    // predictions resolve, rather than the previous substance's values.
+    this._drinkLowPredictions = {};
+    await Promise.all(drinks.map(async (d) => {
+      if (!d.logButtonEntityId) return;
+      try {
+        const data = await this.hass!.callApi<{ low_time: string | null }>(
+          'GET',
+          `ax_dose_logger/predict_low?entity_id=${encodeURIComponent(d.logButtonEntityId)}`,
+        );
+        if (token !== this._predictLowToken) return; // stale
+        this._drinkLowPredictions = {
+          ...this._drinkLowPredictions,
+          [d.logButtonEntityId]: data?.low_time ?? null,
+        };
+      } catch (e) {
+        console.warn('[ax-dose-logger-card] predict_low fetch failed for', d.logButtonEntityId, e);
+      }
+    }));
   }
   public showSleepDisruptionDialog(substance: 'caffeine' | 'alcohol'): void {
     this._sleepDisruptionSubstance = substance;
@@ -844,6 +927,31 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
     entity?: string,
   ): void { this._handleSafeBoxAction(e as MouseEvent | null, kind, cfg, entity); }
+  public getPillsLeftBoxEntity(entities: ResolvedEntities): string | undefined { return this._getPillsLeftBoxEntity(entities); }
+  public handlePillsLeftBoxAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+    fallback?: () => void,
+  ): void { this._handlePillsLeftBoxAction(e as MouseEvent | null, kind, cfg, entity, fallback); }
+  // ── Drinks panel public wrappers ──
+  public getInBodyBoxEntity(entities: ResolvedEntities): string | undefined { return this._getInBodyBoxEntity(entities); }
+  public handleInBodyBoxAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+  ): void { this._handleInBodyBoxAction(e as MouseEvent | null, kind, cfg, entity); }
+  public getDisruptionBoxEntity(entities: ResolvedEntities): string | undefined { return this._getDisruptionBoxEntity(entities); }
+  public handleDisruptionBoxAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+    fallback?: () => void,
+  ): void { this._handleDisruptionBoxAction(e as MouseEvent | null, kind, cfg, entity, fallback); }
+  public getDrinkChipEntities(): Array<{ entityId: string; label?: string }> { return this._getDrinkChipEntities(); }
   public handleTimeframeChange(timeframe: string): void { this._handleTimeframeChange(timeframe); }
   public handleBarTimeframeChange(timeframe: string): void {
     if (timeframe === this._activeBarTimeframe) return;
@@ -875,6 +983,27 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking'): void {
     if (paneId === this._activePane) return; // Guard: skip redundant execution
     this._activePane = paneId;
+
+    // Default the graphs carousel to the Amount in Body line graph when the
+    // user navigates to the graphs pane, provided the Amount in Body toggle is
+    // on (show_amount_in_body !== false) and the device actually has a usable
+    // amount-in-body state (entity exists + state is not 0/unknown/unavailable).
+    // This mirrors the exact slide-gating the panel applies in render(), so the
+    // default landing slide always points at a slide that will actually render.
+    // Resetting on every graphs-pane entry keeps the Amount in Body graph the
+    // default landing view even after the user carousels away and back; manual
+    // prev/next navigation still works within a session (it is reset only on a
+    // pane switch, not on a re-render).
+    if (paneId === 'graphs' && this.config && this.hass) {
+      const entities = this._resolveEntities();
+      const amountState = this._getState(entities.amountInBody);
+      const hasAmountInBody = !!entities.amountInBody &&
+        amountState !== '0' &&
+        amountState !== 'unknown' &&
+        amountState !== 'unavailable';
+      this._activeGraph = (this.config.show_amount_in_body !== false && hasAmountInBody) ? 1 : 0;
+    }
+
     // Tell HA's layout engine to re-measure the card height. card-resize is
     // non-destructive (unlike ll-rebuild, which tears down and recreates the
     // element) — the @state pane survives, so no sessionStorage persistence
@@ -887,22 +1016,26 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   // ── Device Info Dialog ─────────────────────
 
-  private _navigateToDevice() {
-    if (!this.config?.device_id) return;
-    window.history.pushState(null, '', `/config/devices/device/${this.config.device_id}`);
+  private _navigateToDevice(deviceId?: string) {
+    const target = deviceId ?? this.config?.device_id;
+    if (!target) return;
+    window.history.pushState(null, '', `/config/devices/device/${target}`);
     window.dispatchEvent(new CustomEvent('location-changed'));
   }
 
   private _renderDeviceInfoDialog(entities: ResolvedEntities) {
+    const targetName = this._deviceInfoTarget?.name ?? this._getMedName(entities);
+    const targetDeviceId = this._deviceInfoTarget?.deviceId;
+    const close = () => { this._showDeviceInfo = false; this._deviceInfoTarget = null; };
     return html`
       <ha-dialog
         open
         width="small"
-        @closed=${() => { this._showDeviceInfo = false; }}
+        @closed=${close}
       >
-        <div slot="header" class="dialog-header">${this._getMedName(entities)}</div>
+        <div slot="header" class="dialog-header">${targetName}</div>
         <div class="dialog-body dialog-body--center">
-          <button class="dialog-btn" @click=${() => { this._navigateToDevice(); this._showDeviceInfo = false; }}>
+          <button class="dialog-btn" @click=${() => { this._navigateToDevice(targetDeviceId); close(); }}>
             <ha-icon icon="mdi:information-outline"></ha-icon>
             <span>${localize(this._lang, 'dialog.device_info.button')}</span>
           </button>
@@ -955,7 +1088,37 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     const substance = this._logDrinkSubstance;
     if (!substance) return nothing;
     const drinks = this._getDrinksOfSubstance(substance);
-    const close = () => { this._showLogDrinkDialog = false; this._logDrinkSubstance = null; };
+    const close = () => {
+      this._showLogDrinkDialog = false;
+      this._logDrinkSubstance = null;
+      this._drinkLowPredictions = {};
+      this._predictLowToken++; // invalidate any in-flight fetch
+    };
+    // Format the predicted Low-band wall-clock time as HH:MM (24-hour, no
+    // date, no seconds) — matches the Stats panel's Low - Timestamp format.
+    // "Low: —" when the prediction is null (the drink would not lift body-mass
+    // above the Low band, so there is no predicted descent — a "safe" signal).
+    // While the fetch is in flight (no key yet), show "Low: …" as a loading
+    // placeholder so the user knows a prediction is coming.
+    const formatLow = (entityId: string | undefined): string => {
+      if (!entityId) return localize(this._lang, 'dialog.log_drink.predicted_low_dash');
+      const iso = this._drinkLowPredictions[entityId];
+      if (iso === undefined) {
+        return `${localize(this._lang, 'dialog.log_drink.predicted_low')}: …`;
+      }
+      if (iso === null) {
+        return localize(this._lang, 'dialog.log_drink.predicted_low_dash');
+      }
+      const dt = new Date(iso);
+      if (isNaN(dt.getTime())) {
+        return localize(this._lang, 'dialog.log_drink.predicted_low_dash');
+      }
+      const hhmm = dt.toLocaleTimeString(
+        this._lang,
+        { hour: '2-digit', minute: '2-digit', hour12: false },
+      );
+      return `${localize(this._lang, 'dialog.log_drink.predicted_low')}: ${hhmm}`;
+    };
     return html`
       <ha-dialog
         open
@@ -974,7 +1137,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
                     @click=${() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId)}
                   >
                     <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
-                    <span>${d.name}</span>
+                    <span class="log-drink-name">${d.name}</span>
+                    <span class="log-drink-low">${formatLow(d.logButtonEntityId)}</span>
                   </button>
                 `)}
               </div>`}
@@ -1073,6 +1237,143 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       this._openMoreInfo(displayEntity);
     }
     // hold/double_tap with no config and no fallback → no-op.
+  }
+
+  // Resolve the entity to display in the Pills Left box. Priority:
+  //   1. pills_left_show_days_left === true → backend days_left sensor
+  //      (the toggle is a first-class built-in swap; wins over a configured
+  //      pills_left_entity so the two overrides are mutually unambiguous).
+  //   2. pills_left_entity configured (and differs from the default sensor) →
+  //      the user's chosen entity (arbitrary HA entity).
+  //   3. default → the auto-resolved pills_left number entity.
+  // Unlike the Safe to Take box, no safety-critical logic reads the real
+  // pills_left entity (the Stats "Pills Left" row was removed in the
+  // de-duplication pass; the Refill dialog reads entities.addRefill, a
+  // separate entity), so swapping is purely cosmetic.
+  private _getPillsLeftBoxEntity(entities: ResolvedEntities): string | undefined {
+    if (this.config?.pills_left_show_days_left === true) return entities.daysLeft;
+    return this.config?.pills_left_entity || entities.pillsLeft;
+  }
+
+  // Fire the configured tap/hold/double-tap action for the Pills Left box.
+  // When the requested action has a user-configured ActionConfig, delegate to
+  // handleAction (standard HA action dispatch). When no tap_action is
+  // configured, run the fallback (the Refill dialog for the default/days-left/
+  // swapped modes — retained across all display modes because "Refill dialog"
+  // can't be expressed in the ui_action dropdown); if no fallback applies, fall
+  // back to more-info on the display entity. hold/double_tap with no config are
+  // no-ops.
+  private _handlePillsLeftBoxAction(
+    _e: MouseEvent | null,
+    action: 'tap' | 'hold' | 'double_tap',
+    config: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    displayEntity: string | undefined,
+    fallback?: () => void,
+  ): void {
+    if (!this.hass) return;
+    const actionKey = `${action}_action` as 'tap_action' | 'hold_action' | 'double_tap_action';
+    const actionConfig = config[actionKey];
+    if (actionConfig) {
+      handleAction(this, this.hass, config, action);
+    } else if (action === 'tap' && fallback) {
+      // No custom tap action → card-internal fallback (Refill dialog).
+      fallback();
+    } else if (action === 'tap' && displayEntity) {
+      this._openMoreInfo(displayEntity);
+    }
+    // hold/double_tap with no config and no fallback → no-op.
+  }
+
+  // ── Drinks panel In Body box ─────────────────────────
+
+  // Resolve the entity to display in the Drinks panel In Body box. Mirrors
+  // _getSafeBoxEntity: the configured in_body_entity wins; otherwise the
+  // auto-resolved amountInBody sensor. No safety-critical logic reads the
+  // In Body sensor (the Take Pill button's LIMIT REACHED logic is medicine-
+  // only), so swapping is purely cosmetic.
+  private _getInBodyBoxEntity(entities: ResolvedEntities): string | undefined {
+    return this.config?.in_body_entity || entities.amountInBody;
+  }
+
+  // Fire the configured tap/hold/double-tap action for the In Body box.
+  // Mirrors _handleSafeBoxAction: custom ActionConfig → handleAction; no tap
+  // config → more-info on the display entity (the Drinks panel default).
+  private _handleInBodyBoxAction(
+    _e: MouseEvent | null,
+    action: 'tap' | 'hold' | 'double_tap',
+    config: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    displayEntity: string | undefined,
+  ): void {
+    if (!this.hass) return;
+    const actionKey = `${action}_action` as 'tap_action' | 'hold_action' | 'double_tap_action';
+    const actionConfig = config[actionKey];
+    if (actionConfig) {
+      handleAction(this, this.hass, config, action);
+    } else if (action === 'tap' && displayEntity) {
+      this._openMoreInfo(displayEntity);
+    }
+    // hold/double_tap with no config and no fallback → no-op.
+  }
+
+  // ── Drinks panel Disruption box ─────────────────────────
+
+  // Resolve the entity to display in the Drinks panel Disruption box.
+  // Priority (mirrors _getPillsLeftBoxEntity — built-in mode swap wins over
+  // an arbitrary entity swap so the two overrides are mutually unambiguous):
+  //   1. disruption_mode === 'low_timestamp' → estimatedLowTime sensor
+  //      (Low - Timestamp, HH:MM display).
+  //   2. disruption_mode === 'low_hours_until' → lowHoursUntil sensor
+  //      (Low - Hours Until, X h display).
+  //   3. disruption_entity configured → the user's chosen entity.
+  //   4. default (disruption / unset) → the auto-resolved sleepDisruption sensor.
+  private _getDisruptionBoxEntity(entities: ResolvedEntities): string | undefined {
+    if (this.config?.disruption_mode === 'low_timestamp') return entities.estimatedLowTime;
+    if (this.config?.disruption_mode === 'low_hours_until') return entities.lowHoursUntil;
+    return this.config?.disruption_entity || entities.sleepDisruption;
+  }
+
+  // Fire the configured tap/hold/double-tap action for the Disruption box.
+  // Mirrors _handlePillsLeftBoxAction: custom ActionConfig → handleAction; no
+  // tap config → the card-internal fallback (the Sleep Disruption popup when
+  // mode='disruption' + substance exists; otherwise more-info on the display
+  // entity, matching the Low-modes' default). hold/double_tap with no config
+  // are no-ops.
+  private _handleDisruptionBoxAction(
+    _e: MouseEvent | null,
+    action: 'tap' | 'hold' | 'double_tap',
+    config: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    displayEntity: string | undefined,
+    fallback?: () => void,
+  ): void {
+    if (!this.hass) return;
+    const actionKey = `${action}_action` as 'tap_action' | 'hold_action' | 'double_tap_action';
+    const actionConfig = config[actionKey];
+    if (actionConfig) {
+      handleAction(this, this.hass, config, action);
+    } else if (action === 'tap' && fallback) {
+      fallback();
+    } else if (action === 'tap' && displayEntity) {
+      this._openMoreInfo(displayEntity);
+    }
+    // hold/double_tap with no config and no fallback → no-op.
+  }
+
+  // ── Drinks panel custom chips ─────────────────────────
+
+  // Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + labels).
+  // Parallel to _getChipEntities but reads the drink_chip_* config namespace
+  // so the Daily and Drinks panels' chip configs stay fully independent.
+  private _getDrinkChipEntities(): Array<{ entityId: string; label?: string }> {
+    if (!this.config) return [];
+    const chips: Array<{ entityId: string; label?: string }> = [];
+    for (const key of ['drink_chip_1', 'drink_chip_2', 'drink_chip_3', 'drink_chip_4'] as const) {
+      const val = this.config[key];
+      if (val) {
+        const labelKey = `${key}_label` as keyof AxDoseLoggerCardConfig;
+        chips.push({ entityId: val, label: this.config[labelKey] as string | undefined });
+      }
+    }
+    return chips;
   }
 
   // ── Pane 2: Graphs ─────────────────────────
@@ -1550,6 +1851,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // guarantees a clean slate on every view entry and covers all four
     // dialogs (device-info, refill, tools, override).
     this._showDeviceInfo = false;
+    this._deviceInfoTarget = null;
     this._showRefillDialog = false;
     this._refillAmount = '';
     this._refillTarget = null;
@@ -1621,11 +1923,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       '_effectivenessHistory',
       '_effectivenessVisible',
       '_showDeviceInfo',
+      '_deviceInfoTarget',
       '_showRefillDialog',
       '_refillAmount',
       '_refillTarget',
       '_showLogDrinkDialog',
       '_logDrinkSubstance',
+      // Predict-Low popup: the fetch resolves asynchronously after the dialog
+      // is open (showLogDrinkDialog already triggered the initial render). The
+      // resolved predictions live in _drinkLowPredictions; without these in the
+      // whitelist, shouldUpdate returns false on the async mutation and the
+      // popup stays on "Low: …" until the next unrelated re-render (~20s).
+      '_drinkLowPredictions',
+      '_predictLowToken',
       '_showSleepDisruptionDialog',
       '_sleepDisruptionSubstance',
       '_toolsDialog',
@@ -1666,6 +1976,27 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // Include configured chip entities (they may belong to other devices).
     for (const chip of this._getChipEntities()) {
       if (chip.entityId) watchedIds.push(chip.entityId);
+    }
+    // Include configured Drinks-panel custom chips (parallel to the Daily
+    // chips above; they may belong to other devices and only render on the
+    // drinks pane, but keeping them always watched mirrors the Daily pattern).
+    for (const chip of this._getDrinkChipEntities()) {
+      if (chip.entityId) watchedIds.push(chip.entityId);
+    }
+    // The Inventory pane renders granular-drink entities (stock, add_stock,
+    // avg sensors) that belong to different devices than the Master Tracker.
+    // Those entities are NOT in the master's ResolvedEntities, so without
+    // including them here a refill (which changes number.<drink>_inventory)
+    // would not trigger a re-render until the 30s tick timer fires. Only
+    // include them when the inventory pane is actually active to avoid
+    // needless re-renders on other panes where these entities aren't shown.
+    if (this._activePane === 'inventory' && entities.substance) {
+      for (const d of this._getDrinksOfSubstance(entities.substance)) {
+        if (d.stockEntityId) watchedIds.push(d.stockEntityId);
+        if (d.addStockEntityId) watchedIds.push(d.addStockEntityId);
+        if (d.avg7EntityId) watchedIds.push(d.avg7EntityId);
+        if (d.avg365EntityId) watchedIds.push(d.avg365EntityId);
+      }
     }
     const cur = this.hass.states;
     const prev = oldHass.states;
@@ -1918,6 +2249,20 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     .log-drink-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    .log-drink-name {
+      font-weight: 550;
+      text-align: center;
+    }
+    /* Predicted Low-band timestamp under each drink name ("Low: hh:mm" /
+       "Low: —" while loading or when the drink would not lift body-mass
+       above the Low band). Muted + smaller so the name stays primary. */
+    .log-drink-low {
+      font-size: calc(12px + var(--pill-text-offset, 0px));
+      font-weight: 400;
+      color: var(--secondary-text-color, rgba(0,0,0,0.5));
+      text-align: center;
     }
 
     /* ── Refill Dialog ──────────────────────── */

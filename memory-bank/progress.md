@@ -2296,3 +2296,248 @@ After the substance-aware icon + "Last" sub-line was added to the Drinks pane Lo
 - [x] Step 10: Update memory-bank files — `activeContext.md` (new Current Status + archived prior), `progress.md` (this section)
 - [ ] Step 11: No `projectstructure.md` change (no files added/renamed/deleted/repurposed); no README change (silent bug fix, not a user-facing feature/installation change)
 - [ ] Step 12: No backend change (the data source was already correct)
+
+
+## Low - Timestamp rename + Low - Hours Until countdown row (2026-07-09)
+
+### Goal
+Three related frontend changes to the Master Tracker (Caffeine / Alcohol) Stats panel, paired with a companion backend change (new `DrinkMasterLowHoursUntilSensor` + translation rename — see the backend repo memory bank): (1) simplify the existing "Estimated Low Time" Stats row display to `HH:MM` only (no date, no seconds); (2) add a new "Low - Hours Until" Stats row rendering the backend's new DURATION/hours countdown sensor; (3) rename the row label "Estimated Low Time" → "Low - Timestamp" so the two sensors read as a matched pair.
+
+### Checklist
+- [x] Step 1: Context grounding — read [`src/types.ts`](src/types.ts), [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) (`_computeEntities` master branch), [`src/components/stats-panel.ts`](src/components/stats-panel.ts) (Estimated Low Time row), [`src/localize.ts`](src/localize.ts); confirmed the role-based classification pattern (`masterRole === 'estimated_low_time'`) is the established approach
+- [x] Step 2: Confirm HH:MM display approach — user chose **Option A** (keep `TIMESTAMP` device class on the backend sensor; the card formats `HH:MM` via `toLocaleTimeString`). Plain-string `HH:MM` (Option B) rejected — would destroy history graph + automation parsing. The backend keeps the full datetime state; the card surfaces just the time for compactness.
+- [x] Step 3: [`src/types.ts`](src/types.ts) — add `lowHoursUntil?: string` to `ResolvedEntities` (entity_id of the new countdown sensor), with documenting JSDoc comment
+- [x] Step 4: [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — add `else if (masterRole === 'low_hours_until') result.lowHoursUntil = entityId;` branch in `_computeEntities` (the new backend `role` attribute; no suffix match needed — role-based classification is the established pattern)
+- [x] Step 5: [`src/components/stats-panel.ts`](src/components/stats-panel.ts) — (a) rename the existing row label localize key `stats.estimated_low_time` → `stats.low_timestamp`; (b) change that row's display from `dt.toLocaleString()` (full date+time) → `dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })` (HH:MM 24-hour, no date, no seconds); (c) add a new "Low - Hours Until" row after it — value = `parseFloat(state) + ' h'` (e.g. "3.5 h"), `None`/`unknown`/`unavailable` → `-`, icon `mdi:timer-sand`, guarded by `if (e.lowHoursUntil)`
+- [x] Step 6: [`src/localize.ts`](src/localize.ts) — rename `stats.estimated_low_time` key → `stats.low_timestamp` (value "Low - Timestamp"); add `stats.low_hours_until` (value "Low - Hours Until")
+- [x] Step 7: Build verification — `yarn run build` exit 0, no warnings (`dist/ax-dose-logger-card.js` rebuilt)
+- [x] Step 8: Update memory-bank — `activeContext.md` (Current Status rewritten + prior archived), `progress.md` (this section). No `projectstructure.md` change (no files added/renamed/deleted/repurposed). No README change (the rename + new row are documented in the **backend** README's Master Tracker section; the frontend README documents card config/usage, not individual sensor rows).
+
+### Key decisions
+1. **Option A (keep TIMESTAMP, card formats HH:MM) — HA best practice** — the user explicitly chose this over a plain-string `HH:MM` state. The backend keeps `SensorDeviceClass.TIMESTAMP` so the sensor state is a full tz-aware datetime (automations parse it, recorder history graphs it, HA more-info renders it locale-aware). The `HH:MM` display is a frontend card concern only (`toLocaleTimeString` with `hour12: false`). A plain-string `HH:MM` would have destroyed all of those. The new "Low - Hours Until" row is the numeric countdown for users who prefer that form.
+2. **Role-based classification (no suffix match)** — the new `lowHoursUntil` field is populated by `masterRole === 'low_hours_until'` (the backend `role` state attribute), identical to the existing `estimated_low_time` / `sleep_disruption` / `last_dose` / `daily_amount` classification. No entity-id suffix match (those never match because HA slugifies the translated name, not the unique_id stem — the lesson from the prior Inventory parity fix).
+3. **`HH:MM` via `toLocaleTimeString` (24-hour, no seconds)** — `hour12: false` forces 24-hour "14:32" rather than locale-dependent "2:32 PM"; `hour: '2-digit', minute: '2-digit'` drops seconds + the date. The full datetime remains in the sensor state for HA more-info + history + automations; only the card display is compacted.
+4. **`None`/`unknown`/`unavailable` → `-`** — the Low - Hours Until row mirrors the Low - Timestamp row's `-` fallback for unknown/unavailable states; additionally treats the literal string `'None'` as `-` (the backend emits `None` as the state when the body-mass is already in Low or below, since no countdown is needed).
+5. **No frontend README change** — the frontend README documents card config/usage (YAML/visual editor, configuration options), not individual sensor rows. The rename + new sensor are user-facing entity/documentation changes that belong in the **backend** README's Master Tracker section (updated there).
+
+## Predictive Low Timestamp in Log Drink Popup (2026-07-09)
+
+**Goal:** Show a per-drink predictive "Low: hh:mm" line under each drink name in the Log Drink popup, so the user can abort a drink based on its predicted sleep impact before pressing it. Paired with a companion backend change (new `GET /api/ax_dose_logger/predict_low` REST endpoint + `DrinkMasterCoordinator.predict_low_time_if_dose` what-if method — see the backend repo memory bank).
+
+### Steps completed
+- [x] Step 1: Add localize strings `dialog.log_drink.predicted_low` ("Low") + `dialog.log_drink.predicted_low_dash` ("Low: —") in [`src/localize.ts`](src/localize.ts)
+- [x] Step 2: Add `@state _drinkLowPredictions: Record<string, string | null> = {}` (keyed by `logButtonEntityId`) + `@state _predictLowToken` race-guard in [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts)
+- [x] Step 3: Add `_fetchDrinkLowPredictions(substance)` — called from `showLogDrinkDialog`; resets predictions on open, fires parallel `hass.callApi('GET', 'ax_dose_logger/predict_low?entity_id=...')` per drink, discards stale results via the token, logs failures without breaking UX
+- [x] Step 4: Update `_renderLogDrinkDialog` to render `<span class="log-drink-name">` + `<span class="log-drink-low">` under each drink button; `formatLow(entityId)` formats the ISO as `HH:MM` (24-hour via `toLocaleTimeString`, matches Stats panel), "Low: —" for null, "Low: …" while loading; close handler clears predictions + bumps the token
+- [x] Step 5: Add `.log-drink-name` (font-weight 550) + `.log-drink-low` (12px, secondary-text, centered) CSS
+- [x] Step 6: Verify — `yarn run build` exit 0, clean (no warnings)
+- [x] Step 7: Update memory-bank — frontend [`activeContext.md`](memory-bank/activeContext.md) (Current Status rewritten + prior archived) + this progress section
+
+### Key decisions
+1. **REST fetch on dialog open over a resolved entity / attribute** — the prediction depends on the *current* master body mass, which changes every minute; a static attribute would go stale. A parallel REST fetch on dialog open gets the freshest per-drink prediction without polling, mirroring the proven `/api/ax_dose_logger/history` pattern. No new `ResolvedEntities` field — the prediction is dialog-scoped transient state, not a resolved entity, so `types.ts` is unchanged.
+2. **"Low: —" for null = explicit safe-drink signal (user-confirmed)** — when the post-dose peak never exceeds the Low threshold, there's no predicted descent, so "Low: —" tells the user "this drink won't keep you above Low" — genuinely useful abort info (vs hiding the line or showing "now"). The user explicitly chose this over hiding.
+3. **"Low: …" loading placeholder** — while the parallel fetches are in flight the key is absent from the map; `formatLow` returns "Low: …" so the user knows a prediction is coming rather than seeing a static "—" that could be mistaken for the null case. The map is reset on every open so a stale previous substance's values can't leak in.
+4. **Race-guard token mirrors `_amountFetchToken`** — `_predictLowToken` is bumped on close + on every open, so a stale substance switch or a closed dialog can't clobber the current dialog's predictions after an `await` resolves.
+5. **No frontend README change** — the frontend README documents card config/usage (YAML/visual editor), not individual popup affordances. The user-facing note belongs in the **backend** README's Drinks section (updated there).
+
+## Log Drink Popup "Low: …" 20-second render delay fix (2026-07-09)
+
+**Goal:** The popup buttons took up to 20 seconds to go from `Low: …` (loading) to `Low: HH:MM`, even though the backend `predict_low` REST endpoint responded in ~1 ms (confirmed by HA INFO log timestamps — all drink predictions logged within 1 ms of each other). This was a follow-on to the prior Predictive Low Timestamp feature + the backend `lru_cache(solve_ka)` perf fix.
+
+### Steps completed
+- [x] Step 1: Diagnose root cause — [`shouldUpdate`](src/ax-dose-logger-card.ts:1680) (the card's render-gate) maintained an explicit whitelist of internal `@state` properties that trigger a re-render, but `_drinkLowPredictions` and `_predictLowToken` were NOT in the list. When `_fetchDrinkLowPredictions` resolved its async `callApi` and mutated `this._drinkLowPredictions = {...}`, Lit detected the `@state` change but `shouldUpdate` returned `false` (the changed prop wasn't whitelisted, and it wasn't a `hass`/`config`/`_tick` change either) — so the popup didn't re-render. It only updated later when an unrelated change (a `hass` state tick passing `_relevantStateChanged`, or the 30s `_tick` for daily/stats/drinks/inventory panes) triggered a full card re-render that happened to include the open dialog → the ~20s wait.
+- [x] Step 2: Add `'_drinkLowPredictions'` and `'_predictLowToken'` to the `shouldUpdate` whitelist in [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) (with a documenting comment explaining the async-resolve re-render requirement)
+- [x] Step 3: Verify — `yarn run build` exit 0, no warnings
+- [x] Step 4: Update memory-bank — frontend [`activeContext.md`](memory-bank/activeContext.md) (follow-on paragraph appended to Current Status) + this progress section
+
+### Key decisions
+1. **Whitelist addition is the minimal correct fix** — the `shouldUpdate` whitelist pattern was introduced deliberately (Card Best-Practices Audit #1) to avoid the whole card re-rendering on every HA state tick. Adding the two predict-low `@state` props to the whitelist is the idiomatic fix: it lets the async fetch resolution trigger a re-render without weakening the gate for unrelated state. The alternative (removing the gate / broadening to all `@state`) would reintroduce the per-tick re-render cost the audit fixed.
+2. **No backend change required** — the backend already responded instantly after the prior `lru_cache(solve_ka)` fix (the HA logs proved sub-millisecond response times). The 20s delay was purely the frontend not re-rendering on the async state mutation. The fix is a one-line whitelist addition.
+3. **No `types.ts` / README / localize change** — the fix touches only the existing `shouldUpdate` whitelist; no new state, no new entities, no new strings.
+
+## Inventory Panel — Stock Number Live-Update After Refill (2026-07-10)
+
+### Planning
+- [x] Read backend memory-bank context (activeContext, progress, projectstructure)
+- [x] Read backend number.py (DrinkStockNumber / DrinkAddStockNumber refill flow)
+- [x] Read frontend inventory-panel.ts + ax-dose-logger-card.ts (render + shouldUpdate gating)
+- [x] Identify root cause: _relevantStateChanged doesn't watch granular drink entities
+- [x] Write architecture plan document (plans/inventory-refill-no-update-plan.md in backend repo)
+- [x] Review plan with user — approved, switched to Code mode
+
+### Implementation
+- [x] src/ax-dose-logger-card.ts — _relevantStateChanged: added inventory-pane-gated block that appends granular drink entity IDs (stockEntityId, addStockEntityId, avg7EntityId, avg365EntityId) collected via _getDrinksOfSubstance(entities.substance) to the watchedIds list
+
+### Verification
+- [x] yarn run build — exit 0, no warnings (dist/ax-dose-logger-card.js rebuilt clean)
+
+### Documentation
+- [x] Update memory-bank/activeContext.md (Current Status rewritten + prior Predictive Low Timestamp archived; new What Was Changed / Files Modified / Key Design Decisions entries)
+- [x] Update memory-bank/progress.md (this section)
+
+### Key decisions
+1. Gate on the active pane (`this._activePane === 'inventory' && entities.substance`) to avoid needless re-renders on other panes — the granular entities are only displayed on the Inventory pane.
+2. Watch all four rendered entity types (stock, add_stock, avg7, avg365) so any of them changing state triggers an immediate re-render.
+3. The backend was already correct — DrinkStockNumber.add_stock increments and calls async_write_ha_state() immediately; the bug was purely frontend render-gating.
+4. The 30s _tick timer was the fallback (whitelisted for the inventory pane), which is why the value eventually refreshed (~30s delay); the fix provides immediate feedback.
+5. Frontend-only, single-file, single-method fix — no backend / coordinator / store / localize / types / config-flow changes.
+
+## Inventory Panel — Stock Live-Update + Unified Labels + Averages-Box Device-Info Popup (2026-07-10)
+
+### Planning
+- [x] Read frontend localize.ts + inventory-panel.ts + ax-dose-logger-card.ts (labels + device-info dialog flow)
+- [x] Identified two issues: (1) inconsistent "Day Avg" vs "Day Average" labels; (2) averages box had no click → device-info action
+- [x] User clarification: averages box click should open the "To Device info" popup navigating to the granular drink's own device page; inventory box (col-1) unchanged (stays refill)
+
+### Implementation
+- [x] Issue 1 — src/localize.ts: `inventory.avg_7_day` "7-Day Avg" → "7-Day Average" (trailing box already said "Average")
+- [x] Issue 2 — src/ax-dose-logger-card.ts: new `_deviceInfoTarget` @state + `showDeviceInfoFor(deviceId, name)` public method; `showDeviceInfo()` clears target; `_navigateToDevice` accepts optional deviceId param; `_renderDeviceInfoDialog` uses target name + navigates to target device; `_deviceInfoTarget` added to shouldUpdate whitelist + connectedCallback reset
+- [x] Issue 2 — src/types.ts: `showDeviceInfoFor(deviceId: string, name: string): void` added to CardController interface
+- [x] Issue 2 — src/components/inventory-panel.ts: col-2 `.avg-cell` gains `role="button"`, `tabindex="0"`, `@click`/`@keydown` → `c.showDeviceInfoFor(d.deviceId, d.name)`; cursor-pointer + hover + focus-visible CSS
+
+### Verification
+- [x] yarn run build — exit 0, no warnings (dist/ax-dose-logger-card.js rebuilt clean)
+
+### Documentation
+- [x] Update memory-bank/activeContext.md (Current Status rewritten to cover all three improvements)
+- [x] Update memory-bank/progress.md (this section)
+
+### Key decisions
+1. **Only the 7-day label needed changing** — the trailing box already used `stats.avg_running`/`stats.avg_yearly` which both say "Average"; only `inventory.avg_7_day` said "Avg". One localize key change unifies both boxes to "Day Average".
+2. **Averages box → granular drink's device, not the Master Tracker** — the Inventory row represents a granular drink (`d.deviceId`); clicking its averages box should navigate to that drink's own device page, not the Master Tracker. The new `showDeviceInfoFor(deviceId, name)` sets a `_deviceInfoTarget` that `_renderDeviceInfoDialog` + `_navigateToDevice` use; the existing `showDeviceInfo()` (Daily/Drinks pill-name click) clears the target and falls back to the card's configured device.
+3. **Col-1 inventory box unchanged** — per user clarification, the refill click on the stock box stays as-is; only the col-2 averages box gets the device-info action.
+4. **`_deviceInfoTarget` in shouldUpdate whitelist + connectedCallback reset** — mirrors the existing dialog-state pattern so the dialog re-renders on target change and doesn't leave a stale MDC overlay on back-navigation.
+5. **Frontend-only** — no backend / coordinator / store changes.
+
+## Amount in Body — Default to No Decimal Places (2026-07-10)
+- [x] Step 1: Context grounding — read backend concentration.py + drink_master.py rounding + suggested_display_precision; read frontend stats-panel, daily-panel chips, swapped safe-to-take box, graphs-panel rendering of amount-in-body; read backend + frontend memory-bank activeContext
+- [x] Step 2: Write architecture plan — plans/amount-in-body-no-decimals-plan.md (in the backend repo: HA-native suggested_display_precision = 0 on backend; explicit formatInteger / Math.round on the custom card surfaces that read raw state)
+- [x] Step 3: stats-panel.ts — "Amount in Body" row value wrapped in c.formatInteger (was raw c.getState)
+- [x] Step 4: daily-panel.ts — Custom chips render c.formatInteger(chipState) (was raw ${chipState})
+- [x] Step 5: daily-panel.ts — swapped Safe-to-Take box: numeric display states rounded via c.formatInteger; non-numeric states keep the capitalization path (parseFloat guard)
+- [x] Step 6: graphs-panel.ts — "Current: X unit" line label renders Math.round(parseFloat(amountInBody)) (was raw amountInBody); the dashed-line Y-position math still uses the parsed float unchanged
+- [x] Step 7: Build verification — `yarn run build` exit 0 (dist/ax-dose-logger-card.js rebuilt, no warnings)
+- [x] Step 8: Update memory-bank (frontend activeContext.md + progress.md)
+
+### Key decisions
+1. **`formatInteger` / `Math.round` on the card, not `suggested_display_precision`** — the card reads the raw state string via `c.getState(...)` and does its own formatting, so the backend's `suggested_display_precision = 0` hint (companion backend change) only governs HA's own UI (more-info, standard entities card, history), not the card's custom surfaces. Each custom surface got an explicit `c.formatInteger(...)` / `Math.round(parseFloat(...))` call — display-only, mirroring the existing `formatInteger` helper which already returns the string unchanged for `unknown`/`unavailable`.
+2. **Drinks panel "In Body" box already correct** — `drinks-panel.ts` already used `Math.round(bodyNum)` for the In Body value, so no change was needed there.
+3. **Swapped Safe-to-Take box preserves non-numeric states** — when a user swaps the box with a non-numeric entity (e.g. a categorical sensor), the capitalization path (`charAt(0).toUpperCase() + slice(1)`) still applies; `formatInteger` only kicks in when `parseFloat(displayState)` is a valid number. Avoids breaking text-state swaps while still rounding numeric ones (the user's amount-in-body case).
+4. **Graph dashed-line math unchanged** — the Y-position calculation (`currentAmountNum / maxAmount`) still uses `parseFloat(amountInBody)` directly; only the human-readable "Current: X unit" text label is rounded to an integer. Keeps the line position precise while the label is compact.
+5. **No localize / types / config / README / projectstructure change** — display-only rounding; no new entities, labels, config fields, or files.
+
+### Follow-on fix — Unit suffix on swapped Safe-to-Take box + Custom chips (2026-07-10)
+- [x] Step 1: User reported "cards are not showing units when amount in body is selected as an entity" — the swapped Safe-to-Take box + Custom chips rendered a bare rounded number with no unit suffix (the prior rounding fix appended the unit only on the Stats row + Graph label, not on the swapped box / chips).
+- [x] Step 2: daily-panel.ts swapped box — append `c.getAttr(displayEntity, 'unit_of_measurement')` (with a leading space) when present, inside the numeric branch (after `c.formatInteger(displayState)`); non-numeric branch unchanged.
+- [x] Step 3: daily-panel.ts Custom chips — read `chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement')` and append `${chipUnit ? ' ' + chipUnit : ''}` after `c.formatInteger(chipState)`.
+- [x] Step 4: Build verification — `yarn run build` exit 0.
+- [x] Step 5: Update memory-bank (frontend activeContext.md Current Status rewritten to cover the unit-suffix follow-on; progress.md this subsection).
+
+#### Key decisions (follow-on)
+1. **Unit source = the entity's own `unit_of_measurement` attribute (generic)** — the swapped box + chips can host any entity the user picks, so reading the unit off the chosen entity (`c.getAttr(entityId, 'unit_of_measurement')`) is the correct generic approach — it surfaces `mg` for a medicine amount-in-body, `g` for an alcohol master, `%` for an adherence sensor, and omits the suffix for unitless/categorical entities (no spurious trailing space). Mirrors how HA's own standard entities card renders a unit suffix from the entity attribute.
+2. **Only the numeric branch gets a unit on the swapped box** — the non-numeric (capitalization) branch is for categorical/string states (e.g. `on`/`off`, `Low`/`Moderate`/`High`) which have no unit; appending one there would be wrong. The `parseFloat` guard already separates the two branches.
+3. **Drinks panel "In Body" + Stats row + Graph label were already correct** — the Drinks panel already used `Math.round` + `c.getStrengthUnit`; the Stats row already appended `strengthUnit`; the Graph label already appended `c.getStrengthUnit`. Only the swapped box + chips were missing the unit.
+4. **No backend change** — the backend sensors already expose `unit_of_measurement` (mg/g) as a state attribute; the card just wasn't reading it on these two surfaces.
+
+## Days Left Sensor — Stats Panel (2026-07-10)
+- [x] Step 1: Context grounding — read backend days_left.py (role:"days_left" + estimation attribute), frontend stats-panel.ts (row pattern), types.ts (ResolvedEntities), ax-dose-logger-card.ts _computeEntities (medicine suffix block + master role block + granular block), localize.ts stats block; wrote architecture plan plans/days-left-sensor-frontend-plan.md
+- [x] Step 2: Add ResolvedEntities fields — daysLeft?: string + daysLeftEst?: boolean (types.ts)
+- [x] Step 3: Resolver branches — medicine suffix block longest-first (_days_left_est before _days_left) + master role==='days_left' + granular role==='days_left' (ax-dose-logger-card.ts); daysLeftEst mirrors the backend estimation attribute (true for As Needed/drinks/master, false for scheduled)
+- [x] Step 4: Localize keys — stats.days_left ("Days left") + stats.days_left_est ("Est. days left") (localize.ts)
+- [x] Step 5: Stats panel row — after daysSinceFirstDose; whole-number display via c.formatInteger + ' d'; label picks stats.days_left vs stats.days_left_est by daysLeftEst; unknown/unavailable/None → '-' (stats-panel.ts)
+- [x] Step 6: Build verification — yarn run build exit 0, no warnings
+- [x] Step 7: Update memory-bank (frontend activeContext.md + progress.md)
+
+### Key decisions
+1. **Classify by `role` for master/granular, suffix for medicine** — the medicine branch uses the existing suffix discipline (the backend's entity_id ends in `_days_left` / `_days_left_est` since the translation names slugify cleanly); the master/granular branch uses the proven `role` attribute (entity_id suffixes are unreliable on masters because HA slugifies the translated name — see the 2026-07-06 memory bank). Both set the same `daysLeft` field, so the Stats panel row is device-family-agnostic.
+2. **Longest-suffix-first ordering** — `_days_left_est` must be checked before `_days_left` or the shorter suffix matches the longer entity_id (same discipline as `_avg_daily_doses_yearly` vs `_avg_daily_doses_365_days` at the existing line 253).
+3. **Whole-number display via formatInteger (user-confirmed)** — "days left" is a planning estimate; showing "12 d" is clearer than "12.4 d". Matches the Amount in Body Stats row discipline established 2026-07-10. The backend retains its precision (scheduled integer floor, estimated 1 decimal) in the recorder + more-info; the card's compact row rounds for display.
+4. **Two labels mirroring the backend (user-confirmed)** — the resolver captures the `estimation` attribute onto `daysLeftEst` so the row picks `stats.days_left` ("Days left") for scheduled medicine or `stats.days_left_est` ("Est. days left") for As Needed / drinks / master. This matches the backend's own sensor name in more-info, so the card and HA's UI agree on the label.
+5. **Live refresh needs no extra wiring** — the Stats panel already takes `hass` as a reactive prop and re-renders on every state change passing `_relevantStateChanged`. The backend's `async_track_state_change_event` on the stock entity guarantees the sensor's HA state updates instantly on dose/undo/add-stock, so the row updates live with no `shouldUpdate`/`_relevantStateChanged` change.
+6. **No README change** — the frontend change is a rendering surface for an already-documented backend sensor; the backend README already documents the Days left / Est. days left sensors. No `projectstructure.md` change (no files added/renamed/deleted).
+
+## Amount in Body Graph — Default Landing Slide on Graphs Pane Entry (2026-07-10)
+- [x] Step 1: Context grounding — read frontend memory-bank/activeContext.md, graphs-panel.ts (carousel slide-gating in render() at line 97-103: ['bar'] + conditional 'line' + conditional 'effectiveness'), ax-dose-logger-card.ts (_activeGraph @state at line 57, connectedCallback hardcodes = 0 at line 1650, _handlePaneChange at line 958 does NOT touch _activeGraph, setActiveGraph at 881, updated() graphs-pane entry at 1827); types.ts (CardController.activeGraph getter); confirmed with user that "reset on every graphs-pane entry" is the desired behaviour
+- [x] Step 2: Implement default-graph logic in _handlePaneChange (ax-dose-logger-card.ts) — when paneId === 'graphs' && config && hass: resolve entities, read amount-in-body state, compute hasAmountInBody (entity exists + state ≠ 0/unknown/unavailable — the exact check the panel uses), set _activeGraph = (show_amount_in_body !== false && hasAmountInBody) ? 1 : 0; added documenting comment block
+- [x] Step 3: README — updated the show_amount_in_body config row to note the Amount in Body line graph is the default graph on Graphs-pane entry when the toggle is on
+- [x] Step 4: Build verification — yarn run build exit 0, no warnings
+- [x] Step 5: Update memory-bank (frontend activeContext.md Current Status + What Was Changed + Prior status archive; progress.md this section)
+
+### Key decisions
+1. **Mirror the panel's own slide-gating exactly** — the graphs panel's render() builds `['bar']` then conditionally pushes `'line'` (when `show_amount_in_body !== false && hasAmountInBody`) then conditionally pushes `'effectiveness'`. The default index must point at a slide that will actually render: `_activeGraph = 1` lands on `'line'` only when the line slide exists; otherwise `_activeGraph = 0` (bar). Computing the same `hasAmountInBody` predicate in `_handlePaneChange` (entity exists + state ≠ 0/unknown/unavailable) guarantees the index and the slide list agree, so the default never lands on the effectiveness slide by mistake (the prior off-by-one risk if a stale index 1 met a `['bar','effectiveness']` list). The panel's existing `Math.min(this.activeGraph, slides.length - 1)` clamp is unchanged (defense-in-depth).
+2. **Put the default in `_handlePaneChange`, not `connectedCallback` (user-confirmed behaviour)** — the user confirmed the Amount in Body graph should be the default "when navigating to the graphs panel" — i.e. on every graphs-pane entry, not just on initial card load. `connectedCallback` resets `_activePane = 'daily'`, so the graphs pane is never the initial landing pane; its carousel index is never observed until the user clicks Graphs, at which point `_handlePaneChange` runs first. Putting the default in `_handlePaneChange` satisfies "reset on every graphs-pane entry" (re-applies on each navigation into the pane). The existing `connectedCallback` `this._activeGraph = 0` is left in place — it only sets the index for the non-graphs initial pane and is immediately overwritten by `_handlePaneChange` on the first graphs navigation, so it is harmless.
+3. **No new config field, localize key, or types change** — the existing `show_amount_in_body` toggle already gates the line slide's existence; the feature just changes which slide is the landing default, so no new user-facing config option or string is needed. No new `CardController` method (the container already owns `_activeGraph` + `setActiveGraph`); the panel reads `activeGraph` as a reactive prop.
+4. **Manual carousel navigation still works within a session** — prev/next call `setActiveGraph`, which sets `_activeGraph`; the new default only runs in `_handlePaneChange` (on pane entry), so a user who carousels to the bar graph keeps it for the rest of that graphs-pane session. Leaving and re-entering the graphs pane re-applies the Amount in Body default — the user-confirmed behaviour.
+5. **No backend / coordinator / store / config-flow change** — pure frontend card behaviour; the amount-in-body state is already resolved on the container via `_resolveEntities()` + `_getState()`. No `projectstructure.md` change (no files added/renamed/deleted/repurposed).
+
+## Pills Left Box Subheading — Full Override Parity with Safe to Take Box (2026-07-10)
+
+### Planning
+- [x] Read frontend memory-bank (activeContext, progress, projectstructure) for context
+- [x] Read editor schema + daily-panel render + controller to understand the Safe to Take Box override pattern
+- [x] Confirm scope with user — Full parity (entity replacement + icon + label + tap/hold/double-tap actions)
+- [x] Write architecture plan to plans/pills-left-box-subheading-plan.md
+- [x] Revise plan per user feedback: add "Days left instead of Pills left" toggle (retaining Refill dialog as default tap); keep Refill dialog as the default tap for ALL display modes
+- [x] Get user approval on the revised plan
+
+### Implementation
+- [x] src/types.ts — added 5 config fields + 2 CardController methods
+- [x] src/ax-dose-logger-card.ts — _getPillsLeftBoxEntity + _handlePillsLeftBoxAction + public wrappers
+- [x] src/ax-dose-logger-editor.ts — pills_left_box expandable replaces lone grid row; computeHelper comment updated
+- [x] src/localize.ts — 6 label keys + 6 helper keys
+- [x] src/components/daily-panel.ts — Pills Left render rewritten: days-left mode, swapped value, tap/hold/double-tap wiring; removed unused pillsLeft local
+- [x] README.md — 5 Configuration Options rows
+
+### Verification
+- [x] yarn run build — clean compilation (exit 0, no warnings); dist/ax-dose-logger-card.js rebuilt in 1.7s
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md (Current Status + What Was Changed + Prior status archive)
+- [x] Updated memory-bank/progress.md (this section)
+- [x] No projectstructure.md change (no files added/renamed/deleted/repurposed)
+
+### Key decisions
+1. **Full parity with Safe to Take Box + a built-in days-left swap** — entity replacement + icon + label + 3 actions under a "Pills Left Box" expandable, plus a "Days left instead of Pills left" toggle. Confirmed by user.
+2. **Custom tap action always wins** — overrides the Refill dialog default (user-confirmed).
+3. **Refill dialog stays the default tap for ALL display modes** (default, days-left, entity swap) — "Refill dialog" cannot be chosen from the ui_action dropdown, so it remains the built-in default a custom tap action overrides. User-confirmed. This deliberately diverges from the Safe to Take Box (whose default tap is more-info): a swapped Pills Left box tapping to open the Refill dialog is intended.
+4. **Days-left toggle is a first-class built-in swap** — when on, the box shows entities.daysLeft with a " d" suffix and label/icon defaults switch to the days-left variants; the toggle wins over a configured pills_left_entity so the two overrides are mutually unambiguous. The Refill dialog default tap is retained (user-confirmed).
+5. **No safety decoupling needed** — nothing consumes the real pillsLeft for logic (Stats row removed Iteration 20; refill uses addRefill), unlike Safe to Take's LIMIT REACHED coupling.
+6. **Separate handlePillsLeftBoxAction method, not a refactor of handleSafeBoxAction** — avoids regression risk on the working Safe to Take path; the Pills Left method generalizes the pattern with an optional fallback parameter for the card-internal Refill-dialog default.
+
+## Drinks Panel Settings — Full Parity with Daily Panel (2026-07-10)
+
+### Planning
+- [x] Read frontend memory-bank/activeContext.md + projectstructure.md for current Drinks panel structure
+- [x] Read src/ax-dose-logger-editor.ts (Daily Panel schema: daily_panel expandable → take_pill grid + safe_to_take_box + pills_left_box + chips)
+- [x] Read src/components/drinks-panel.ts (zero editor config — all hardcoded)
+- [x] Read src/types.ts (AxDoseLoggerCardConfig + CardController interface)
+- [x] Read src/ax-dose-logger-card.ts (_getSafeBoxEntity / _handleSafeBoxAction / _getPillsLeftBoxEntity / _handlePillsLeftBoxAction / _getChipEntities)
+- [x] User-confirmed: single 3-option select for Disruption box "Time to Low" (Option A — cleanest, no branching)
+- [x] User-confirmed: full parity (In Body Box + Disruption Box + Custom Chips)
+- [x] Create architecture plan plans/drinks-panel-settings-parity-plan.md (with Mermaid diagram)
+
+### Implementation
+- [x] src/types.ts — Added config fields: log_drink_icon/label, in_body_* (entity/icon/label/actions), disruption_* (mode select/entity/icon/label/actions), drink_chip_1..4 + labels. Added CardController methods: getInBodyBoxEntity, getDisruptionBoxEntity, handleInBodyBoxAction, handleDisruptionBoxAction, getDrinkChipEntities.
+- [x] src/ax-dose-logger-editor.ts — Added drinks_panel expandable mirroring daily_panel: grid(log_drink_icon+label) → in_body_box expandable (entity + grid icon/label + 3 actions) → disruption_box expandable (disruption_mode 3-option select + entity + grid icon/label + 3 actions) → drink_chips expandable (4× grid entity+label). Updated computeLabel (drink_chip_* label suppression) + computeHelper (drink_chip_* helpers + container guard list).
+- [x] src/localize.ts — Added config label keys (drinks_panel, log_drink_*, in_body_*, disruption_*, disruption_mode option labels, drink_chips, drink_chip_*) + helper keys for all fields.
+- [x] src/ax-dose-logger-card.ts — Added _getInBodyBoxEntity (config.in_body_entity || amountInBody), _getDisruptionBoxEntity (mode priority: low_timestamp→estimatedLowTime, low_hours_until→lowHoursUntil, else disruption_entity||sleepDisruption), _handleInBodyBoxAction (more-info fallback, mirrors _handleSafeBoxAction), _handleDisruptionBoxAction (Sleep Disruption popup fallback, mirrors _handlePillsLeftBoxAction), _getDrinkChipEntities (reads drink_chip_1..4). Added public wrappers. Updated _relevantStateChanged to watch drink chip entities.
+- [x] src/components/drinks-panel.ts — Rewrote render: Log Drink button icon/label overrides (config.log_drink_icon/label with substance-aware defaults); In Body box full override parity (getInBodyBoxEntity, entity swap numeric→formatInteger+unit / non-numeric→title-case, default→Math.round+unit, icon/label/action overrides, tap/hold/double-tap wiring); Disruption box mode-aware display (disruption→title-case, low_timestamp→HH:MM, low_hours_until→X h, entity swap, icon/label defaults switch per mode, tap fallback = Sleep Disruption popup when mode=disruption+substance else more-info); drink chips row (getDrinkChipEntities + verbatim Daily chips CSS). Removed unused formatTime import attempt.
+- [x] README.md — Added Configuration Options rows for all new drinks_panel fields (log_drink_icon/label, in_body_*, disruption_*, drink_chip_*).
+
+### Verification
+- [x] yarn run build — clean compilation (exit 0, no warnings); dist/ax-dose-logger-card.js rebuilt in 1.8s
+
+### Documentation
+- [x] Updated memory-bank/activeContext.md (Current Status + What Was Changed + Prior status archive)
+- [x] Updated memory-bank/progress.md (this section)
+- [x] No projectstructure.md change (no files added/renamed/deleted/repurposed)
+
+### Key decisions
+1. **Full parity with Daily Panel** — the Drinks Panel expandable mirrors the Daily Panel structure exactly: a Log Drink button override grid (mirrors take_pill grid), an In Body Box expandable (mirrors Safe to Take Box), a Disruption Box expandable (mirrors Pills Left Box), and a Custom Chips expandable (mirrors chips). User-confirmed scope.
+2. **3-option select for Disruption box instead of a boolean toggle** (Option A, user-confirmed) — the three display modes (Sleep Disruption / Low - Timestamp / Low - Hours Until) are mutually exclusive states of one box. A single select dropdown is cleaner than a boolean toggle + conditional sub-select. The built-in mode swap wins over disruption_entity (mirrors Pills Left Box's pills_left_show_days_left winning over pills_left_entity).
+3. **Disruption box default tap = Sleep Disruption popup** (card-internal, only when mode='disruption' + substance) — retains the current behavior as the fallback. For low_timestamp / low_hours_until modes, the default tap falls back to more-info (like Safe to Take). A custom disruption_tap_action always wins.
+4. **In Body box mirrors Safe to Take box** (not Pills Left box) — the In Body box's default tap is more-info (no card-internal dialog), exactly like the Safe to Take box. handleInBodyBoxAction follows the _handleSafeBoxAction signature (no fallback parameter).
+5. **Separate drink_chip_* namespace** (not reusing chip_*) — a card is bound to one device, but shared chip fields would carry over confusingly if the user changes device_id from medicine to master tracker. Separate fields keep the two panels' chip configs fully independent.
+6. **No backend changes** — all three sensors (sleepDisruption, estimatedLowTime, lowHoursUntil) are already resolved in ResolvedEntities by _computeEntities. The card already has access to all the data; this is purely a frontend config + render change.
+7. **Separate controller methods, not a refactor** — _handleInBodyBoxAction and _handleDisruptionBoxAction are separate methods (mirrors _handleSafeBoxAction / _handlePillsLeftBoxAction), avoiding any regression risk on the working Daily panel action paths. _handleDisruptionBoxAction generalizes with an optional fallback parameter for the card-internal Sleep Disruption popup default.
+8. **_relevantStateChanged watches drink chip entities always** (parallel to the Daily chips) — they may belong to other devices and only render on the drinks pane, but keeping them always watched mirrors the existing Daily chip pattern (simpler than a pane-conditional guard, and the cost is negligible — at most 4 extra entity-id string comparisons per state-change check).

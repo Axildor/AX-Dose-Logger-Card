@@ -39,8 +39,53 @@ export class AxDoseDailyPanel extends LitElement {
     const timeSince = c.computeTimeSinceLastDose(e);
     const nextDose = c.computeNextDose(e);
     const overTime = c.computeOverTime(e);
-    const pillsLeft = c.getState(e.pillsLeft);
     const chipEntities = c.getChipEntities();
+
+    // Display entity for the Pills Left box. Priority:
+    //   1. pills_left_show_days_left === true → backend days_left sensor
+    //   2. pills_left_entity configured (≠ default sensor) → user's entity
+    //   3. default → pills_left number entity
+    // (controller.getPillsLeftBoxEntity resolves this; mirrored on the Safe to
+    // Take box pattern. The days-left toggle wins over an arbitrary entity
+    // swap so the two overrides are mutually unambiguous.)
+    const pillsLeftShowDays = c.config?.pills_left_show_days_left === true;
+    const pillsLeftDisplayEntity = c.getPillsLeftBoxEntity(e);
+    const pillsLeftDisplayState = c.getState(pillsLeftDisplayEntity);
+    const pillsLeftUnknown = pillsLeftDisplayState === 'unknown' || pillsLeftDisplayState === 'unavailable' || pillsLeftDisplayState === undefined;
+    const pillsLeftIsSwapped = !!(c.config?.pills_left_entity && c.config.pills_left_entity !== e.pillsLeft && !pillsLeftShowDays);
+
+    // Action config for the Pills Left box. When the user configured custom
+    // tap/hold/double-tap actions, handleAction fires them. When no tap_action
+    // is configured, the tap falls back to the Refill dialog (the card-internal
+    // default for ALL display modes — "Refill dialog" can't be expressed in the
+    // ui_action dropdown, so it stays the built-in default that a custom action
+    // overrides), then to more-info on the display entity. hasHold/hasDblClick
+    // gate the action handler so a plain click doesn't trigger them.
+    const pillsLeftActionConfig: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig } = {
+      entity: pillsLeftDisplayEntity,
+      tap_action: c.config?.pills_left_tap_action,
+      hold_action: c.config?.pills_left_hold_action,
+      double_tap_action: c.config?.pills_left_double_tap_action,
+    };
+    const plHasCustomTap = !!c.config?.pills_left_tap_action;
+    const plHasHold = !!c.config?.pills_left_hold_action;
+    const plHasDblClick = !!c.config?.pills_left_double_tap_action;
+    const pillsLeftClickable = plHasCustomTap || plHasHold || plHasDblClick || !!pillsLeftDisplayEntity || !!e.addRefill;
+    // Tap fallback: Refill dialog when an add-refill entity exists (retain the
+    // existing refill-by-tap UX across all display modes), else more-info on the
+    // display entity.
+    const pillsLeftTapFallback = () => {
+      if (e.addRefill) {
+        c.showRefillDialog();
+      } else if (pillsLeftDisplayEntity) {
+        c.openMoreInfo(pillsLeftDisplayEntity);
+      }
+    };
+    // Default label/icon switch to the days-left variants when the toggle is on.
+    const pillsLeftDefaultLabel = pillsLeftShowDays
+      ? localize(this._lang, e.daysLeftEst ? 'stats.days_left_est' : 'stats.days_left')
+      : localize(this._lang, 'daily.pills_left');
+    const pillsLeftDefaultIcon = pillsLeftShowDays ? 'mdi:calendar-month' : 'mdi:pill';
 
     // Display entity for the Safe to Take box (may differ from the real sensor).
     const displayEntity = c.getSafeBoxEntity(e);
@@ -105,17 +150,35 @@ export class AxDoseDailyPanel extends LitElement {
               <span class="stat-label">${c.config?.safe_to_take_label || localize(this._lang, 'daily.safe_to_take')}</span>
               <span class="stat-value">${displayIsUnknown
                 ? localize(this._lang, 'daily.na')
-                : (isSwapped ? (displayState ? displayState.charAt(0).toUpperCase() + displayState.slice(1) : '') : c.formatInteger(safeState))}</span>
+                : (isSwapped
+                  ? (displayState
+                    ? (isNaN(parseFloat(displayState))
+                      ? displayState.charAt(0).toUpperCase() + displayState.slice(1)
+                      : c.formatInteger(displayState) + (c.getAttr(displayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(displayEntity, 'unit_of_measurement') : ''))
+                    : '')
+                  : c.formatInteger(safeState))}</span>
             </div>
-            <div class="stat-pill ${e.addRefill ? 'clickable' : ''}"
+            <div class="stat-pill ${pillsLeftClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex="0"
-                 aria-label=${localize(this._lang, 'dialog.refill.aria')}
-                 @click=${e.addRefill ? () => c.showRefillDialog() : null}
-                 @keydown=${e.addRefill ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showRefillDialog()) : null}>
-              <ha-icon icon="${c.config?.pills_left_icon || 'mdi:pill'}"></ha-icon>
-              <span class="stat-label">${c.config?.pills_left_label || localize(this._lang, 'daily.pills_left')}</span>
-              <span class="stat-value">${pillsLeft === 'unavailable' ? '-' : c.formatInteger(pillsLeft)}</span>
+                 tabindex=${pillsLeftClickable ? '0' : nothing}
+                 aria-label=${c.config?.pills_left_label || pillsLeftDefaultLabel}
+                 @click=${pillsLeftClickable ? (ev: MouseEvent) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback) : null}
+                 @keydown=${pillsLeftClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handlePillsLeftBoxAction(null, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
+                 @contextmenu=${plHasHold ? (ev: Event) => { ev.preventDefault(); c.handlePillsLeftBoxAction(null, 'hold', pillsLeftActionConfig, pillsLeftDisplayEntity); } : null}
+                 @dblclick=${plHasDblClick ? () => c.handlePillsLeftBoxAction(null, 'double_tap', pillsLeftActionConfig, pillsLeftDisplayEntity) : null}>
+              <ha-icon icon="${c.config?.pills_left_icon || pillsLeftDefaultIcon}"></ha-icon>
+              <span class="stat-label">${c.config?.pills_left_label || pillsLeftDefaultLabel}</span>
+              <span class="stat-value">${pillsLeftUnknown
+                ? localize(this._lang, 'daily.na')
+                : (pillsLeftShowDays
+                  ? c.formatInteger(pillsLeftDisplayState)
+                  : (pillsLeftIsSwapped
+                    ? (pillsLeftDisplayState
+                      ? (isNaN(parseFloat(pillsLeftDisplayState))
+                        ? pillsLeftDisplayState.charAt(0).toUpperCase() + pillsLeftDisplayState.slice(1)
+                        : c.formatInteger(pillsLeftDisplayState) + (c.getAttr(pillsLeftDisplayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(pillsLeftDisplayEntity, 'unit_of_measurement') : ''))
+                      : '')
+                    : (pillsLeftDisplayState === 'unavailable' ? '-' : c.formatInteger(pillsLeftDisplayState))))}</span>
             </div>
           </div>
         </div>
@@ -128,10 +191,11 @@ export class AxDoseDailyPanel extends LitElement {
                   const chipName = chip.label
                     || c.hass?.states[chip.entityId]?.attributes?.friendly_name
                     || chip.entityId;
+                  const chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement');
                   return html`
                     <div class="chip">
                       <span class="chip-name">${chipName}</span>
-                      <span class="chip-value">${chipState}</span>
+                      <span class="chip-value">${c.formatInteger(chipState)}${chipUnit ? ' ' + chipUnit : ''}</span>
                     </div>
                   `;
                 })}

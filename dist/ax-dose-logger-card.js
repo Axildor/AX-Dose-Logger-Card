@@ -372,7 +372,10 @@ const translations = {
         'stats.adherence_running': '{days}-Day Adherence',
         'stats.amount_last_24h': 'Amount in Last 24h',
         'stats.sleep_disruption': 'Sleep Disruption',
-        'stats.estimated_low_time': 'Estimated Low Time',
+        'stats.low_timestamp': 'Low - Timestamp',
+        'stats.low_hours_until': 'Low - Hours Until',
+        'stats.days_left': 'Days left',
+        'stats.days_left_est': 'Est. days left',
         // ── Averages grid (short labels) ──
         'averages.avg_7_day': '7-Day Avg',
         'averages.avg_14_day': '14-Day Avg',
@@ -395,7 +398,7 @@ const translations = {
         'drinks.redirect_alcohol': 'Please select the Alcohol device to view this drink.',
         // ── Inventory pane (Master Tracker) ──
         'inventory.empty': 'No drinks of this category configured.',
-        'inventory.avg_7_day': '7-Day Avg',
+        'inventory.avg_7_day': '7-Day Average',
         // ── Caffeine pane (legacy scaffold, retained one release) ──
         'caffeine.placeholder': 'Caffeine tracking — coming soon',
         // ── Tracking pane ──
@@ -435,6 +438,8 @@ const translations = {
         'dialog.refill.title_drink': 'Refill {name}',
         'dialog.log_drink.title': 'Log Drink',
         'dialog.log_drink.empty': 'No drinks of this category configured.',
+        'dialog.log_drink.predicted_low': 'Low',
+        'dialog.log_drink.predicted_low_dash': 'Low: —',
         'dialog.override.body_scheduled': 'Your next scheduled dose is not until {time}. Take a dose now anyway?',
         'dialog.override.body_as_needed': 'Your next safe dose is not until {time}. Take a dose now anyway?',
         'dialog.override.confirm': 'Override',
@@ -480,6 +485,43 @@ const translations = {
         'config.safe_to_take_double_tap_action': 'Double Tap Action',
         'config.pills_left_label': 'Pills Left Label',
         'config.pills_left_icon': 'Pills Left Icon',
+        'config.pills_left_box': 'Pills Left Box',
+        'config.pills_left_show_days_left': 'Days left instead of Pills left',
+        'config.pills_left_entity': 'Pills Left Entity',
+        'config.pills_left_tap_action': 'Tap Action',
+        'config.pills_left_hold_action': 'Hold Action',
+        'config.pills_left_double_tap_action': 'Double Tap Action',
+        // ── Drinks Panel config labels (mirror the Daily Panel fields) ──
+        'config.drinks_panel': 'Drinks Panel',
+        'config.log_drink_icon': 'Log Drink Icon',
+        'config.log_drink_label': 'Log Drink Label',
+        'config.in_body_box': 'In Body Box',
+        'config.in_body_entity': 'In Body Entity',
+        'config.in_body_label': 'In Body Label',
+        'config.in_body_icon': 'In Body Icon',
+        'config.in_body_tap_action': 'Tap Action',
+        'config.in_body_hold_action': 'Hold Action',
+        'config.in_body_double_tap_action': 'Double Tap Action',
+        'config.disruption_box': 'Disruption Box',
+        'config.disruption_mode': 'Time to Low',
+        'config.disruption_entity': 'Disruption Entity',
+        'config.disruption_label': 'Disruption Label',
+        'config.disruption_icon': 'Disruption Icon',
+        'config.disruption_tap_action': 'Tap Action',
+        'config.disruption_hold_action': 'Hold Action',
+        'config.disruption_double_tap_action': 'Double Tap Action',
+        'config.disruption_mode_disruption': 'Sleep Disruption',
+        'config.disruption_mode_low_timestamp': 'Low - Timestamp',
+        'config.disruption_mode_low_hours_until': 'Low - Hours Until',
+        'config.drink_chips': 'Custom Chips',
+        'config.drink_chip_1': 'Chip 1 (optional)',
+        'config.drink_chip_1_label': 'Chip 1 Label',
+        'config.drink_chip_2': 'Chip 2 (optional)',
+        'config.drink_chip_2_label': 'Chip 2 Label',
+        'config.drink_chip_3': 'Chip 3 (optional)',
+        'config.drink_chip_3_label': 'Chip 3 Label',
+        'config.drink_chip_4': 'Chip 4 (optional)',
+        'config.drink_chip_4_label': 'Chip 4 Label',
         'config.color_scheme': 'Color Scheme',
         'config.name': 'Name Override',
         'config.daily_panel': 'Daily Panel',
@@ -516,6 +558,34 @@ const translations = {
         'config.helper.safe_to_take_double_tap_action': 'Double-tap action.',
         'config.helper.pills_left_label': 'Defaults to "Pills left". E.g. "Amount Left (ml)", "Doses Left".',
         'config.helper.pills_left_icon': 'Icon on the Pills Left box. Defaults to mdi:pill.',
+        'config.helper.pills_left_box': 'Replace the box with any entity, or switch to the Days left sensor. Leave empty for the default sensor.',
+        'config.helper.pills_left_show_days_left': 'Show the Days left sensor instead of Pills left. Keeps the Refill dialog as the default tap.',
+        'config.helper.pills_left_entity': 'Any entity to show here. Leave empty for default.',
+        'config.helper.pills_left_tap_action': 'Defaults to the Refill dialog. A custom action overrides it.',
+        'config.helper.pills_left_hold_action': 'Long-press action.',
+        'config.helper.pills_left_double_tap_action': 'Double-tap action.',
+        // ── Drinks Panel config helpers (mirror the Daily Panel helpers) ──
+        'config.helper.drinks_panel': 'Master Tracker (Caffeine / Alcohol) card settings.',
+        'config.helper.log_drink_icon': 'Icon for the Log Drink button. Defaults to mdi:coffee / mdi:glass-mug-variant.',
+        'config.helper.log_drink_label': 'Button text. Defaults to "Log Drink".',
+        'config.helper.in_body_box': 'Replace the box with any entity. Leave empty for the default sensor.',
+        'config.helper.in_body_entity': 'Any entity to show here. Leave empty for default.',
+        'config.helper.in_body_label': 'Custom label. Defaults to "In Body".',
+        'config.helper.in_body_icon': 'Icon on the In Body box. Defaults to mdi:chart-bell-curve.',
+        'config.helper.in_body_tap_action': 'Defaults to more-info.',
+        'config.helper.in_body_hold_action': 'Long-press action.',
+        'config.helper.in_body_double_tap_action': 'Double-tap action.',
+        'config.helper.disruption_box': 'Show Sleep Disruption state, or switch to the Low - Timestamp / Low - Hours Until sensor. Or replace with any entity.',
+        'config.helper.disruption_mode': 'Show Sleep Disruption state, or switch to the Low - Timestamp (HH:MM) or Low - Hours Until (countdown) sensor. Defaults to Sleep Disruption.',
+        'config.helper.disruption_entity': 'Any entity to show here. Leave empty for default. Overridden by the Time to Low selector.',
+        'config.helper.disruption_label': 'Custom label. Defaults to "Disruption", "Low - Timestamp", or "Low - Hours Until" depending on the selector.',
+        'config.helper.disruption_icon': 'Icon on the box. Defaults to mdi:sleep, mdi:clock-outline, or mdi:timer-sand depending on the selector.',
+        'config.helper.disruption_tap_action': 'Defaults to the Sleep Disruption popup (Sleep Disruption mode) or more-info (Low modes).',
+        'config.helper.disruption_hold_action': 'Long-press action.',
+        'config.helper.disruption_double_tap_action': 'Double-tap action.',
+        'config.helper.drink_chips': 'Show as a chip on the Drinks pane.',
+        'config.helper.drink_chip': 'Show as a chip on the Drinks pane.',
+        'config.helper.drink_chip_label': "Leave empty to use the entity's name.",
         'config.helper.color_scheme': 'Accent color for the card.',
         'config.helper.name': 'Leave empty to use the device name.',
         'config.helper.chip_label': "Leave empty to use the entity's name.",
@@ -907,17 +977,55 @@ function buildEditorForm() {
                         ],
                     },
                     {
-                        type: 'grid',
-                        name: '',
-                        column_min_width: '200px',
+                        type: 'expandable',
+                        name: 'pills_left_box',
+                        title: 'Pills Left Box',
+                        flatten: true,
                         schema: [
                             {
-                                name: 'pills_left_icon',
-                                selector: { icon: {} },
+                                name: 'pills_left_show_days_left',
+                                selector: { boolean: {} },
                             },
                             {
-                                name: 'pills_left_label',
-                                selector: { text: {} },
+                                name: 'pills_left_entity',
+                                selector: {
+                                    entity: {
+                                        context: { filter_device_id: 'device_id' },
+                                    },
+                                },
+                            },
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'pills_left_icon',
+                                        selector: { icon: {} },
+                                    },
+                                    {
+                                        name: 'pills_left_label',
+                                        selector: { text: {} },
+                                    },
+                                ],
+                            },
+                            {
+                                name: 'pills_left_tap_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                            {
+                                name: 'pills_left_hold_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                            {
+                                name: 'pills_left_double_tap_action',
+                                selector: {
+                                    ui_action: {},
+                                },
                             },
                         ],
                     },
@@ -999,6 +1107,230 @@ function buildEditorForm() {
                                     },
                                     {
                                         name: 'chip_4_label',
+                                        selector: { text: {} },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+            // ── Drinks Panel (Master Tracker) — mirrors the Daily Panel ──
+            // Same three-box override structure: In Body Box (entity swap + icon/
+            // label + actions), Disruption Box (Time to Low 3-option select +
+            // entity swap + icon/label + actions), and Custom Chips (4× entity +
+            // label pairs). The Disruption Box uses a single 3-option select
+            // ('disruption' / 'low_timestamp' / 'low_hours_until') instead of the
+            // Pills Left Box boolean toggle — the cleanest expression of three
+            // mutually-exclusive display modes (user-confirmed Option A).
+            {
+                type: 'expandable',
+                name: 'drinks_panel',
+                flatten: true,
+                schema: [
+                    {
+                        type: 'grid',
+                        name: '',
+                        column_min_width: '200px',
+                        schema: [
+                            {
+                                name: 'log_drink_icon',
+                                selector: { icon: {} },
+                            },
+                            {
+                                name: 'log_drink_label',
+                                selector: { text: {} },
+                            },
+                        ],
+                    },
+                    {
+                        type: 'expandable',
+                        name: 'in_body_box',
+                        title: 'In Body Box',
+                        flatten: true,
+                        schema: [
+                            {
+                                name: 'in_body_entity',
+                                selector: {
+                                    entity: {
+                                        context: { filter_device_id: 'device_id' },
+                                    },
+                                },
+                            },
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'in_body_icon',
+                                        selector: { icon: {} },
+                                    },
+                                    {
+                                        name: 'in_body_label',
+                                        selector: { text: {} },
+                                    },
+                                ],
+                            },
+                            {
+                                name: 'in_body_tap_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                            {
+                                name: 'in_body_hold_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                            {
+                                name: 'in_body_double_tap_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        type: 'expandable',
+                        name: 'disruption_box',
+                        title: 'Disruption Box',
+                        flatten: true,
+                        schema: [
+                            {
+                                name: 'disruption_mode',
+                                selector: {
+                                    select: {
+                                        options: [
+                                            { value: 'disruption', label: localize('en', 'config.disruption_mode_disruption') },
+                                            { value: 'low_timestamp', label: localize('en', 'config.disruption_mode_low_timestamp') },
+                                            { value: 'low_hours_until', label: localize('en', 'config.disruption_mode_low_hours_until') },
+                                        ],
+                                    },
+                                },
+                            },
+                            {
+                                name: 'disruption_entity',
+                                selector: {
+                                    entity: {
+                                        context: { filter_device_id: 'device_id' },
+                                    },
+                                },
+                            },
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'disruption_icon',
+                                        selector: { icon: {} },
+                                    },
+                                    {
+                                        name: 'disruption_label',
+                                        selector: { text: {} },
+                                    },
+                                ],
+                            },
+                            {
+                                name: 'disruption_tap_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                            {
+                                name: 'disruption_hold_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                            {
+                                name: 'disruption_double_tap_action',
+                                selector: {
+                                    ui_action: {},
+                                },
+                            },
+                        ],
+                    },
+                    {
+                        type: 'expandable',
+                        name: 'drink_chips',
+                        title: 'Custom Chips',
+                        flatten: true,
+                        schema: [
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'drink_chip_1',
+                                        selector: {
+                                            entity: {
+                                                context: { filter_device_id: 'device_id' },
+                                            },
+                                        },
+                                    },
+                                    {
+                                        name: 'drink_chip_1_label',
+                                        selector: { text: {} },
+                                    },
+                                ],
+                            },
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'drink_chip_2',
+                                        selector: {
+                                            entity: {
+                                                context: { filter_device_id: 'device_id' },
+                                            },
+                                        },
+                                    },
+                                    {
+                                        name: 'drink_chip_2_label',
+                                        selector: { text: {} },
+                                    },
+                                ],
+                            },
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'drink_chip_3',
+                                        selector: {
+                                            entity: {
+                                                context: { filter_device_id: 'device_id' },
+                                            },
+                                        },
+                                    },
+                                    {
+                                        name: 'drink_chip_3_label',
+                                        selector: { text: {} },
+                                    },
+                                ],
+                            },
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'drink_chip_4',
+                                        selector: {
+                                            entity: {
+                                                context: { filter_device_id: 'device_id' },
+                                            },
+                                        },
+                                    },
+                                    {
+                                        name: 'drink_chip_4_label',
                                         selector: { text: {} },
                                     },
                                 ],
@@ -1089,6 +1421,15 @@ function buildEditorForm() {
                 schema.name === 'chip_4' || schema.name === 'chip_4_label') {
                 return '';
             }
+            // Drink chip entity + label fields: same label-suppression rationale as
+            // the Daily-panel chips above (entity picker + text field cell-height
+            // equalization inside a 200px grid column).
+            if (schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' ||
+                schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' ||
+                schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' ||
+                schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label') {
+                return '';
+            }
             return localize(lang, 'config.' + schema.name);
         },
         computeHelper: (schema, _data, hass) => {
@@ -1097,9 +1438,10 @@ function buildEditorForm() {
             // Layout/container nodes (grid, expandable) and nodes without a selector
             // have no input control, so helper text does not apply. Without this
             // guard, localize() returns the raw 'config.helper.<name>' key for
-            // containers (daily_panel, graphs_panel, stats_panel, chips,
-            // safe_to_take_box) that have no translation defined, which then
-            // renders as visible text under the expandable headers.
+            // containers (daily_panel, drinks_panel, graphs_panel, stats_panel,
+            // chips, drink_chips, safe_to_take_box, pills_left_box, in_body_box,
+            // disruption_box) that have no translation defined, which then renders as
+            // visible text under the expandable headers.
             if (schema.type === 'grid' ||
                 schema.type === 'expandable' ||
                 !schema.selector) {
@@ -1110,6 +1452,12 @@ function buildEditorForm() {
             }
             if (name?.startsWith('chip_')) {
                 return localize(lang, 'config.helper.chip');
+            }
+            if (name?.startsWith('drink_chip_') && name?.endsWith('_label')) {
+                return localize(lang, 'config.helper.drink_chip_label');
+            }
+            if (name?.startsWith('drink_chip_')) {
+                return localize(lang, 'config.helper.drink_chip');
             }
             return localize(lang, 'config.helper.' + name);
         },
@@ -1139,13 +1487,31 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
             rows.push({ label: localize(this._lang, 'stats.total_doses'), value: c.getState(e.totalDoses), icon: 'mdi:counter', entityId: e.totalDoses });
         if (e.daysSinceFirstDose)
             rows.push({ label: localize(this._lang, 'stats.days_since_first_dose'), value: c.getState(e.daysSinceFirstDose), icon: 'mdi:calendar-start', entityId: e.daysSinceFirstDose });
+        if (e.daysLeft) {
+            // Days-left inventory-burn sensor. Scheduled medicine → "Days left"
+            // (integer, config-derived doses/day); As Needed + drinks + master →
+            // "Est. days left" (empirical 7-day average). The backend sets the
+            // `estimation` state attribute; the resolver mirrors it onto
+            // daysLeftEst so this row picks the matching label. Whole-number
+            // display via formatInteger matches the Amount in Body discipline.
+            const v = c.getState(e.daysLeft);
+            let display = '-';
+            if (v && v !== 'unknown' && v !== 'unavailable' && v !== 'None') {
+                const formatted = c.formatInteger(v);
+                display = (formatted && formatted !== 'unknown' && formatted !== 'unavailable') ? formatted + ' days' : '-';
+            }
+            const label = e.daysLeftEst
+                ? localize(this._lang, 'stats.days_left_est')
+                : localize(this._lang, 'stats.days_left');
+            rows.push({ label, value: display, icon: 'mdi:calendar-clock', entityId: e.daysLeft });
+        }
         if (e.lastDose)
             rows.push({ label: localize(this._lang, 'stats.last_dose'), value: c.computeTimeSinceLastDose(e), icon: 'mdi:clock-outline', entityId: e.lastDose });
         const strengthUnit = c.getStrengthUnit(e);
         if (e.strength)
             rows.push({ label: localize(this._lang, 'stats.strength'), value: c.formatInteger(c.getState(e.strength)) + ' ' + strengthUnit, icon: 'mdi:scale', entityId: e.strength });
         if (e.amountInBody)
-            rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: c.getState(e.amountInBody) + ' ' + strengthUnit, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
+            rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: c.formatInteger(c.getState(e.amountInBody)) + ' ' + strengthUnit, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
         if (e.steadyState) {
             const ss = c.getState(e.steadyState);
             const display = (ss === '0.0' || ss === '0') ? localize(this._lang, 'stats.steady_state_reached') : localize(this._lang, 'stats.steady_state_days', { days: ss });
@@ -1193,10 +1559,24 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
             let display = '-';
             if (v && v !== 'unknown' && v !== 'unavailable') {
                 const dt = new Date(v);
-                if (!isNaN(dt.getTime()))
-                    display = dt.toLocaleString();
+                if (!isNaN(dt.getTime())) {
+                    // HH:MM only (24-hour, no date, no seconds) — the backend keeps the
+                    // TIMESTAMP device class so automations + the history graph still see
+                    // the full datetime; the card surfaces just the time for compactness.
+                    display = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
             }
-            rows.push({ label: localize(this._lang, 'stats.estimated_low_time'), value: display, icon: 'mdi:clock-alert-outline', entityId: e.estimatedLowTime });
+            rows.push({ label: localize(this._lang, 'stats.low_timestamp'), value: display, icon: 'mdi:clock-alert-outline', entityId: e.estimatedLowTime });
+        }
+        if (e.lowHoursUntil) {
+            const v = c.getState(e.lowHoursUntil);
+            let display = '-';
+            if (v && v !== 'unknown' && v !== 'unavailable' && v !== 'None') {
+                const num = parseFloat(v);
+                if (!isNaN(num))
+                    display = num + ' h';
+            }
+            rows.push({ label: localize(this._lang, 'stats.low_hours_until'), value: display, icon: 'mdi:timer-sand', entityId: e.lowHoursUntil });
         }
         return b `
       <div class="pane pane-stats">
@@ -1782,8 +2162,52 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
         const timeSince = c.computeTimeSinceLastDose(e);
         const nextDose = c.computeNextDose(e);
         const overTime = c.computeOverTime(e);
-        const pillsLeft = c.getState(e.pillsLeft);
         const chipEntities = c.getChipEntities();
+        // Display entity for the Pills Left box. Priority:
+        //   1. pills_left_show_days_left === true → backend days_left sensor
+        //   2. pills_left_entity configured (≠ default sensor) → user's entity
+        //   3. default → pills_left number entity
+        // (controller.getPillsLeftBoxEntity resolves this; mirrored on the Safe to
+        // Take box pattern. The days-left toggle wins over an arbitrary entity
+        // swap so the two overrides are mutually unambiguous.)
+        const pillsLeftShowDays = c.config?.pills_left_show_days_left === true;
+        const pillsLeftDisplayEntity = c.getPillsLeftBoxEntity(e);
+        const pillsLeftDisplayState = c.getState(pillsLeftDisplayEntity);
+        const pillsLeftUnknown = pillsLeftDisplayState === 'unknown' || pillsLeftDisplayState === 'unavailable' || pillsLeftDisplayState === undefined;
+        const pillsLeftIsSwapped = !!(c.config?.pills_left_entity && c.config.pills_left_entity !== e.pillsLeft && !pillsLeftShowDays);
+        // Action config for the Pills Left box. When the user configured custom
+        // tap/hold/double-tap actions, handleAction fires them. When no tap_action
+        // is configured, the tap falls back to the Refill dialog (the card-internal
+        // default for ALL display modes — "Refill dialog" can't be expressed in the
+        // ui_action dropdown, so it stays the built-in default that a custom action
+        // overrides), then to more-info on the display entity. hasHold/hasDblClick
+        // gate the action handler so a plain click doesn't trigger them.
+        const pillsLeftActionConfig = {
+            entity: pillsLeftDisplayEntity,
+            tap_action: c.config?.pills_left_tap_action,
+            hold_action: c.config?.pills_left_hold_action,
+            double_tap_action: c.config?.pills_left_double_tap_action,
+        };
+        const plHasCustomTap = !!c.config?.pills_left_tap_action;
+        const plHasHold = !!c.config?.pills_left_hold_action;
+        const plHasDblClick = !!c.config?.pills_left_double_tap_action;
+        const pillsLeftClickable = plHasCustomTap || plHasHold || plHasDblClick || !!pillsLeftDisplayEntity || !!e.addRefill;
+        // Tap fallback: Refill dialog when an add-refill entity exists (retain the
+        // existing refill-by-tap UX across all display modes), else more-info on the
+        // display entity.
+        const pillsLeftTapFallback = () => {
+            if (e.addRefill) {
+                c.showRefillDialog();
+            }
+            else if (pillsLeftDisplayEntity) {
+                c.openMoreInfo(pillsLeftDisplayEntity);
+            }
+        };
+        // Default label/icon switch to the days-left variants when the toggle is on.
+        const pillsLeftDefaultLabel = pillsLeftShowDays
+            ? localize(this._lang, e.daysLeftEst ? 'stats.days_left_est' : 'stats.days_left')
+            : localize(this._lang, 'daily.pills_left');
+        const pillsLeftDefaultIcon = pillsLeftShowDays ? 'mdi:calendar-month' : 'mdi:pill';
         // Display entity for the Safe to Take box (may differ from the real sensor).
         const displayEntity = c.getSafeBoxEntity(e);
         const displayState = c.getState(displayEntity);
@@ -1845,17 +2269,35 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
               <span class="stat-label">${c.config?.safe_to_take_label || localize(this._lang, 'daily.safe_to_take')}</span>
               <span class="stat-value">${displayIsUnknown
             ? localize(this._lang, 'daily.na')
-            : (isSwapped ? (displayState ? displayState.charAt(0).toUpperCase() + displayState.slice(1) : '') : c.formatInteger(safeState))}</span>
+            : (isSwapped
+                ? (displayState
+                    ? (isNaN(parseFloat(displayState))
+                        ? displayState.charAt(0).toUpperCase() + displayState.slice(1)
+                        : c.formatInteger(displayState) + (c.getAttr(displayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(displayEntity, 'unit_of_measurement') : ''))
+                    : '')
+                : c.formatInteger(safeState))}</span>
             </div>
-            <div class="stat-pill ${e.addRefill ? 'clickable' : ''}"
+            <div class="stat-pill ${pillsLeftClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex="0"
-                 aria-label=${localize(this._lang, 'dialog.refill.aria')}
-                 @click=${e.addRefill ? () => c.showRefillDialog() : null}
-                 @keydown=${e.addRefill ? (ev) => c.onKeyActivate(ev, () => c.showRefillDialog()) : null}>
-              <ha-icon icon="${c.config?.pills_left_icon || 'mdi:pill'}"></ha-icon>
-              <span class="stat-label">${c.config?.pills_left_label || localize(this._lang, 'daily.pills_left')}</span>
-              <span class="stat-value">${pillsLeft === 'unavailable' ? '-' : c.formatInteger(pillsLeft)}</span>
+                 tabindex=${pillsLeftClickable ? '0' : A}
+                 aria-label=${c.config?.pills_left_label || pillsLeftDefaultLabel}
+                 @click=${pillsLeftClickable ? (ev) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback) : null}
+                 @keydown=${pillsLeftClickable ? (ev) => c.onKeyActivate(ev, () => c.handlePillsLeftBoxAction(null, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
+                 @contextmenu=${plHasHold ? (ev) => { ev.preventDefault(); c.handlePillsLeftBoxAction(null, 'hold', pillsLeftActionConfig, pillsLeftDisplayEntity); } : null}
+                 @dblclick=${plHasDblClick ? () => c.handlePillsLeftBoxAction(null, 'double_tap', pillsLeftActionConfig, pillsLeftDisplayEntity) : null}>
+              <ha-icon icon="${c.config?.pills_left_icon || pillsLeftDefaultIcon}"></ha-icon>
+              <span class="stat-label">${c.config?.pills_left_label || pillsLeftDefaultLabel}</span>
+              <span class="stat-value">${pillsLeftUnknown
+            ? localize(this._lang, 'daily.na')
+            : (pillsLeftShowDays
+                ? c.formatInteger(pillsLeftDisplayState)
+                : (pillsLeftIsSwapped
+                    ? (pillsLeftDisplayState
+                        ? (isNaN(parseFloat(pillsLeftDisplayState))
+                            ? pillsLeftDisplayState.charAt(0).toUpperCase() + pillsLeftDisplayState.slice(1)
+                            : c.formatInteger(pillsLeftDisplayState) + (c.getAttr(pillsLeftDisplayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(pillsLeftDisplayEntity, 'unit_of_measurement') : ''))
+                        : '')
+                    : (pillsLeftDisplayState === 'unavailable' ? '-' : c.formatInteger(pillsLeftDisplayState))))}</span>
             </div>
           </div>
         </div>
@@ -1868,10 +2310,11 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
                 const chipName = chip.label
                     || c.hass?.states[chip.entityId]?.attributes?.friendly_name
                     || chip.entityId;
+                const chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement');
                 return b `
                     <div class="chip">
                       <span class="chip-name">${chipName}</span>
-                      <span class="chip-value">${chipState}</span>
+                      <span class="chip-value">${c.formatInteger(chipState)}${chipUnit ? ' ' + chipUnit : ''}</span>
                     </div>
                   `;
             })}
@@ -2428,7 +2871,7 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
             <line x1="${padLeft}" y1="${currentY}" x2="${w$1 - padRight}" y2="${currentY}"
                   stroke="var(--primary-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
             <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(12px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
-              Current: ${amountInBody} ${c.getStrengthUnit(entities)}
+              Current: ${Math.round(parseFloat(amountInBody))} ${c.getStrengthUnit(entities)}
             </text>
           ` : A}
 
@@ -3122,40 +3565,121 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
         const c = this.controller;
         const e = this.entities;
         const substance = e.substance;
+        const cfg = c.config;
         const substanceLabel = substance === 'alcohol'
             ? localize(this._lang, 'drinks.alcohol')
             : localize(this._lang, 'drinks.caffeine');
-        // Default icon by substance — mirrors Daily's per-state icon convention.
-        // A user-configurable log_drink_icon override is planned but not yet wired
-        // into the config schema; this default covers both substances.
-        const logDrinkIcon = substance === 'alcohol'
-            ? 'mdi:glass-mug-variant'
-            : 'mdi:coffee';
+        // Log Drink button overrides — icon/label fall back to substance-aware
+        // defaults when unset (mdi:coffee for caffeine, mdi:glass-mug-variant for
+        // alcohol; "Log Drink" label). Mirrors the Daily panel's take_pill_icon /
+        // take_pill_label overrides.
+        const logDrinkIcon = cfg?.log_drink_icon
+            || (substance === 'alcohol' ? 'mdi:glass-mug-variant' : 'mdi:coffee');
+        const logDrinkLabel = cfg?.log_drink_label || localize(this._lang, 'drinks.log_drink');
         // "Last" counter — identical to Daily's take-sub. The resolver populates
-        // entities.lastDose for drink masters from the pk_model body-mass sensor's
-        // last_dose_time attribute (see ax-dose-logger-card.ts), so the controller
+        // entities.lastDose for drink masters from the dedicated
+        // DrinkMasterLastDoseSensor (see ax-dose-logger-card.ts), so the controller
         // helper works here without any backend change. Drink masters have no
         // Next/Overdue concept (no schedule), so the sub-line is the single
         // "Last: …" segment, matching Daily's simplest branch.
         const timeSince = c.computeTimeSinceLastDose(e);
-        // In Body value — master body-mass sensor + substance unit (mg/g).
-        // Card displays the value rounded to 0 decimals (integer); the backend
-        // sensor stores 1 decimal (see drink_master.py), but the card box shows
-        // a clean integer for compactness.
-        const unit = c.getStrengthUnit(e);
-        const rawBody = e.amountInBody ? c.getState(e.amountInBody) : '';
-        const bodyKnown = !!(e.amountInBody && rawBody && rawBody !== 'unknown' && rawBody !== 'unavailable');
-        const bodyNum = parseFloat(rawBody);
-        const inBodyValue = bodyKnown
-            ? `${isNaN(bodyNum) ? rawBody : Math.round(bodyNum)} ${unit}`
-            : localize(this._lang, 'daily.na');
-        // Sleep Disruption readout (None/Low/Moderate/High) — title-cased first
-        // letter, matching the swapped Safe-to-Take box display convention.
-        const rawSleep = e.sleepDisruption ? c.getState(e.sleepDisruption) : '';
-        const sleepKnown = !!(e.sleepDisruption && rawSleep && rawSleep !== 'unknown' && rawSleep !== 'unavailable');
-        const sleepValue = sleepKnown
-            ? (rawSleep.charAt(0).toUpperCase() + rawSleep.slice(1))
-            : localize(this._lang, 'daily.na');
+        // ── In Body box — full override parity with the Daily Safe to Take box ──
+        // Display entity: configured in_body_entity wins; else the default
+        // amountInBody sensor. Swapped numeric → formatInteger + unit attr;
+        // swapped non-numeric → title-case. Default → Math.round + substance unit
+        // (mg/g) rounded to 0 decimals for compactness (unchanged from prior).
+        const inBodyDisplayEntity = c.getInBodyBoxEntity(e);
+        const inBodyRaw = inBodyDisplayEntity ? c.getState(inBodyDisplayEntity) : '';
+        const inBodyUnknown = !inBodyRaw || inBodyRaw === 'unknown' || inBodyRaw === 'unavailable';
+        const inBodyIsSwapped = !!(cfg?.in_body_entity && cfg.in_body_entity !== e.amountInBody);
+        const inBodyUnit = c.getStrengthUnit(e);
+        const inBodyBodyNum = parseFloat(inBodyRaw);
+        const inBodyValue = inBodyUnknown
+            ? localize(this._lang, 'daily.na')
+            : (inBodyIsSwapped
+                ? (isNaN(inBodyBodyNum)
+                    ? (inBodyRaw.charAt(0).toUpperCase() + inBodyRaw.slice(1))
+                    : c.formatInteger(inBodyRaw) + (c.getAttr(inBodyDisplayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(inBodyDisplayEntity, 'unit_of_measurement') : ''))
+                : `${isNaN(inBodyBodyNum) ? inBodyRaw : Math.round(inBodyBodyNum)} ${inBodyUnit}`);
+        const inBodyActionConfig = {
+            entity: inBodyDisplayEntity,
+            tap_action: cfg?.in_body_tap_action,
+            hold_action: cfg?.in_body_hold_action,
+            double_tap_action: cfg?.in_body_double_tap_action,
+        };
+        const ibHasCustomTap = !!cfg?.in_body_tap_action;
+        const ibHasHold = !!cfg?.in_body_hold_action;
+        const ibHasDblClick = !!cfg?.in_body_double_tap_action;
+        const inBodyClickable = ibHasCustomTap || ibHasHold || ibHasDblClick || !!inBodyDisplayEntity;
+        // ── Disruption box — Time to Low 3-option mode select + entity swap ──
+        // Mode priority (mirrors Pills Left Box days-left toggle): built-in mode
+        // swap wins over disruption_entity. 'disruption' (default) → Sleep
+        // Disruption state (None/Low/Moderate/High, title-cased); 'low_timestamp'
+        // → Low - Timestamp sensor formatted HH:MM; 'low_hours_until' → Low -
+        // Hours Until countdown sensor formatted X h. An entity swap follows the
+        // same numeric/title-case convention as the In Body box.
+        const disruptionMode = cfg?.disruption_mode || 'disruption';
+        const disruptionDisplayEntity = c.getDisruptionBoxEntity(e);
+        const disruptionRaw = disruptionDisplayEntity ? c.getState(disruptionDisplayEntity) : '';
+        const disruptionUnknown = !disruptionRaw || disruptionRaw === 'unknown' || disruptionRaw === 'unavailable';
+        const disruptionIsSwapped = !!(cfg?.disruption_entity && cfg.disruption_entity !== e.sleepDisruption
+            && disruptionMode === 'disruption');
+        // Display value per mode.
+        let disruptionValue = localize(this._lang, 'daily.na');
+        if (!disruptionUnknown) {
+            if (disruptionIsSwapped) {
+                const num = parseFloat(disruptionRaw);
+                disruptionValue = isNaN(num)
+                    ? (disruptionRaw.charAt(0).toUpperCase() + disruptionRaw.slice(1))
+                    : c.formatInteger(disruptionRaw) + (c.getAttr(disruptionDisplayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(disruptionDisplayEntity, 'unit_of_measurement') : '');
+            }
+            else if (disruptionMode === 'low_timestamp') {
+                // Low - Timestamp sensor state is a full ISO datetime; display HH:MM
+                // (24-hour) matching the Stats panel format.
+                const dt = new Date(disruptionRaw);
+                disruptionValue = isNaN(dt.getTime())
+                    ? localize(this._lang, 'daily.na')
+                    : dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+            else if (disruptionMode === 'low_hours_until') {
+                // Low - Hours Until is a DURATION (hours) numeric; display X h.
+                const num = parseFloat(disruptionRaw);
+                disruptionValue = isNaN(num) ? localize(this._lang, 'daily.na') : `${num} h`;
+            }
+            else {
+                // disruption (default) → title-cased state.
+                disruptionValue = disruptionRaw.charAt(0).toUpperCase() + disruptionRaw.slice(1);
+            }
+        }
+        // Default icon/label switch per mode.
+        const disruptionDefaultIcon = disruptionMode === 'low_timestamp'
+            ? 'mdi:clock-outline'
+            : (disruptionMode === 'low_hours_until' ? 'mdi:timer-sand' : 'mdi:sleep');
+        const disruptionDefaultLabel = disruptionMode === 'low_timestamp'
+            ? localize(this._lang, 'stats.low_timestamp')
+            : (disruptionMode === 'low_hours_until' ? localize(this._lang, 'stats.low_hours_until') : localize(this._lang, 'drinks.disruption'));
+        const disruptionActionConfig = {
+            entity: disruptionDisplayEntity,
+            tap_action: cfg?.disruption_tap_action,
+            hold_action: cfg?.disruption_hold_action,
+            double_tap_action: cfg?.disruption_double_tap_action,
+        };
+        const dHasCustomTap = !!cfg?.disruption_tap_action;
+        const dHasHold = !!cfg?.disruption_hold_action;
+        const dHasDblClick = !!cfg?.disruption_double_tap_action;
+        // Tap fallback: Sleep Disruption popup when mode='disruption' + substance;
+        // else more-info on the display entity (matches the Low-modes' default).
+        const disruptionTapFallback = () => {
+            if (disruptionMode === 'disruption' && substance) {
+                c.showSleepDisruptionDialog(substance);
+            }
+            else if (disruptionDisplayEntity) {
+                c.openMoreInfo(disruptionDisplayEntity);
+            }
+        };
+        const disruptionClickable = dHasCustomTap || dHasHold || dHasDblClick || !!disruptionDisplayEntity || (disruptionMode === 'disruption' && !!substance);
+        // ── Custom chips (Drinks panel) — parallel to the Daily panel chips ──
+        const drinkChipEntities = c.getDrinkChipEntities();
         return b `
       <div class="pane pane-drinks">
         <div class="drinks-title"
@@ -3168,38 +3692,62 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
         <div class="daily-main">
           <button
             class="log-drink-btn safe"
-            aria-label=${localize(this._lang, 'drinks.log_drink')}
+            aria-label=${logDrinkLabel}
             ?disabled=${!substance}
             @click=${() => substance && c.showLogDrinkDialog(substance)}
           >
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
-            <span class="take-label">${localize(this._lang, 'drinks.log_drink')}</span>
+            <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
           </button>
 
           <div class="stats-column">
-            <div class="stat-pill"
+            <div class="stat-pill ${inBodyClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex="0"
-                 aria-label=${localize(this._lang, 'drinks.in_body')}
-                 @click=${e.amountInBody ? () => c.openMoreInfo(e.amountInBody) : null}
-                 @keydown=${e.amountInBody ? (ev) => c.onKeyActivate(ev, () => c.openMoreInfo(e.amountInBody)) : null}>
-              <ha-icon icon="mdi:chart-bell-curve"></ha-icon>
-              <span class="stat-label">${localize(this._lang, 'drinks.in_body')}</span>
+                 tabindex=${inBodyClickable ? '0' : A}
+                 aria-label=${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}
+                 @click=${inBodyClickable ? (ev) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity) : null}
+                 @keydown=${inBodyClickable ? (ev) => c.onKeyActivate(ev, () => c.handleInBodyBoxAction(null, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
+                 @contextmenu=${ibHasHold ? (ev) => { ev.preventDefault(); c.handleInBodyBoxAction(null, 'hold', inBodyActionConfig, inBodyDisplayEntity); } : null}
+                 @dblclick=${ibHasDblClick ? () => c.handleInBodyBoxAction(null, 'double_tap', inBodyActionConfig, inBodyDisplayEntity) : null}>
+              <ha-icon icon="${cfg?.in_body_icon || 'mdi:chart-bell-curve'}"></ha-icon>
+              <span class="stat-label">${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}</span>
               <span class="stat-value">${inBodyValue}</span>
             </div>
-            <div class="stat-pill"
+            <div class="stat-pill ${disruptionClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex="0"
-                 aria-label=${localize(this._lang, 'drinks.disruption')}
-                 @click=${e.sleepDisruption && substance ? () => c.showSleepDisruptionDialog(substance) : null}
-                 @keydown=${e.sleepDisruption && substance ? (ev) => c.onKeyActivate(ev, () => c.showSleepDisruptionDialog(substance)) : null}>
-              <ha-icon icon="mdi:sleep"></ha-icon>
-              <span class="stat-label">${localize(this._lang, 'drinks.disruption')}</span>
-              <span class="stat-value">${sleepValue}</span>
+                 tabindex=${disruptionClickable ? '0' : A}
+                 aria-label=${cfg?.disruption_label || disruptionDefaultLabel}
+                 @click=${disruptionClickable ? (ev) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback) : null}
+                 @keydown=${disruptionClickable ? (ev) => c.onKeyActivate(ev, () => c.handleDisruptionBoxAction(null, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
+                 @contextmenu=${dHasHold ? (ev) => { ev.preventDefault(); c.handleDisruptionBoxAction(null, 'hold', disruptionActionConfig, disruptionDisplayEntity); } : null}
+                 @dblclick=${dHasDblClick ? () => c.handleDisruptionBoxAction(null, 'double_tap', disruptionActionConfig, disruptionDisplayEntity) : null}>
+              <ha-icon icon="${cfg?.disruption_icon || disruptionDefaultIcon}"></ha-icon>
+              <span class="stat-label">${cfg?.disruption_label || disruptionDefaultLabel}</span>
+              <span class="stat-value">${disruptionValue}</span>
             </div>
           </div>
         </div>
+
+        ${drinkChipEntities.length > 0
+            ? b `
+              <div class="chips-row">
+                ${drinkChipEntities.map((chip) => {
+                const chipState = c.getState(chip.entityId);
+                const chipName = chip.label
+                    || c.hass?.states[chip.entityId]?.attributes?.friendly_name
+                    || chip.entityId;
+                const chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement');
+                return b `
+                    <div class="chip">
+                      <span class="chip-name">${chipName}</span>
+                      <span class="chip-value">${c.formatInteger(chipState)}${chipUnit ? ' ' + chipUnit : ''}</span>
+                    </div>
+                  `;
+            })}
+              </div>
+            `
+            : A}
       </div>
     `;
     }
@@ -3297,10 +3845,13 @@ AxDoseDrinksPanel.styles = i$3 `
       padding: 12px 14px;
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
+    }
+
+    .stat-pill.clickable {
       cursor: pointer;
     }
 
-    .stat-pill:hover {
+    .stat-pill.clickable:hover {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
 
@@ -3322,6 +3873,40 @@ AxDoseDrinksPanel.styles = i$3 `
       font-weight: 600;
       color: var(--primary-text-color, #222);
       margin-left: auto;
+    }
+
+    /* ── Custom chips — verbatim from daily-panel.ts ── */
+    .chips-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 6px;
+      background: var(--chip-background, rgba(128,128,128,0.08));
+      border-radius: 10px;
+    }
+
+    .chip-name {
+      font-size: calc(12px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #666);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .chip-value {
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
     }
   `;
 __decorate([
@@ -3406,7 +3991,12 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
           <span class="stat-label">${d.name}</span>
           <span class="stat-value">${stockDisplay}</span>
         </div>
-        <div class="avg-cell">
+        <div class="avg-cell"
+             role="button" tabindex="0"
+             aria-label=${localize(this._lang, 'dialog.device_info.aria')}
+             @click=${() => c.showDeviceInfoFor(d.deviceId, d.name)}
+             @keydown=${(ev) => c.onKeyActivate(ev, () => c.showDeviceInfoFor(d.deviceId, d.name))}
+        >
           <div class="avg-line">
             <span class="avg-label">${localize(this._lang, 'inventory.avg_7_day')}</span>
             <span class="avg-value">${avg7Display}</span>
@@ -3517,6 +4107,14 @@ AxDoseInventoryPanel.styles = i$3 `
       padding: 10px 14px;
       border-radius: var(--ha-card-border-radius, 12px);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      cursor: pointer;
+    }
+    .avg-cell:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    }
+    .avg-cell:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
     }
     .avg-line {
       display: flex;
@@ -3571,11 +4169,25 @@ class AxDoseLoggerCard extends i {
         // Tracker Inventory panel) it targets a specific granular drink's
         // add_stock number entity + shows that drink's name in the header.
         this._refillTarget = null;
+        // Device-info dialog target. When undefined the dialog shows the Master
+        // Tracker (or medicine) device name + navigates to the card's configured
+        // device; when set (Inventory panel averages-box click) it shows the
+        // granular drink's name + navigates to that drink's own device page.
+        this._deviceInfoTarget = null;
         // Log Drink popup (Master Tracker Drinks panel). When open, shows a grid of
         // granular drink buttons for the master's substance; pressing one calls
         // button.press on that drink's DrinkLogButton and closes the dialog.
         this._showLogDrinkDialog = false;
         this._logDrinkSubstance = null;
+        // Predicted Low-band timestamp per drink (Log Drink popup). Keyed by the
+        // drink's logButtonEntityId; value is the ISO low_time string or null.
+        // Populated on dialog open via the backend predict_low REST endpoint so the
+        // user sees the predicted impact ("Low: hh:mm") before pressing a drink.
+        // "Low: —" (null) means the drink would not lift body-mass above the Low
+        // band, so there is no predicted descent — an explicit "safe" signal.
+        this._drinkLowPredictions = {};
+        // Race-guard token for the predict_low fetches (mirrors _amountFetchToken).
+        this._predictLowToken = 0;
         // Sleep Disruption popup (Master Tracker Drinks panel). When open, renders
         // a substance-aware markdown description of how the current body-mass load
         // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
@@ -3750,6 +4362,19 @@ class AxDoseLoggerCard extends i {
                     result.daysSinceFirstDose = entityId;
                 else if (entityId.endsWith('_days_to_steady_state'))
                     result.steadyState = entityId;
+                // Days-left inventory-burn sensor. Two suffixes exist (scheduled
+                // "_days_left" vs As Needed "_days_left_est"); longest-first so the
+                // shorter suffix doesn't shadow the longer. The estimation flag is
+                // read from the backend `estimation` state attribute so the Stats
+                // row picks the matching label ("Days left" vs "Est. days left").
+                else if (entityId.endsWith('_days_left_est')) {
+                    result.daysLeft = entityId;
+                    result.daysLeftEst = true;
+                }
+                else if (entityId.endsWith('_days_left')) {
+                    result.daysLeft = entityId;
+                    result.daysLeftEst = false;
+                }
                 else if (entityId.endsWith('_strength'))
                     result.strength = entityId;
             }
@@ -3835,11 +4460,21 @@ class AxDoseLoggerCard extends i {
                     result.sleepDisruption = entityId;
                 else if (masterRole === 'estimated_low_time')
                     result.estimatedLowTime = entityId;
+                else if (masterRole === 'low_hours_until')
+                    result.lowHoursUntil = entityId;
                 // Dedicated Master Tracker last-dose TIMESTAMP sensor — its state IS
                 // the last-dose timestamp (single source of truth), so the Daily
                 // panel's computeTimeSinceLastDose helper works unchanged for masters.
                 else if (masterRole === 'last_dose')
                     result.lastDose = entityId;
+                // Days-left inventory-burn sensor — Master Tracker aggregates every
+                // granular drink inventory of its substance. The backend always sets
+                // estimation=true on the master variant (empirical 7-day avg), so the
+                // Stats row uses the "Est. days left" label.
+                else if (masterRole === 'days_left') {
+                    result.daysLeft = entityId;
+                    result.daysLeftEst = true;
+                }
                 // totalDoses maps to the body-mass sensor, which still carries the
                 // dose_count attribute for the Stats panel's total-doses row.
                 if (this._getAttr(entityId, 'dose_count') !== undefined && this._getAttr(entityId, 'pk_model')) {
@@ -3851,6 +4486,14 @@ class AxDoseLoggerCard extends i {
                 const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
                 if (substance === 'caffeine' || substance === 'alcohol')
                     result.substance = substance;
+                // Granular drink days-left sensor (classified by role like the master
+                // variant). Granular devices redirect to the Master Tracker so the
+                // Stats panel never renders for them, but resolving the field keeps
+                // the classifier complete and available for any future surface.
+                if (this._getAttr(entityId, 'role') === 'days_left') {
+                    result.daysLeft = entityId;
+                    result.daysLeftEst = true;
+                }
             }
         }
         if (isMaster) {
@@ -4305,11 +4948,50 @@ class AxDoseLoggerCard extends i {
         this._refillAmount = '';
     }
     showDeviceInfo() {
+        this._deviceInfoTarget = null;
+        this._showDeviceInfo = true;
+    }
+    showDeviceInfoFor(deviceId, name) {
+        this._deviceInfoTarget = { deviceId, name };
         this._showDeviceInfo = true;
     }
     showLogDrinkDialog(substance) {
         this._logDrinkSubstance = substance;
         this._showLogDrinkDialog = true;
+        this._fetchDrinkLowPredictions(substance);
+    }
+    // Fetch the predicted Low-band timestamp for every granular drink of the
+    // substance, in parallel, via the backend predict_low REST endpoint. The
+    // backend builds a throwaway what-if dose list (current master history +
+    // this drink's dose_strength + drinking_duration) and forecasts the
+    // post-dose peak + Low-band ETA — the real coordinator state is never
+    // mutated, so closing the popup without pressing a drink has no effect.
+    // Results are race-guarded by _predictLowToken so a stale substance switch
+    // can't clobber the current dialog.
+    async _fetchDrinkLowPredictions(substance) {
+        if (!this.hass)
+            return;
+        const drinks = this._getDrinksOfSubstance(substance);
+        const token = ++this._predictLowToken;
+        // Reset so a freshly-opened dialog shows "—" placeholders until the
+        // predictions resolve, rather than the previous substance's values.
+        this._drinkLowPredictions = {};
+        await Promise.all(drinks.map(async (d) => {
+            if (!d.logButtonEntityId)
+                return;
+            try {
+                const data = await this.hass.callApi('GET', `ax_dose_logger/predict_low?entity_id=${encodeURIComponent(d.logButtonEntityId)}`);
+                if (token !== this._predictLowToken)
+                    return; // stale
+                this._drinkLowPredictions = {
+                    ...this._drinkLowPredictions,
+                    [d.logButtonEntityId]: data?.low_time ?? null,
+                };
+            }
+            catch (e) {
+                console.warn('[ax-dose-logger-card] predict_low fetch failed for', d.logButtonEntityId, e);
+            }
+        }));
     }
     showSleepDisruptionDialog(substance) {
         this._sleepDisruptionSubstance = substance;
@@ -4357,6 +5039,14 @@ class AxDoseLoggerCard extends i {
     openToolsDialog(title, descriptor, onConfirm) { this._openToolsDialog(title, descriptor, onConfirm); }
     openMoreInfo(entityId) { this._openMoreInfo(entityId); }
     handleSafeBoxAction(e, kind, cfg, entity) { this._handleSafeBoxAction(e, kind, cfg, entity); }
+    getPillsLeftBoxEntity(entities) { return this._getPillsLeftBoxEntity(entities); }
+    handlePillsLeftBoxAction(e, kind, cfg, entity, fallback) { this._handlePillsLeftBoxAction(e, kind, cfg, entity, fallback); }
+    // ── Drinks panel public wrappers ──
+    getInBodyBoxEntity(entities) { return this._getInBodyBoxEntity(entities); }
+    handleInBodyBoxAction(e, kind, cfg, entity) { this._handleInBodyBoxAction(e, kind, cfg, entity); }
+    getDisruptionBoxEntity(entities) { return this._getDisruptionBoxEntity(entities); }
+    handleDisruptionBoxAction(e, kind, cfg, entity, fallback) { this._handleDisruptionBoxAction(e, kind, cfg, entity, fallback); }
+    getDrinkChipEntities() { return this._getDrinkChipEntities(); }
     handleTimeframeChange(timeframe) { this._handleTimeframeChange(timeframe); }
     handleBarTimeframeChange(timeframe) {
         if (timeframe === this._activeBarTimeframe)
@@ -4392,6 +5082,25 @@ class AxDoseLoggerCard extends i {
         if (paneId === this._activePane)
             return; // Guard: skip redundant execution
         this._activePane = paneId;
+        // Default the graphs carousel to the Amount in Body line graph when the
+        // user navigates to the graphs pane, provided the Amount in Body toggle is
+        // on (show_amount_in_body !== false) and the device actually has a usable
+        // amount-in-body state (entity exists + state is not 0/unknown/unavailable).
+        // This mirrors the exact slide-gating the panel applies in render(), so the
+        // default landing slide always points at a slide that will actually render.
+        // Resetting on every graphs-pane entry keeps the Amount in Body graph the
+        // default landing view even after the user carousels away and back; manual
+        // prev/next navigation still works within a session (it is reset only on a
+        // pane switch, not on a re-render).
+        if (paneId === 'graphs' && this.config && this.hass) {
+            const entities = this._resolveEntities();
+            const amountState = this._getState(entities.amountInBody);
+            const hasAmountInBody = !!entities.amountInBody &&
+                amountState !== '0' &&
+                amountState !== 'unknown' &&
+                amountState !== 'unavailable';
+            this._activeGraph = (this.config.show_amount_in_body !== false && hasAmountInBody) ? 1 : 0;
+        }
         // Tell HA's layout engine to re-measure the card height. card-resize is
         // non-destructive (unlike ll-rebuild, which tears down and recreates the
         // element) — the @state pane survives, so no sessionStorage persistence
@@ -4402,22 +5111,26 @@ class AxDoseLoggerCard extends i {
         });
     }
     // ── Device Info Dialog ─────────────────────
-    _navigateToDevice() {
-        if (!this.config?.device_id)
+    _navigateToDevice(deviceId) {
+        const target = deviceId ?? this.config?.device_id;
+        if (!target)
             return;
-        window.history.pushState(null, '', `/config/devices/device/${this.config.device_id}`);
+        window.history.pushState(null, '', `/config/devices/device/${target}`);
         window.dispatchEvent(new CustomEvent('location-changed'));
     }
     _renderDeviceInfoDialog(entities) {
+        const targetName = this._deviceInfoTarget?.name ?? this._getMedName(entities);
+        const targetDeviceId = this._deviceInfoTarget?.deviceId;
+        const close = () => { this._showDeviceInfo = false; this._deviceInfoTarget = null; };
         return b `
       <ha-dialog
         open
         width="small"
-        @closed=${() => { this._showDeviceInfo = false; }}
+        @closed=${close}
       >
-        <div slot="header" class="dialog-header">${this._getMedName(entities)}</div>
+        <div slot="header" class="dialog-header">${targetName}</div>
         <div class="dialog-body dialog-body--center">
-          <button class="dialog-btn" @click=${() => { this._navigateToDevice(); this._showDeviceInfo = false; }}>
+          <button class="dialog-btn" @click=${() => { this._navigateToDevice(targetDeviceId); close(); }}>
             <ha-icon icon="mdi:information-outline"></ha-icon>
             <span>${localize(this._lang, 'dialog.device_info.button')}</span>
           </button>
@@ -4469,7 +5182,35 @@ class AxDoseLoggerCard extends i {
         if (!substance)
             return A;
         const drinks = this._getDrinksOfSubstance(substance);
-        const close = () => { this._showLogDrinkDialog = false; this._logDrinkSubstance = null; };
+        const close = () => {
+            this._showLogDrinkDialog = false;
+            this._logDrinkSubstance = null;
+            this._drinkLowPredictions = {};
+            this._predictLowToken++; // invalidate any in-flight fetch
+        };
+        // Format the predicted Low-band wall-clock time as HH:MM (24-hour, no
+        // date, no seconds) — matches the Stats panel's Low - Timestamp format.
+        // "Low: —" when the prediction is null (the drink would not lift body-mass
+        // above the Low band, so there is no predicted descent — a "safe" signal).
+        // While the fetch is in flight (no key yet), show "Low: …" as a loading
+        // placeholder so the user knows a prediction is coming.
+        const formatLow = (entityId) => {
+            if (!entityId)
+                return localize(this._lang, 'dialog.log_drink.predicted_low_dash');
+            const iso = this._drinkLowPredictions[entityId];
+            if (iso === undefined) {
+                return `${localize(this._lang, 'dialog.log_drink.predicted_low')}: …`;
+            }
+            if (iso === null) {
+                return localize(this._lang, 'dialog.log_drink.predicted_low_dash');
+            }
+            const dt = new Date(iso);
+            if (isNaN(dt.getTime())) {
+                return localize(this._lang, 'dialog.log_drink.predicted_low_dash');
+            }
+            const hhmm = dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+            return `${localize(this._lang, 'dialog.log_drink.predicted_low')}: ${hhmm}`;
+        };
         return b `
       <ha-dialog
         open
@@ -4488,7 +5229,8 @@ class AxDoseLoggerCard extends i {
                     @click=${() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId)}
                   >
                     <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
-                    <span>${d.name}</span>
+                    <span class="log-drink-name">${d.name}</span>
+                    <span class="log-drink-low">${formatLow(d.logButtonEntityId)}</span>
                   </button>
                 `)}
               </div>`}
@@ -4580,6 +5322,128 @@ class AxDoseLoggerCard extends i {
             this._openMoreInfo(displayEntity);
         }
         // hold/double_tap with no config and no fallback → no-op.
+    }
+    // Resolve the entity to display in the Pills Left box. Priority:
+    //   1. pills_left_show_days_left === true → backend days_left sensor
+    //      (the toggle is a first-class built-in swap; wins over a configured
+    //      pills_left_entity so the two overrides are mutually unambiguous).
+    //   2. pills_left_entity configured (and differs from the default sensor) →
+    //      the user's chosen entity (arbitrary HA entity).
+    //   3. default → the auto-resolved pills_left number entity.
+    // Unlike the Safe to Take box, no safety-critical logic reads the real
+    // pills_left entity (the Stats "Pills Left" row was removed in the
+    // de-duplication pass; the Refill dialog reads entities.addRefill, a
+    // separate entity), so swapping is purely cosmetic.
+    _getPillsLeftBoxEntity(entities) {
+        if (this.config?.pills_left_show_days_left === true)
+            return entities.daysLeft;
+        return this.config?.pills_left_entity || entities.pillsLeft;
+    }
+    // Fire the configured tap/hold/double-tap action for the Pills Left box.
+    // When the requested action has a user-configured ActionConfig, delegate to
+    // handleAction (standard HA action dispatch). When no tap_action is
+    // configured, run the fallback (the Refill dialog for the default/days-left/
+    // swapped modes — retained across all display modes because "Refill dialog"
+    // can't be expressed in the ui_action dropdown); if no fallback applies, fall
+    // back to more-info on the display entity. hold/double_tap with no config are
+    // no-ops.
+    _handlePillsLeftBoxAction(_e, action, config, displayEntity, fallback) {
+        if (!this.hass)
+            return;
+        const actionKey = `${action}_action`;
+        const actionConfig = config[actionKey];
+        if (actionConfig) {
+            handleAction(this, this.hass, config, action);
+        }
+        else if (action === 'tap' && fallback) {
+            // No custom tap action → card-internal fallback (Refill dialog).
+            fallback();
+        }
+        else if (action === 'tap' && displayEntity) {
+            this._openMoreInfo(displayEntity);
+        }
+        // hold/double_tap with no config and no fallback → no-op.
+    }
+    // ── Drinks panel In Body box ─────────────────────────
+    // Resolve the entity to display in the Drinks panel In Body box. Mirrors
+    // _getSafeBoxEntity: the configured in_body_entity wins; otherwise the
+    // auto-resolved amountInBody sensor. No safety-critical logic reads the
+    // In Body sensor (the Take Pill button's LIMIT REACHED logic is medicine-
+    // only), so swapping is purely cosmetic.
+    _getInBodyBoxEntity(entities) {
+        return this.config?.in_body_entity || entities.amountInBody;
+    }
+    // Fire the configured tap/hold/double-tap action for the In Body box.
+    // Mirrors _handleSafeBoxAction: custom ActionConfig → handleAction; no tap
+    // config → more-info on the display entity (the Drinks panel default).
+    _handleInBodyBoxAction(_e, action, config, displayEntity) {
+        if (!this.hass)
+            return;
+        const actionKey = `${action}_action`;
+        const actionConfig = config[actionKey];
+        if (actionConfig) {
+            handleAction(this, this.hass, config, action);
+        }
+        else if (action === 'tap' && displayEntity) {
+            this._openMoreInfo(displayEntity);
+        }
+        // hold/double_tap with no config and no fallback → no-op.
+    }
+    // ── Drinks panel Disruption box ─────────────────────────
+    // Resolve the entity to display in the Drinks panel Disruption box.
+    // Priority (mirrors _getPillsLeftBoxEntity — built-in mode swap wins over
+    // an arbitrary entity swap so the two overrides are mutually unambiguous):
+    //   1. disruption_mode === 'low_timestamp' → estimatedLowTime sensor
+    //      (Low - Timestamp, HH:MM display).
+    //   2. disruption_mode === 'low_hours_until' → lowHoursUntil sensor
+    //      (Low - Hours Until, X h display).
+    //   3. disruption_entity configured → the user's chosen entity.
+    //   4. default (disruption / unset) → the auto-resolved sleepDisruption sensor.
+    _getDisruptionBoxEntity(entities) {
+        if (this.config?.disruption_mode === 'low_timestamp')
+            return entities.estimatedLowTime;
+        if (this.config?.disruption_mode === 'low_hours_until')
+            return entities.lowHoursUntil;
+        return this.config?.disruption_entity || entities.sleepDisruption;
+    }
+    // Fire the configured tap/hold/double-tap action for the Disruption box.
+    // Mirrors _handlePillsLeftBoxAction: custom ActionConfig → handleAction; no
+    // tap config → the card-internal fallback (the Sleep Disruption popup when
+    // mode='disruption' + substance exists; otherwise more-info on the display
+    // entity, matching the Low-modes' default). hold/double_tap with no config
+    // are no-ops.
+    _handleDisruptionBoxAction(_e, action, config, displayEntity, fallback) {
+        if (!this.hass)
+            return;
+        const actionKey = `${action}_action`;
+        const actionConfig = config[actionKey];
+        if (actionConfig) {
+            handleAction(this, this.hass, config, action);
+        }
+        else if (action === 'tap' && fallback) {
+            fallback();
+        }
+        else if (action === 'tap' && displayEntity) {
+            this._openMoreInfo(displayEntity);
+        }
+        // hold/double_tap with no config and no fallback → no-op.
+    }
+    // ── Drinks panel custom chips ─────────────────────────
+    // Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + labels).
+    // Parallel to _getChipEntities but reads the drink_chip_* config namespace
+    // so the Daily and Drinks panels' chip configs stay fully independent.
+    _getDrinkChipEntities() {
+        if (!this.config)
+            return [];
+        const chips = [];
+        for (const key of ['drink_chip_1', 'drink_chip_2', 'drink_chip_3', 'drink_chip_4']) {
+            const val = this.config[key];
+            if (val) {
+                const labelKey = `${key}_label`;
+                chips.push({ entityId: val, label: this.config[labelKey] });
+            }
+        }
+        return chips;
     }
     // ── Pane 2: Graphs ─────────────────────────
     async _fetchAmountHistory(entities) {
@@ -5014,6 +5878,7 @@ class AxDoseLoggerCard extends i {
         // guarantees a clean slate on every view entry and covers all four
         // dialogs (device-info, refill, tools, override).
         this._showDeviceInfo = false;
+        this._deviceInfoTarget = null;
         this._showRefillDialog = false;
         this._refillAmount = '';
         this._refillTarget = null;
@@ -5081,11 +5946,19 @@ class AxDoseLoggerCard extends i {
             '_effectivenessHistory',
             '_effectivenessVisible',
             '_showDeviceInfo',
+            '_deviceInfoTarget',
             '_showRefillDialog',
             '_refillAmount',
             '_refillTarget',
             '_showLogDrinkDialog',
             '_logDrinkSubstance',
+            // Predict-Low popup: the fetch resolves asynchronously after the dialog
+            // is open (showLogDrinkDialog already triggered the initial render). The
+            // resolved predictions live in _drinkLowPredictions; without these in the
+            // whitelist, shouldUpdate returns false on the async mutation and the
+            // popup stays on "Low: …" until the next unrelated re-render (~20s).
+            '_drinkLowPredictions',
+            '_predictLowToken',
             '_showSleepDisruptionDialog',
             '_sleepDisruptionSubstance',
             '_toolsDialog',
@@ -5128,6 +6001,32 @@ class AxDoseLoggerCard extends i {
         for (const chip of this._getChipEntities()) {
             if (chip.entityId)
                 watchedIds.push(chip.entityId);
+        }
+        // Include configured Drinks-panel custom chips (parallel to the Daily
+        // chips above; they may belong to other devices and only render on the
+        // drinks pane, but keeping them always watched mirrors the Daily pattern).
+        for (const chip of this._getDrinkChipEntities()) {
+            if (chip.entityId)
+                watchedIds.push(chip.entityId);
+        }
+        // The Inventory pane renders granular-drink entities (stock, add_stock,
+        // avg sensors) that belong to different devices than the Master Tracker.
+        // Those entities are NOT in the master's ResolvedEntities, so without
+        // including them here a refill (which changes number.<drink>_inventory)
+        // would not trigger a re-render until the 30s tick timer fires. Only
+        // include them when the inventory pane is actually active to avoid
+        // needless re-renders on other panes where these entities aren't shown.
+        if (this._activePane === 'inventory' && entities.substance) {
+            for (const d of this._getDrinksOfSubstance(entities.substance)) {
+                if (d.stockEntityId)
+                    watchedIds.push(d.stockEntityId);
+                if (d.addStockEntityId)
+                    watchedIds.push(d.addStockEntityId);
+                if (d.avg7EntityId)
+                    watchedIds.push(d.avg7EntityId);
+                if (d.avg365EntityId)
+                    watchedIds.push(d.avg365EntityId);
+            }
         }
         const cur = this.hass.states;
         const prev = oldHass.states;
@@ -5380,6 +6279,20 @@ AxDoseLoggerCard.styles = i$3 `
       cursor: not-allowed;
     }
 
+    .log-drink-name {
+      font-weight: 550;
+      text-align: center;
+    }
+    /* Predicted Low-band timestamp under each drink name ("Low: hh:mm" /
+       "Low: —" while loading or when the drink would not lift body-mass
+       above the Low band). Muted + smaller so the name stays primary. */
+    .log-drink-low {
+      font-size: calc(12px + var(--pill-text-offset, 0px));
+      font-weight: 400;
+      color: var(--secondary-text-color, rgba(0,0,0,0.5));
+      text-align: center;
+    }
+
     /* ── Refill Dialog ──────────────────────── */
 
     .refill-input {
@@ -5460,10 +6373,19 @@ __decorate([
 ], AxDoseLoggerCard.prototype, "_refillTarget", void 0);
 __decorate([
     r()
+], AxDoseLoggerCard.prototype, "_deviceInfoTarget", void 0);
+__decorate([
+    r()
 ], AxDoseLoggerCard.prototype, "_showLogDrinkDialog", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_logDrinkSubstance", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_drinkLowPredictions", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_predictLowToken", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_showSleepDisruptionDialog", void 0);

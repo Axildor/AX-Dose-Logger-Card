@@ -84,7 +84,12 @@ export class AxDoseInventoryPanel extends LitElement {
           <span class="stat-label">${d.name}</span>
           <span class="stat-value">${stockDisplay}</span>
         </div>
-        <div class="avg-cell">
+        <div class="avg-cell"
+             role="button" tabindex="0"
+             aria-label=${localize(this._lang, 'dialog.device_info.aria')}
+             @click=${() => c.showDeviceInfoFor(d.deviceId, d.name)}
+             @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showDeviceInfoFor(d.deviceId, d.name))}
+        >
           <div class="avg-line">
             <span class="avg-label">${localize(this._lang, 'inventory.avg_7_day')}</span>
             <span class="avg-value">${avg7Display}</span>
@@ -195,6 +200,14 @@ export class AxDoseInventoryPanel extends LitElement {
       padding: 10px 14px;
       border-radius: var(--ha-card-border-radius, 12px);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      cursor: pointer;
+    }
+    .avg-cell:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    }
+    .avg-cell:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
     }
     .avg-line {
       display: flex;

@@ -43,6 +43,42 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   safe_to_take_double_tap_action?: ActionConfig;
   pills_left_label?: string;
   pills_left_icon?: string;
+  pills_left_show_days_left?: boolean;
+  pills_left_entity?: string;
+  pills_left_tap_action?: ActionConfig;
+  pills_left_hold_action?: ActionConfig;
+  pills_left_double_tap_action?: ActionConfig;
+
+  // ── Drinks Panel (Master Tracker) overrides — mirrors the Daily Panel ──
+  // Populated by the Drinks Panel expandable in the visual editor. All
+  // optional; the Drinks panel falls back to hardcoded defaults when unset.
+  log_drink_icon?: string;
+  log_drink_label?: string;
+  in_body_entity?: string;
+  in_body_icon?: string;
+  in_body_label?: string;
+  in_body_tap_action?: ActionConfig;
+  in_body_hold_action?: ActionConfig;
+  in_body_double_tap_action?: ActionConfig;
+  /** Disruption Box display mode (Option A — single 3-option select):
+   *  'disruption' (default) → Sleep Disruption state (None/Low/Moderate/High);
+   *  'low_timestamp' → Low - Timestamp sensor formatted HH:MM;
+   *  'low_hours_until' → Low - Hours Until countdown sensor formatted X h. */
+  disruption_mode?: 'disruption' | 'low_timestamp' | 'low_hours_until';
+  disruption_entity?: string;
+  disruption_icon?: string;
+  disruption_label?: string;
+  disruption_tap_action?: ActionConfig;
+  disruption_hold_action?: ActionConfig;
+  disruption_double_tap_action?: ActionConfig;
+  drink_chip_1?: string;
+  drink_chip_1_label?: string;
+  drink_chip_2?: string;
+  drink_chip_2_label?: string;
+  drink_chip_3?: string;
+  drink_chip_3_label?: string;
+  drink_chip_4?: string;
+  drink_chip_4_label?: string;
 }
 
 // Extends the official HomeAssistant type from custom-card-helpers with the
@@ -107,8 +143,15 @@ export interface ResolvedEntities {
   amountLast24h?: string;
   /** Categorical sleep-disruption sensor state (None/Low/Moderate/High). */
   sleepDisruption?: string;
-  /** Timestamp sensor predicting when body-mass enters the Low band. */
+  /** Timestamp sensor predicting when body-mass enters the Low band (Low - Timestamp). */
   estimatedLowTime?: string;
+  /** DURATION (hours) countdown to the Low band (Low - Hours Until). */
+  lowHoursUntil?: string;
+  /** Days-left inventory-burn sensor (scheduled "Days left" or estimated
+   *  "Est. days left"). `daysLeftEst` mirrors the backend `estimation`
+   *  attribute so the Stats row picks the matching label. */
+  daysLeft?: string;
+  daysLeftEst?: boolean;
   /** Device classification: undefined (medicine) | 'drink_master' | 'drink'. */
   deviceType?: 'drink_master' | 'drink';
   /** Substance when deviceType is drink_master or drink: 'caffeine'|'alcohol'. */
@@ -185,7 +228,16 @@ export interface CardController {
   getStrengthUnit(entities: ResolvedEntities): string;
   getMedName(entities: ResolvedEntities): string;
   getSafeBoxEntity(entities: ResolvedEntities): string | undefined;
+  /** Resolve the entity to display in the Pills Left box: days-left toggle > swapped entity > default sensor. */
+  getPillsLeftBoxEntity(entities: ResolvedEntities): string | undefined;
+  /** Resolve the entity to display in the Drinks panel In Body box: swapped entity > default amountInBody sensor. */
+  getInBodyBoxEntity(entities: ResolvedEntities): string | undefined;
+  /** Resolve the entity to display in the Drinks panel Disruption box:
+   *  disruption_mode (low_timestamp / low_hours_until) > swapped entity > default sleepDisruption sensor. */
+  getDisruptionBoxEntity(entities: ResolvedEntities): string | undefined;
   getChipEntities(): Array<{ entityId: string; label?: string }>;
+  /** Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + labels). */
+  getDrinkChipEntities(): Array<{ entityId: string; label?: string }>;
   formatInteger(value: string): string;
   computeNextDose(entities: ResolvedEntities): string;
   computeOverTime(entities: ResolvedEntities): string | null;
@@ -239,6 +291,8 @@ export interface CardController {
   showRefillDialog(): void;
   /** Open the device-info dialog (sets _showDeviceInfo). */
   showDeviceInfo(): void;
+  /** Open the device-info dialog targeted at a specific device (Inventory panel averages-box click). */
+  showDeviceInfoFor(deviceId: string, name: string): void;
   /** Open the shared tools confirmation dialog. */
   openToolsDialog(title: string, descriptor: string, onConfirm: () => void): void;
   /** Fire hass-more-info for an entity id. */
@@ -249,6 +303,29 @@ export interface CardController {
     kind: 'tap' | 'hold' | 'double_tap',
     cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
     entity?: string,
+  ): void;
+  /** Dispatch a Pills-Left box tap/hold/double-tap action (handleAction, fallback, or more-info). */
+  handlePillsLeftBoxAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+    fallback?: () => void,
+  ): void;
+  /** Dispatch a Drinks-panel In Body box tap/hold/double-tap action (handleAction or more-info). */
+  handleInBodyBoxAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+  ): void;
+  /** Dispatch a Drinks-panel Disruption box tap/hold/double-tap action (handleAction, fallback, or more-info). */
+  handleDisruptionBoxAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+    fallback?: () => void,
   ): void;
   /** Line-graph timeframe chip click. */
   handleTimeframeChange(timeframe: string): void;
