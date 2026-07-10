@@ -2541,3 +2541,26 @@ Three related frontend changes to the Master Tracker (Caffeine / Alcohol) Stats 
 6. **No backend changes** — all three sensors (sleepDisruption, estimatedLowTime, lowHoursUntil) are already resolved in ResolvedEntities by _computeEntities. The card already has access to all the data; this is purely a frontend config + render change.
 7. **Separate controller methods, not a refactor** — _handleInBodyBoxAction and _handleDisruptionBoxAction are separate methods (mirrors _handleSafeBoxAction / _handlePillsLeftBoxAction), avoiding any regression risk on the working Daily panel action paths. _handleDisruptionBoxAction generalizes with an optional fallback parameter for the card-internal Sleep Disruption popup default.
 8. **_relevantStateChanged watches drink chip entities always** (parallel to the Daily chips) — they may belong to other devices and only render on the drinks pane, but keeping them always watched mirrors the existing Daily chip pattern (simpler than a pane-conditional guard, and the cost is negligible — at most 4 extra entity-id string comparisons per state-change check).
+
+## README Update to Reflect Current Card State
+- [x] Step 1: Read card README.md (154 lines) + memory-bank/activeContext.md + projectstructure.md for context
+- [x] Step 2: Analyze 9 gaps between card README and current card state (companion callout, ToC, predictive Low popup, Disruption 3 modes, Days left + Low-Hours-Until Stats rows, Inventory unified labels + popup, Graphs default landing slide, Pills Left Box expandable, prerequisites + broken screenshot)
+- [x] Step 3: Design updated structure + write plan to plans/readme-update-plan.md
+- [x] Step 4: Present plan to user for approval (approved)
+- [x] Step 5: Write the updated card README via write_to_file (154 → ~240 lines)
+- [x] Step 6: Verify all 20 ToC anchor links resolve to existing headings
+- [x] Step 7: Run yarn run build (exit 0, no warnings — confirms no source files touched)
+- [x] Step 8: Update memory-bank/activeContext.md (new Current Status; prior archived)
+- [x] Step 9: Update memory-bank/progress.md (this section)
+- [x] Step 10: No projectstructure.md update needed (no source files added/renamed/deleted; only README + plan doc changed)
+- [x] Step 11: No source code changes (README-only documentation task)
+
+## Ko-fi Support Links Added to Frontend README
+- [x] Step 1: Read frontend [`README.md`](README.md:1) to identify strategic insertion points (intro paragraph at line 3, License section at line 238)
+- [x] Step 2: Design two-touchpoint placement strategy (compact top badge after intro + dedicated Support section before License) and condensed conversion-optimized blurb distilled from the user's Ko-fi page text
+- [x] Step 3: Present plan with mockups to user for approval (approved as-is — paired with backend repo change)
+- [x] Step 4: Add compact `flat-square` shields.io "Buy me a tea" badge after the intro paragraph (line 3), before the screenshot comment
+- [x] Step 5: Add dedicated "☕ Support the Project" section before `## License` (line 238) with condensed blurb + `for-the-badge` styled badge
+- [x] Step 6: Verify markdown — `search_files` confirmed all 3 insertions (top badge, section heading, section badge) present with correct link syntax pointing to `https://ko-fi.com/axildor`
+- [x] Step 7: Update memory-bank files (frontend activeContext.md + progress.md)
+- Key decisions: (1) Two touchpoints — compact badge near top (low friction, high visibility) + dedicated section near end (context + conversion); (2) Top badge uses `flat-square` style (unobtrusive), section badge uses `for-the-badge` style (primary CTA); (3) Badge color `FF5E5B` (Ko-fi brand red) with white ko-fi logo; (4) Condensed blurb distills the user's Ko-fi page into two conversion-optimized sentences; (5) Top badge placed after the intro paragraph (not the very first thing readers see); (6) Support section placed before License (standard open-source convention); (7) Documentation-only change — no source code, localize, types, editor, or build artifact changes; no `yarn run build` needed (README is not compiled).
