@@ -23,6 +23,10 @@ export class AxDoseDailyPanel extends LitElement {
   // remounted on a pane switch, so live changes (e.g. take-pill) did not
   // appear until the user navigated away and back.
   @property({ attribute: false }) hass?: AxDoseLoggerHass;
+  // 30s tick from the container — a reactive trigger so the panel re-renders
+  // to refresh "Xh XXm" countdowns even when hass/entities/controller refs are
+  // unchanged. The panel doesn't read this value; it just needs to change.
+  @property({ attribute: false }) tick: number = 0;
 
   private get _lang(): string {
     return this.controller.lang;
@@ -128,13 +132,11 @@ export class AxDoseDailyPanel extends LitElement {
           >
             <ha-icon icon="${isLimitReached ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
             <span class="take-label">${isLimitReached ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
-            <span class="take-sub">${isLimitReached
-              ? (overTime
-                ? html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-                : html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`)
-              : (overTime
-                ? html`<span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-                : html`<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>`)}</span>
+            <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
+              ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
+              : (nextDose !== 'Unavailable'
+                ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`
+                : nothing)}</span>
           </button>
 
           <div class="stats-column">
@@ -192,10 +194,47 @@ export class AxDoseDailyPanel extends LitElement {
                     || c.hass?.states[chip.entityId]?.attributes?.friendly_name
                     || chip.entityId;
                   const chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement');
+                  const chipDeviceClass = c.getAttr(chip.entityId, 'device_class');
+                  // Icon: configured override > entity's own icon attribute > neutral default.
+                  // Only rendered when the per-chip show_icon toggle is on (default off).
+                  const chipIcon = chip.icon
+                    || c.hass?.states[chip.entityId]?.attributes?.icon
+                    || 'mdi:chip';
+                  // Device-class-aware value: timestamp sensors render HH:MM (24-hour)
+                  // so a TIMESTAMP-class entity surfaced as a chip does not show its
+                  // year (the formatInteger parseFloat bug — parseFloat('2026-...') → 2026).
+                  // Mirrors the Disruption box low_timestamp mode + the Stats panel row.
+                  let chipValue: string;
+                  if (chipDeviceClass === 'timestamp') {
+                    const dt = new Date(chipState);
+                    chipValue = isNaN(dt.getTime())
+                      ? localize(this._lang, 'daily.na')
+                      : dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+                  } else {
+                    chipValue = c.formatInteger(chipState) + (chipUnit ? ' ' + chipUnit : '');
+                  }
+                  const chipActionCfg = {
+                    entity: chip.entityId,
+                    tap_action: chip.tapAction,
+                    hold_action: chip.holdAction,
+                    double_tap_action: chip.doubleTapAction,
+                  };
+                  const hasHold = !!chip.holdAction;
+                  const hasDblClick = !!chip.doubleTapAction;
                   return html`
-                    <div class="chip">
+                    <div class="chip clickable${chip.showIcon ? ' with-icon' : ''}"
+                      role="button"
+                      tabindex="0"
+                      aria-label=${chipName}
+                      @click=${(ev: MouseEvent) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId)}
+                      @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleChipAction(null, 'tap', chipActionCfg, chip.entityId))}
+                      @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
+                      @dblclick=${hasDblClick ? () => c.handleChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
+                      ${chip.showIcon
+                        ? html`<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
+                        : nothing}
                       <span class="chip-name">${chipName}</span>
-                      <span class="chip-value">${c.formatInteger(chipState)}${chipUnit ? ' ' + chipUnit : ''}</span>
+                      <span class="chip-value">${chipValue}</span>
                     </div>
                   `;
                 })}
@@ -207,6 +246,12 @@ export class AxDoseDailyPanel extends LitElement {
   }
 
   static styles = css`
+    /* Bold-text catch-all: sets a base font-weight so text without an explicit
+       font-weight declaration still inherits the boost when bold_text is on.
+       --pill-font-weight-boost is 1.5 (on) or 1 (off), injected on <ha-card>. */
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .pane-daily {
       display: flex;
       flex-direction: column;
@@ -279,12 +324,12 @@ export class AxDoseDailyPanel extends LitElement {
 
     .take-label {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 550;
+      font-weight: calc(550 * var(--pill-font-weight-boost, 1));
     }
 
     .take-sub {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 450;
+      font-weight: calc(450 * var(--pill-font-weight-boost, 1));
       opacity: 0.9;
     }
 
@@ -296,9 +341,10 @@ export class AxDoseDailyPanel extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 14px;
+      padding: 6px 14px;
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
+      overflow: hidden;
     }
 
     .stat-pill ha-icon {
@@ -312,13 +358,20 @@ export class AxDoseDailyPanel extends LitElement {
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      line-height: 1.2;
+      min-height: 2.6em;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .stat-value {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
       margin-left: auto;
+      line-height: 1.5;
+      white-space: nowrap;
     }
 
     .stat-pill.clickable {
@@ -335,6 +388,11 @@ export class AxDoseDailyPanel extends LitElement {
       flex-wrap: wrap;
     }
 
+    /* ── Chips — match the Graph panel Day Avg Boxes format (primary-tinted
+       background, uppercase label with letter-spacing, column layout, no icon
+       by default) but with the stat-pill min-height so the chip row aligns
+       with the two boxes above it on the Daily panel. The .with-icon modifier
+       relaxes the min-height so the box grows to fit the icon-on-top. ── */
     .chip {
       flex: 1;
       min-width: 0;
@@ -342,24 +400,52 @@ export class AxDoseDailyPanel extends LitElement {
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      padding: 8px 6px;
-      background: var(--chip-background, rgba(128,128,128,0.08));
+      padding: 6px 4px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .chip.with-icon {
+      /* gap stays 2px (label→value spacing unchanged); the icon gets its own
+         breathing room via .chip-icon margin-bottom so toggling the icon on
+         doesn't alter the label-to-value gap. */
+    }
+
+    .chip.clickable {
+      cursor: pointer;
+    }
+
+    .chip.clickable:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    }
+
+    .chip-icon {
+      --mdc-icon-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--primary-color, #03a9f4);
+      opacity: 0.7;
+      margin-bottom: 8px;
     }
 
     .chip-name {
       font-size: calc(12px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      line-height: 1.2;
+      text-align: center;
+      word-break: break-word;
       max-width: 100%;
     }
 
     .chip-value {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
+      line-height: 1.5;
+      white-space: nowrap;
     }
   `;
 }

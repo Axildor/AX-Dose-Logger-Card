@@ -121,3 +121,19 @@ export function getAttr(
   const state = hass.states[entityId];
   return state?.attributes?.[attr];
 }
+
+/**
+ * Convert an amount-in-body line-graph timeframe id to hours.
+ * Shared by the container (_fetchAmountHistory) and the graphs panel
+ * (render), so both use the same mapping without duplicating the switch.
+ */
+export function getTimeframeHours(timeframe: string): number {
+  switch (timeframe) {
+    case '12h': return 12;
+    case '24h': return 24;
+    case '7d': return 168;
+    case '14d': return 336;
+    case '30d': return 720;
+    default: return 48;
+  }
+}

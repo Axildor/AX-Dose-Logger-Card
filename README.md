@@ -80,7 +80,7 @@ This card requires the **AX Dose Logger** integration to be installed and config
 2. Select your medication or Master Tracker device from the dropdown
 3. Configure color scheme, custom chips, graph options, and per-box overrides as desired
 
-The visual editor is organized into expandable sections: **Daily Panel** (Take Pill button, Safe to Take Box, Pills Left Box, Custom Chips), **Drinks Panel** (Log Drink button, In Body Box, Disruption Box, Drink Chips), and **Graphs Panel** (Amount in Body toggle + default timeframe, day-average/adherence boxes). See [Configuration Options](#configuration-options-not-needed-for-reference-only) for the full reference table.
+The visual editor is organized into expandable sections: **Daily Panel** (Take Pill button, Safe to Take Box, Pills Left Box, Custom Chips with per-chip collapsable menus), **Drinks Panel** (Log Drink button, In Body Box, Disruption Box, Custom Chips with per-chip collapsable menus), and **Graphs Panel** (Amount in Body toggle + default timeframe, day-average/adherence boxes). See [Configuration Options](#configuration-options-not-needed-for-reference-only) for the full reference table.
 
 ---
 
@@ -102,7 +102,7 @@ The card adapts its panes to the selected device type:
 - Pills safe to take indicator
 - Last dose timestamp
 - Inventory count (double-tap to refill)
-- Custom chips for any related entities
+- Custom chips for any related entities — each chip has its own collapsable menu in the visual editor with entity, icon, label, and tap/hold/double-tap actions. Tapping a chip defaults to more-info on its entity
 
 The **Safe to Take Box** and **Pills Left Box** are each fully overridable via the visual editor's Daily Panel expandable:
 - **Safe to Take Box** — swap in any HA entity, custom icon/label, and tap/hold/double-tap actions. The Take Pill button's safety logic always uses the real sensor regardless of this setting.
@@ -150,7 +150,7 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
   - **Low - Timestamp** — shows the Low - Timestamp sensor formatted as `HH:MM` (24-hour). Tapping opens more-info.
   - **Low - Hours Until** — shows the Low - Hours Until countdown sensor formatted as `X h`. Tapping opens more-info.
 - The **In Body Box** and **Disruption Box** are each fully overridable via the visual editor's Drinks Panel expandable (entity swap, custom icon/label, tap/hold/double-tap actions).
-- Up to 4 **custom chips** (separate from the Daily pane's chips) can be added.
+- Up to 4 **custom chips** (separate from the Daily pane's chips) can be added. Each chip has its own collapsable menu in the visual editor with entity, icon, label, and tap/hold/double-tap actions. Tapping a chip defaults to more-info on its entity.
 
 ### 📊 Graph
 
@@ -159,8 +159,8 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 
 ### 📦 Inventory
 
-- Two-column grid, one row per granular drink of the substance:
-  - **Left:** clickable refill box showing the drink's current stock. Tapping opens the refill dialog targeted at that drink's add-stock entity.
+- Two-column grid (same box sizing + 8px spacing as the Stats pane), one row per granular drink of the substance:
+  - **Left:** clickable refill box with two lines — the drink's name + "left" + current stock on the first line (e.g. "Coffee left 12"), and "Est. days left" + the per-drink inventory burn rate on the second line. Both lines use the same font size. Tapping opens the refill dialog targeted at that drink's add-stock entity.
   - **Right:** the drink's 7-day average plus a trailing average (both labeled "Day Average"). Clicking the averages box opens the granular drink's device-info popup.
 
 ### 📈 Stats (Drinks)
@@ -170,8 +170,7 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 - Low - Timestamp (HH:MM)
 - Low - Hours Until (X h countdown)
 - Rolling averages (7, 14, 30, 365 days)
-- Total doses aggregated across every granular drink of the substance
-- Days left (est. days left — inventory burn rate aggregated across all granular drinks)
+- Last drink timestamp
 - Every row is clickable → opens the entity's more-info dialog
 
 ### 🔧 Tools (Drinks)
@@ -187,7 +186,9 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 | `device_id` | string | **required** | The AX Dose Logger device to display (medication or Master Tracker) |
 | `name` | string | — | Custom display name (overrides the device name) |
 | `color_scheme` | string | `default` | Card accent color. Options: `default`, `blue`, `red`, `green`, `yellow`, `orange`, `purple`, `pink`, `teal`, `brown`, `coral`, `slate`, `gold`, `grey` |
+| `default_view` | string | `daily` | Pane shown when the card loads. Options: `daily`, `graphs`, `stats`, `drinks`, `inventory`, `tools`, `tracking`. Falls back to `daily` if the pane is invalid for the bound device type |
 | `big_text` | boolean | `false` | When on, all text in the card becomes 2px larger for easier reading. Off by default for a compact view |
+| `bold_text` | boolean | `false` | When on, all card text becomes 50% bolder for better readability. Independent of Large Text. Off by default |
 | `take_pill_icon` | string | `mdi:pill` | Icon shown on the Take Pill button when the limit has not been reached. The limit-reached state always uses `mdi:alert` |
 | `take_pill_label` | string | `Take Pill` | Text shown on the Take Pill button when the limit has not been reached. Change to match the medicine form, e.g. `Inject Dose`, `Apply Cream` |
 | `safe_to_take_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the Safe to Take box. Leave empty to use the built-in Pills Safe to Take sensor. The Take Pill button safety logic always uses the real sensor regardless of this setting |
@@ -218,16 +219,26 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 | `disruption_tap_action` | action | `popup` / `more-info` | Action when the Disruption box is tapped. Defaults to the Sleep Disruption popup (`disruption` mode) or more-info (Low modes) |
 | `disruption_hold_action` | action | _(none)_ | Action when the Disruption box is long-pressed |
 | `disruption_double_tap_action` | action | _(none)_ | Action when the Disruption box is double-tapped |
-| `drink_chip_1`–`drink_chip_4` | entity | _(empty)_ | Custom chips shown on the Drinks pane (Master Tracker cards). Up to 4 entities |
+| `drink_chip_1`–`drink_chip_4` | entity | _(empty)_ | Custom chips shown on the Drinks pane (Master Tracker cards). Up to 4 entities, each in its own collapsable menu |
 | `drink_chip_1_label`–`drink_chip_4_label` | string | _(empty)_ | Optional label for each Drinks-pane chip. Leave empty to use the entity's friendly name |
+| `drink_chip_1_icon`–`drink_chip_4_icon` | icon | _(entity default)_ | Optional icon for each Drinks-pane chip. Leave empty for the entity's default icon |
+| `drink_chip_1_show_icon`–`drink_chip_4_show_icon` | boolean | `false` | Show an icon on each Drinks-pane chip. Off by default (clean label-over-value tile matching the Graph panel Day Avg Boxes). When on, the chip box grows taller to fit the icon above the label — useful to make chips larger for a button-like layout |
+| `drink_chip_1_tap_action`–`drink_chip_4_tap_action` | action | more-info | Tap action for each Drinks-pane chip. Defaults to more-info on the entity |
+| `drink_chip_1_hold_action`–`drink_chip_4_hold_action` | action | _(none)_ | Hold (long-press) action for each Drinks-pane chip |
+| `drink_chip_1_double_tap_action`–`drink_chip_4_double_tap_action` | action | _(none)_ | Double-tap action for each Drinks-pane chip |
 | `stats_3_columns` | boolean | `false` | Use 3-column layout for the stats pane |
 | `show_amount_in_body` | boolean | `true` | Show the "Amount in Body" line graph in the Graphs pane. When on (and the device has a usable Amount in Body state), it is the default graph shown when navigating to the Graphs pane |
 | `amount_in_body_default_timeframe` | string | `48h` | Default timescale for the Amount in Body graph on card load. Options: `12h`, `24h`, `48h`, `7d`, `14d`, `30d`. Useful for medications where a shorter window (e.g. 12h) is more informative |
 | `show_day_avg_boxes` | boolean | `true` | Show rolling day-average boxes in the Stats pane |
 | `show_adherence_boxes` | boolean | `true` | Show adherence percentage boxes in the Stats pane |
 | `hide_nav_bar` | boolean | `false` | Hide the bottom navigation bar (Daily/Graphs/Stats/Tools). Useful for dashboards that only need the Daily pane |
-| `chip_1`–`chip_4` | string | — | Entity IDs for custom chips in the Daily pane |
+| `chip_1`–`chip_4` | string | — | Entity IDs for custom chips in the Daily pane. Each chip has its own collapsable menu in the visual editor |
 | `chip_1_label`–`chip_4_label` | string | — | Custom labels for the corresponding chips |
+| `chip_1_icon`–`chip_4_icon` | icon | _(entity default)_ | Optional icon for each chip. Leave empty for the entity's default icon |
+| `chip_1_show_icon`–`chip_4_show_icon` | boolean | `false` | Show an icon on each chip. Off by default (clean label-over-value tile matching the Graph panel Day Avg Boxes). When on, the chip box grows taller to fit the icon above the label — useful to make chips larger for a button-like layout |
+| `chip_1_tap_action`–`chip_4_tap_action` | action | more-info | Tap action for each chip. Defaults to more-info on the entity |
+| `chip_1_hold_action`–`chip_4_hold_action` | action | _(none)_ | Hold (long-press) action for each chip |
+| `chip_1_double_tap_action`–`chip_4_double_tap_action` | action | _(none)_ | Double-tap action for each chip |
 
 ---
 

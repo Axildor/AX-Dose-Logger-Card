@@ -39,7 +39,13 @@ let _formStyleObserver: MutationObserver | null = null;
  * card connects (the config editor dialog opens lazily). The style tag is
  * id-tagged so it's only injected once per shadow root.
  *
- * Called from the container's connectedCallback().
+ * Called from the container's static getConfigForm() — i.e. only when the
+ * user opens the visual editor, not on every dashboard load (was previously
+ * in connectedCallback, which installed the observer for every card instance
+ * on every dashboard view and never disconnected it → memory leak + needless
+ * document-wide DOM scanning). The observer auto-cleans when the editor
+ * dialog closes (no ha-form left in the document), and uninstallEditorGrid-
+ * Alignment() is available for explicit cleanup if ever needed.
  */
 export function installEditorGridAlignment(): void {
   const STYLE_ID = 'ax-dose-grid-align-items-end';
@@ -63,12 +69,16 @@ export function installEditorGridAlignment(): void {
   };
 
   // Find all ha-form elements and inject into their shadow roots.
-  const processForms = (): void => {
-    document.querySelectorAll('ha-form').forEach((form) => {
+  // Returns the count so the caller can detect "no forms left" (editor
+  // dialog closed) and self-clean the observer.
+  const processForms = (): number => {
+    const forms = document.querySelectorAll('ha-form');
+    forms.forEach((form) => {
       if (form.shadowRoot) {
         injectInto(form.shadowRoot);
       }
     });
+    return forms.length;
   };
 
   // Process existing forms immediately.
@@ -79,12 +89,34 @@ export function installEditorGridAlignment(): void {
     _formStyleObserver.disconnect();
   }
   _formStyleObserver = new MutationObserver(() => {
-    processForms();
+    const formCount = processForms();
+    // Auto-cleanup: when no ha-form remains in the document, the editor
+    // dialog has closed — disconnect the observer so it stops scanning
+    // every DOM mutation across the whole dashboard. Without this the
+    // observer leaked indefinitely (it was never disconnected before).
+    if (formCount === 0) {
+      _formStyleObserver?.disconnect();
+      _formStyleObserver = null;
+    }
   });
   _formStyleObserver.observe(document.body, {
     childList: true,
     subtree: true,
   });
+}
+
+/**
+ * Explicitly disconnect the editor grid-alignment observer.
+ *
+ * Not strictly required (the observer auto-cleans when the editor dialog
+ * closes), but provided as a defense-in-depth cleanup hook for callers
+ * that want to guarantee no observer lingers.
+ */
+export function uninstallEditorGridAlignment(): void {
+  if (_formStyleObserver) {
+    _formStyleObserver.disconnect();
+    _formStyleObserver = null;
+  }
 }
 
 // ──────────────────────────────────────────────
@@ -109,21 +141,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           },
         },
       },
-      {
-        type: 'grid',
-        name: '',
-        column_min_width: '200px',
-        schema: [
-          {
-            name: 'big_text',
-            selector: { boolean: {} },
-          },
-          {
-            name: 'hide_nav_bar',
-            selector: { boolean: {} },
-          },
-        ],
-      },
+      // ── Row 1: Color Scheme | Name Override ──
       {
         type: 'grid',
         name: '',
@@ -155,6 +173,50 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             name: 'name',
             selector: { text: {} },
+          },
+        ],
+      },
+      // ── Row 2: Default View | Hide Navigation Bar ──
+      {
+        type: 'grid',
+        name: '',
+        column_min_width: '200px',
+        schema: [
+          {
+            name: 'default_view',
+            selector: {
+              select: {
+                options: [
+                  { value: 'daily', label: localize('en', 'pane.daily') },
+                  { value: 'graphs', label: localize('en', 'pane.graphs') },
+                  { value: 'stats', label: localize('en', 'pane.stats') },
+                  { value: 'drinks', label: localize('en', 'pane.drinks') },
+                  { value: 'inventory', label: localize('en', 'pane.inventory') },
+                  { value: 'tools', label: localize('en', 'pane.tools') },
+                  { value: 'tracking', label: localize('en', 'pane.tracking') },
+                ],
+              },
+            },
+          },
+          {
+            name: 'hide_nav_bar',
+            selector: { boolean: {} },
+          },
+        ],
+      },
+      // ── Row 3: Large Text | Bold Text ──
+      {
+        type: 'grid',
+        name: '',
+        column_min_width: '200px',
+        schema: [
+          {
+            name: 'big_text',
+            selector: { boolean: {} },
+          },
+          {
+            name: 'bold_text',
+            selector: { boolean: {} },
           },
         ],
       },
@@ -286,11 +348,24 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             title: 'Custom Chips',
             flatten: true,
             schema: [
+              // ── Layer 3: each chip gets its own collapsable menu with the
+              //    full override suite (entity + icon/label + 3 ui_actions),
+              //    mirroring the Safe to Take / Pills Left box expandables.
+              //    The expandable header "Chip N" conveys identity, so the
+              //    entity field's external label is suppressed in
+              //    computeLabel below (no redundant "Chip N (optional)" text).
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'chip_1_box',
+                title: localize('en', 'config.chip_1_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'chip_1_show_icon',
+                    label: localize('en', 'config.chip_1_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'chip_1',
                     selector: {
@@ -300,16 +375,46 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'chip_1_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'chip_1_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'chip_1_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'chip_1_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_1_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_1_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'chip_2_box',
+                title: localize('en', 'config.chip_2_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'chip_2_show_icon',
+                    label: localize('en', 'config.chip_2_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'chip_2',
                     selector: {
@@ -319,16 +424,46 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'chip_2_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'chip_2_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'chip_2_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'chip_2_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_2_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_2_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'chip_3_box',
+                title: localize('en', 'config.chip_3_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'chip_3_show_icon',
+                    label: localize('en', 'config.chip_3_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'chip_3',
                     selector: {
@@ -338,16 +473,46 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'chip_3_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'chip_3_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'chip_3_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'chip_3_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_3_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_3_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'chip_4_box',
+                title: localize('en', 'config.chip_4_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'chip_4_show_icon',
+                    label: localize('en', 'config.chip_4_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'chip_4',
                     selector: {
@@ -357,8 +522,31 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'chip_4_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'chip_4_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'chip_4_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'chip_4_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_4_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'chip_4_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
@@ -510,11 +698,21 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             title: 'Custom Chips',
             flatten: true,
             schema: [
+              // ── Layer 3: each drink chip gets its own collapsable menu with
+              //    the full override suite (entity + icon/label + 3 ui_actions),
+              //    mirroring the Daily Panel chip_N_box expandables above.
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'drink_chip_1_box',
+                title: localize('en', 'config.chip_1_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'drink_chip_1_show_icon',
+                    label: localize('en', 'config.drink_chip_1_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'drink_chip_1',
                     selector: {
@@ -524,16 +722,46 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'drink_chip_1_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'drink_chip_1_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'drink_chip_1_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'drink_chip_1_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_1_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_1_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'drink_chip_2_box',
+                title: localize('en', 'config.chip_2_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'drink_chip_2_show_icon',
+                    label: localize('en', 'config.drink_chip_2_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'drink_chip_2',
                     selector: {
@@ -543,16 +771,46 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'drink_chip_2_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'drink_chip_2_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'drink_chip_2_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'drink_chip_2_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_2_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_2_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'drink_chip_3_box',
+                title: localize('en', 'config.chip_3_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'drink_chip_3_show_icon',
+                    label: localize('en', 'config.drink_chip_3_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'drink_chip_3',
                     selector: {
@@ -562,16 +820,46 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'drink_chip_3_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'drink_chip_3_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'drink_chip_3_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'drink_chip_3_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_3_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_3_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
               {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
+                type: 'expandable',
+                name: 'drink_chip_4_box',
+                title: localize('en', 'config.chip_4_box'),
+                flatten: true,
                 schema: [
+                  {
+                    name: 'drink_chip_4_show_icon',
+                    label: localize('en', 'config.drink_chip_4_show_icon'),
+                    helper: localize('en', 'config.helper.chip_show_icon'),
+                    selector: { boolean: {} },
+                  },
                   {
                     name: 'drink_chip_4',
                     selector: {
@@ -581,8 +869,31 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     },
                   },
                   {
-                    name: 'drink_chip_4_label',
-                    selector: { text: {} },
+                    type: 'grid',
+                    name: '',
+                    column_min_width: '200px',
+                    schema: [
+                      {
+                        name: 'drink_chip_4_icon',
+                        selector: { icon: {} },
+                      },
+                      {
+                        name: 'drink_chip_4_label',
+                        selector: { text: {} },
+                      },
+                    ],
+                  },
+                  {
+                    name: 'drink_chip_4_tap_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_4_hold_action',
+                    selector: { ui_action: {} },
+                  },
+                  {
+                    name: 'drink_chip_4_double_tap_action',
+                    selector: { ui_action: {} },
                   },
                 ],
               },
@@ -651,37 +962,33 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       if (schema.type === 'grid' || !schema.name) {
         return '';
       }
-      // Chip entity + label fields: drop BOTH labels so the entity picker and
-      // text field render at the same vertical level inside each chip grid row.
-      // The entity picker's external "Chip N (optional)" label wraps to 2 lines
-      // in the 200px column, making its cell taller than the paired text field
-      // (which uses an internal floating label). Returning an EMPTY STRING (not
-      // undefined) is the key: ha-form treats a falsy/undefined computeLabel
-      // result as "no override" and falls back to the schema field name (which
-      // renders as visible "Chip N (optional)" text). An empty string IS a
-      // valid label value, so ha-form renders an empty label element with no
-      // visible text and no 2-line wrap, equalizing cell heights. This mirrors
-      // the grid-container guard above (which also returns '' to suppress
-      // layout labels). The helper text under each field conveys role and
-      // optionality; the entity-picker UI vs text-field UI distinguishes the
-      // two columns. Reversible to Option B (keep chip_N_label) via a one-line
-      // edit if per-slot identification is later needed.
+      // Chip entity + icon + label fields: suppress the external label so the
+      // nested expandable header "Chip N" (the only visible identifier) conveys
+      // identity.  The entity picker's "Chip N (optional)" external label is
+      // redundant now that each chip lives inside its own "Chip N" collapsable
+      // menu — returning '' (not undefined) prevents ha-form from falling back
+      // to the schema field name.  The icon field is self-explanatory (icon
+      // picker UI) and the label field is paired in a grid alongside it, so
+      // both are also suppressed.  The tap/hold/double_tap action fields are
+      // NOT suppressed (they keep their "Tap Action" / "Hold Action" /
+      // "Double Tap Action" labels so the user can distinguish the three action
+      // rows inside the expandable).
       if (
-        schema.name === 'chip_1' || schema.name === 'chip_1_label' ||
-        schema.name === 'chip_2' || schema.name === 'chip_2_label' ||
-        schema.name === 'chip_3' || schema.name === 'chip_3_label' ||
-        schema.name === 'chip_4' || schema.name === 'chip_4_label'
+        schema.name === 'chip_1' || schema.name === 'chip_1_label' || schema.name === 'chip_1_icon' ||
+        schema.name === 'chip_2' || schema.name === 'chip_2_label' || schema.name === 'chip_2_icon' ||
+        schema.name === 'chip_3' || schema.name === 'chip_3_label' || schema.name === 'chip_3_icon' ||
+        schema.name === 'chip_4' || schema.name === 'chip_4_label' || schema.name === 'chip_4_icon'
       ) {
         return '';
       }
-      // Drink chip entity + label fields: same label-suppression rationale as
-      // the Daily-panel chips above (entity picker + text field cell-height
-      // equalization inside a 200px grid column).
+      // Drink chip entity + icon + label fields: same label-suppression
+      // rationale as the Daily-panel chips above (the nested "Chip N"
+      // expandable header conveys identity).
       if (
-        schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' ||
-        schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' ||
-        schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' ||
-        schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label'
+        schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' || schema.name === 'drink_chip_1_icon' ||
+        schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' || schema.name === 'drink_chip_2_icon' ||
+        schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' || schema.name === 'drink_chip_3_icon' ||
+        schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label' || schema.name === 'drink_chip_4_icon'
       ) {
         return '';
       }
@@ -695,8 +1002,9 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       // guard, localize() returns the raw 'config.helper.<name>' key for
       // containers (daily_panel, drinks_panel, graphs_panel, stats_panel,
       // chips, drink_chips, safe_to_take_box, pills_left_box, in_body_box,
-      // disruption_box) that have no translation defined, which then renders as
-      // visible text under the expandable headers.
+      // disruption_box, chip_1_box..chip_4_box, drink_chip_1_box..drink_chip_4_box)
+      // that have no translation defined, which then renders as visible text
+      // under the expandable headers.
       if (
         schema.type === 'grid' ||
         schema.type === 'expandable' ||
@@ -704,11 +1012,33 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       ) {
         return '';
       }
+      // Chip icon fields: helper explains the default-icon fallback.
+      if (name?.startsWith('chip_') && name?.endsWith('_icon')) {
+        return localize(lang, 'config.helper.chip_icon');
+      }
+      // Chip action fields: tap helper notes the more-info default; hold /
+      // double_tap use the generic action helper.
+      if (name?.startsWith('chip_') && name?.endsWith('_tap_action')) {
+        return localize(lang, 'config.helper.chip_tap_action');
+      }
+      if (name?.startsWith('chip_') && (name?.endsWith('_hold_action') || name?.endsWith('_double_tap_action'))) {
+        return localize(lang, 'config.helper.chip_hold_action');
+      }
       if (name?.startsWith('chip_') && name?.endsWith('_label')) {
         return localize(lang, 'config.helper.chip_label');
       }
       if (name?.startsWith('chip_')) {
         return localize(lang, 'config.helper.chip');
+      }
+      // Drink chip icon + action fields: same helpers as the Daily chips.
+      if (name?.startsWith('drink_chip_') && name?.endsWith('_icon')) {
+        return localize(lang, 'config.helper.chip_icon');
+      }
+      if (name?.startsWith('drink_chip_') && name?.endsWith('_tap_action')) {
+        return localize(lang, 'config.helper.chip_tap_action');
+      }
+      if (name?.startsWith('drink_chip_') && (name?.endsWith('_hold_action') || name?.endsWith('_double_tap_action'))) {
+        return localize(lang, 'config.helper.chip_hold_action');
       }
       if (name?.startsWith('drink_chip_') && name?.endsWith('_label')) {
         return localize(lang, 'config.helper.drink_chip_label');

@@ -321,7 +321,6 @@ const translations = {
         'pane.graphs': 'Graphs',
         'pane.stats': 'Stats',
         'pane.tools': 'Tools',
-        'pane.caffeine': 'Caffeine',
         'pane.drinks': 'Drinks',
         'pane.inventory': 'Inventory',
         // ── Daily pane ──
@@ -399,8 +398,7 @@ const translations = {
         // ── Inventory pane (Master Tracker) ──
         'inventory.empty': 'No drinks of this category configured.',
         'inventory.avg_7_day': '7-Day Average',
-        // ── Caffeine pane (legacy scaffold, retained one release) ──
-        'caffeine.placeholder': 'Caffeine tracking — coming soon',
+        'inventory.left': 'left',
         // ── Tracking pane ──
         'pane.tracking': 'Tracking',
         'tracking.today_label': "Today's {metric}",
@@ -474,6 +472,8 @@ const translations = {
         // ── Config form labels ──
         'config.device_id': 'Device',
         'config.big_text': 'Large Text',
+        'config.bold_text': 'Bold Text',
+        'config.default_view': 'Default View',
         'config.take_pill_icon': 'Take Pill Icon',
         'config.take_pill_label': 'Take Pill Label',
         'config.safe_to_take_box': 'Safe to Take Box',
@@ -514,36 +514,84 @@ const translations = {
         'config.disruption_mode_low_timestamp': 'Low - Timestamp',
         'config.disruption_mode_low_hours_until': 'Low - Hours Until',
         'config.drink_chips': 'Custom Chips',
+        // Drink chip field labels (the box titles reuse config.chip_N_box above)
         'config.drink_chip_1': 'Chip 1 (optional)',
         'config.drink_chip_1_label': 'Chip 1 Label',
+        'config.drink_chip_1_icon': 'Chip 1 Icon',
+        'config.drink_chip_1_show_icon': 'Show Icon',
+        'config.drink_chip_1_tap_action': 'Tap Action',
+        'config.drink_chip_1_hold_action': 'Hold Action',
+        'config.drink_chip_1_double_tap_action': 'Double Tap Action',
         'config.drink_chip_2': 'Chip 2 (optional)',
         'config.drink_chip_2_label': 'Chip 2 Label',
+        'config.drink_chip_2_icon': 'Chip 2 Icon',
+        'config.drink_chip_2_show_icon': 'Show Icon',
+        'config.drink_chip_2_tap_action': 'Tap Action',
+        'config.drink_chip_2_hold_action': 'Hold Action',
+        'config.drink_chip_2_double_tap_action': 'Double Tap Action',
         'config.drink_chip_3': 'Chip 3 (optional)',
         'config.drink_chip_3_label': 'Chip 3 Label',
+        'config.drink_chip_3_icon': 'Chip 3 Icon',
+        'config.drink_chip_3_show_icon': 'Show Icon',
+        'config.drink_chip_3_tap_action': 'Tap Action',
+        'config.drink_chip_3_hold_action': 'Hold Action',
+        'config.drink_chip_3_double_tap_action': 'Double Tap Action',
         'config.drink_chip_4': 'Chip 4 (optional)',
         'config.drink_chip_4_label': 'Chip 4 Label',
+        'config.drink_chip_4_icon': 'Chip 4 Icon',
+        'config.drink_chip_4_show_icon': 'Show Icon',
+        'config.drink_chip_4_tap_action': 'Tap Action',
+        'config.drink_chip_4_hold_action': 'Hold Action',
+        'config.drink_chip_4_double_tap_action': 'Double Tap Action',
         'config.color_scheme': 'Color Scheme',
         'config.name': 'Name Override',
         'config.daily_panel': 'Daily Panel',
         'config.graphs_panel': 'Graphs Panel',
         'config.stats_panel': 'Stats Panel',
         'config.chips': 'Custom Chips',
+        // Chip box expandable titles (layer 3 — nested collapsable menus)
+        'config.chip_1_box': 'Chip 1',
+        'config.chip_2_box': 'Chip 2',
+        'config.chip_3_box': 'Chip 3',
+        'config.chip_4_box': 'Chip 4',
+        // Chip field labels (entity + icon + label are label-suppressed in
+        // computeLabel; the action fields keep their visible labels below)
         'config.chip_1': 'Chip 1 (optional)',
         'config.chip_1_label': 'Chip 1 Label',
+        'config.chip_1_icon': 'Chip 1 Icon',
+        'config.chip_1_show_icon': 'Show Icon',
+        'config.chip_1_tap_action': 'Tap Action',
+        'config.chip_1_hold_action': 'Hold Action',
+        'config.chip_1_double_tap_action': 'Double Tap Action',
         'config.chip_2': 'Chip 2 (optional)',
         'config.chip_2_label': 'Chip 2 Label',
+        'config.chip_2_icon': 'Chip 2 Icon',
+        'config.chip_2_show_icon': 'Show Icon',
+        'config.chip_2_tap_action': 'Tap Action',
+        'config.chip_2_hold_action': 'Hold Action',
+        'config.chip_2_double_tap_action': 'Double Tap Action',
         'config.chip_3': 'Chip 3 (optional)',
         'config.chip_3_label': 'Chip 3 Label',
+        'config.chip_3_icon': 'Chip 3 Icon',
+        'config.chip_3_show_icon': 'Show Icon',
+        'config.chip_3_tap_action': 'Tap Action',
+        'config.chip_3_hold_action': 'Hold Action',
+        'config.chip_3_double_tap_action': 'Double Tap Action',
         'config.chip_4': 'Chip 4 (optional)',
         'config.chip_4_label': 'Chip 4 Label',
-        'config.graph_options': 'Graph',
-        // (graph_options key retained for backward compat; graphs_panel is the active expandable name)
+        'config.chip_4_icon': 'Chip 4 Icon',
+        'config.chip_4_show_icon': 'Show Icon',
+        'config.chip_4_tap_action': 'Tap Action',
+        'config.chip_4_hold_action': 'Hold Action',
+        'config.chip_4_double_tap_action': 'Double Tap Action',
         'config.show_amount_in_body': 'Amount in Body Graph',
         'config.amount_in_body_default_timeframe': 'Amount in Body Default Timescale',
         'config.show_day_avg_boxes': 'Day Avg Boxes',
         'config.show_adherence_boxes': 'Adherence Boxes (If available)',
         'config.stats_3_columns': '3-Column Stats',
         'config.hide_nav_bar': 'Hide Navigation Bar',
+        'config.helper.bold_text': 'Makes all card text bolder for better readability.',
+        'config.helper.default_view': 'Falls back to Daily if invalid.',
         // ── Config form helpers ──
         'config.helper.device_id': 'Choose a medication device.',
         'config.helper.big_text': 'Enlarges all card text for easier reading.',
@@ -590,6 +638,12 @@ const translations = {
         'config.helper.name': 'Leave empty to use the device name.',
         'config.helper.chip_label': "Leave empty to use the entity's name.",
         'config.helper.chip': 'Show as a chip on the Daily pane.',
+        // Chip override helpers (icon + actions)
+        'config.helper.chip_icon': "Override the chip icon. Leave empty for the entity's default icon.",
+        'config.helper.chip_show_icon': 'Display an icon on this chip. Off by default. When on, the chip box grows taller to fit the icon above the label — useful to make chips larger for a button-like layout.',
+        'config.helper.chip_tap_action': 'Defaults to more-info on the entity.',
+        'config.helper.chip_hold_action': 'Long-press action.',
+        'config.helper.chip_double_tap_action': 'Double-tap action.',
         'config.helper.show_amount_in_body': 'Show in the Graphs pane.',
         'config.helper.amount_in_body_default_timeframe': 'Default timescale on card load.',
         'config.helper.show_day_avg_boxes': 'Show beneath the bar graph.',
@@ -756,6 +810,21 @@ function getAttr(hass, entityId, attr) {
     const state = hass.states[entityId];
     return state?.attributes?.[attr];
 }
+/**
+ * Convert an amount-in-body line-graph timeframe id to hours.
+ * Shared by the container (_fetchAmountHistory) and the graphs panel
+ * (render), so both use the same mapping without duplicating the switch.
+ */
+function getTimeframeHours(timeframe) {
+    switch (timeframe) {
+        case '12h': return 12;
+        case '24h': return 24;
+        case '7d': return 168;
+        case '14d': return 336;
+        case '30d': return 720;
+        default: return 48;
+    }
+}
 
 // ──────────────────────────────────────────────
 // AX Dose Logger Card — Visual Editor module
@@ -793,7 +862,13 @@ let _formStyleObserver = null;
  * card connects (the config editor dialog opens lazily). The style tag is
  * id-tagged so it's only injected once per shadow root.
  *
- * Called from the container's connectedCallback().
+ * Called from the container's static getConfigForm() — i.e. only when the
+ * user opens the visual editor, not on every dashboard load (was previously
+ * in connectedCallback, which installed the observer for every card instance
+ * on every dashboard view and never disconnected it → memory leak + needless
+ * document-wide DOM scanning). The observer auto-cleans when the editor
+ * dialog closes (no ha-form left in the document), and uninstallEditorGrid-
+ * Alignment() is available for explicit cleanup if ever needed.
  */
 function installEditorGridAlignment() {
     const STYLE_ID = 'ax-dose-grid-align-items-end';
@@ -816,12 +891,16 @@ function installEditorGridAlignment() {
         root.appendChild(style);
     };
     // Find all ha-form elements and inject into their shadow roots.
+    // Returns the count so the caller can detect "no forms left" (editor
+    // dialog closed) and self-clean the observer.
     const processForms = () => {
-        document.querySelectorAll('ha-form').forEach((form) => {
+        const forms = document.querySelectorAll('ha-form');
+        forms.forEach((form) => {
             if (form.shadowRoot) {
                 injectInto(form.shadowRoot);
             }
         });
+        return forms.length;
     };
     // Process existing forms immediately.
     processForms();
@@ -830,7 +909,15 @@ function installEditorGridAlignment() {
         _formStyleObserver.disconnect();
     }
     _formStyleObserver = new MutationObserver(() => {
-        processForms();
+        const formCount = processForms();
+        // Auto-cleanup: when no ha-form remains in the document, the editor
+        // dialog has closed — disconnect the observer so it stops scanning
+        // every DOM mutation across the whole dashboard. Without this the
+        // observer leaked indefinitely (it was never disconnected before).
+        if (formCount === 0) {
+            _formStyleObserver?.disconnect();
+            _formStyleObserver = null;
+        }
     });
     _formStyleObserver.observe(document.body, {
         childList: true,
@@ -858,21 +945,7 @@ function buildEditorForm() {
                     },
                 },
             },
-            {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
-                schema: [
-                    {
-                        name: 'big_text',
-                        selector: { boolean: {} },
-                    },
-                    {
-                        name: 'hide_nav_bar',
-                        selector: { boolean: {} },
-                    },
-                ],
-            },
+            // ── Row 1: Color Scheme | Name Override ──
             {
                 type: 'grid',
                 name: '',
@@ -904,6 +977,50 @@ function buildEditorForm() {
                     {
                         name: 'name',
                         selector: { text: {} },
+                    },
+                ],
+            },
+            // ── Row 2: Default View | Hide Navigation Bar ──
+            {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                    {
+                        name: 'default_view',
+                        selector: {
+                            select: {
+                                options: [
+                                    { value: 'daily', label: localize('en', 'pane.daily') },
+                                    { value: 'graphs', label: localize('en', 'pane.graphs') },
+                                    { value: 'stats', label: localize('en', 'pane.stats') },
+                                    { value: 'drinks', label: localize('en', 'pane.drinks') },
+                                    { value: 'inventory', label: localize('en', 'pane.inventory') },
+                                    { value: 'tools', label: localize('en', 'pane.tools') },
+                                    { value: 'tracking', label: localize('en', 'pane.tracking') },
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        name: 'hide_nav_bar',
+                        selector: { boolean: {} },
+                    },
+                ],
+            },
+            // ── Row 3: Large Text | Bold Text ──
+            {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                    {
+                        name: 'big_text',
+                        selector: { boolean: {} },
+                    },
+                    {
+                        name: 'bold_text',
+                        selector: { boolean: {} },
                     },
                 ],
             },
@@ -1035,11 +1152,24 @@ function buildEditorForm() {
                         title: 'Custom Chips',
                         flatten: true,
                         schema: [
+                            // ── Layer 3: each chip gets its own collapsable menu with the
+                            //    full override suite (entity + icon/label + 3 ui_actions),
+                            //    mirroring the Safe to Take / Pills Left box expandables.
+                            //    The expandable header "Chip N" conveys identity, so the
+                            //    entity field's external label is suppressed in
+                            //    computeLabel below (no redundant "Chip N (optional)" text).
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'chip_1_box',
+                                title: localize('en', 'config.chip_1_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'chip_1_show_icon',
+                                        label: localize('en', 'config.chip_1_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'chip_1',
                                         selector: {
@@ -1049,16 +1179,46 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'chip_1_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'chip_1_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'chip_1_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'chip_1_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_1_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_1_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'chip_2_box',
+                                title: localize('en', 'config.chip_2_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'chip_2_show_icon',
+                                        label: localize('en', 'config.chip_2_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'chip_2',
                                         selector: {
@@ -1068,16 +1228,46 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'chip_2_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'chip_2_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'chip_2_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'chip_2_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_2_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_2_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'chip_3_box',
+                                title: localize('en', 'config.chip_3_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'chip_3_show_icon',
+                                        label: localize('en', 'config.chip_3_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'chip_3',
                                         selector: {
@@ -1087,16 +1277,46 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'chip_3_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'chip_3_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'chip_3_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'chip_3_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_3_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_3_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'chip_4_box',
+                                title: localize('en', 'config.chip_4_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'chip_4_show_icon',
+                                        label: localize('en', 'config.chip_4_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'chip_4',
                                         selector: {
@@ -1106,8 +1326,31 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'chip_4_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'chip_4_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'chip_4_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'chip_4_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_4_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'chip_4_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
@@ -1259,11 +1502,21 @@ function buildEditorForm() {
                         title: 'Custom Chips',
                         flatten: true,
                         schema: [
+                            // ── Layer 3: each drink chip gets its own collapsable menu with
+                            //    the full override suite (entity + icon/label + 3 ui_actions),
+                            //    mirroring the Daily Panel chip_N_box expandables above.
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'drink_chip_1_box',
+                                title: localize('en', 'config.chip_1_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'drink_chip_1_show_icon',
+                                        label: localize('en', 'config.drink_chip_1_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'drink_chip_1',
                                         selector: {
@@ -1273,16 +1526,46 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'drink_chip_1_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'drink_chip_1_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'drink_chip_1_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'drink_chip_1_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_1_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_1_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'drink_chip_2_box',
+                                title: localize('en', 'config.chip_2_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'drink_chip_2_show_icon',
+                                        label: localize('en', 'config.drink_chip_2_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'drink_chip_2',
                                         selector: {
@@ -1292,16 +1575,46 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'drink_chip_2_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'drink_chip_2_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'drink_chip_2_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'drink_chip_2_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_2_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_2_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'drink_chip_3_box',
+                                title: localize('en', 'config.chip_3_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'drink_chip_3_show_icon',
+                                        label: localize('en', 'config.drink_chip_3_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'drink_chip_3',
                                         selector: {
@@ -1311,16 +1624,46 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'drink_chip_3_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'drink_chip_3_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'drink_chip_3_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'drink_chip_3_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_3_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_3_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
                             {
-                                type: 'grid',
-                                name: '',
-                                column_min_width: '200px',
+                                type: 'expandable',
+                                name: 'drink_chip_4_box',
+                                title: localize('en', 'config.chip_4_box'),
+                                flatten: true,
                                 schema: [
+                                    {
+                                        name: 'drink_chip_4_show_icon',
+                                        label: localize('en', 'config.drink_chip_4_show_icon'),
+                                        helper: localize('en', 'config.helper.chip_show_icon'),
+                                        selector: { boolean: {} },
+                                    },
                                     {
                                         name: 'drink_chip_4',
                                         selector: {
@@ -1330,8 +1673,31 @@ function buildEditorForm() {
                                         },
                                     },
                                     {
-                                        name: 'drink_chip_4_label',
-                                        selector: { text: {} },
+                                        type: 'grid',
+                                        name: '',
+                                        column_min_width: '200px',
+                                        schema: [
+                                            {
+                                                name: 'drink_chip_4_icon',
+                                                selector: { icon: {} },
+                                            },
+                                            {
+                                                name: 'drink_chip_4_label',
+                                                selector: { text: {} },
+                                            },
+                                        ],
+                                    },
+                                    {
+                                        name: 'drink_chip_4_tap_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_4_hold_action',
+                                        selector: { ui_action: {} },
+                                    },
+                                    {
+                                        name: 'drink_chip_4_double_tap_action',
+                                        selector: { ui_action: {} },
                                     },
                                 ],
                             },
@@ -1400,34 +1766,30 @@ function buildEditorForm() {
             if (schema.type === 'grid' || !schema.name) {
                 return '';
             }
-            // Chip entity + label fields: drop BOTH labels so the entity picker and
-            // text field render at the same vertical level inside each chip grid row.
-            // The entity picker's external "Chip N (optional)" label wraps to 2 lines
-            // in the 200px column, making its cell taller than the paired text field
-            // (which uses an internal floating label). Returning an EMPTY STRING (not
-            // undefined) is the key: ha-form treats a falsy/undefined computeLabel
-            // result as "no override" and falls back to the schema field name (which
-            // renders as visible "Chip N (optional)" text). An empty string IS a
-            // valid label value, so ha-form renders an empty label element with no
-            // visible text and no 2-line wrap, equalizing cell heights. This mirrors
-            // the grid-container guard above (which also returns '' to suppress
-            // layout labels). The helper text under each field conveys role and
-            // optionality; the entity-picker UI vs text-field UI distinguishes the
-            // two columns. Reversible to Option B (keep chip_N_label) via a one-line
-            // edit if per-slot identification is later needed.
-            if (schema.name === 'chip_1' || schema.name === 'chip_1_label' ||
-                schema.name === 'chip_2' || schema.name === 'chip_2_label' ||
-                schema.name === 'chip_3' || schema.name === 'chip_3_label' ||
-                schema.name === 'chip_4' || schema.name === 'chip_4_label') {
+            // Chip entity + icon + label fields: suppress the external label so the
+            // nested expandable header "Chip N" (the only visible identifier) conveys
+            // identity.  The entity picker's "Chip N (optional)" external label is
+            // redundant now that each chip lives inside its own "Chip N" collapsable
+            // menu — returning '' (not undefined) prevents ha-form from falling back
+            // to the schema field name.  The icon field is self-explanatory (icon
+            // picker UI) and the label field is paired in a grid alongside it, so
+            // both are also suppressed.  The tap/hold/double_tap action fields are
+            // NOT suppressed (they keep their "Tap Action" / "Hold Action" /
+            // "Double Tap Action" labels so the user can distinguish the three action
+            // rows inside the expandable).
+            if (schema.name === 'chip_1' || schema.name === 'chip_1_label' || schema.name === 'chip_1_icon' ||
+                schema.name === 'chip_2' || schema.name === 'chip_2_label' || schema.name === 'chip_2_icon' ||
+                schema.name === 'chip_3' || schema.name === 'chip_3_label' || schema.name === 'chip_3_icon' ||
+                schema.name === 'chip_4' || schema.name === 'chip_4_label' || schema.name === 'chip_4_icon') {
                 return '';
             }
-            // Drink chip entity + label fields: same label-suppression rationale as
-            // the Daily-panel chips above (entity picker + text field cell-height
-            // equalization inside a 200px grid column).
-            if (schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' ||
-                schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' ||
-                schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' ||
-                schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label') {
+            // Drink chip entity + icon + label fields: same label-suppression
+            // rationale as the Daily-panel chips above (the nested "Chip N"
+            // expandable header conveys identity).
+            if (schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' || schema.name === 'drink_chip_1_icon' ||
+                schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' || schema.name === 'drink_chip_2_icon' ||
+                schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' || schema.name === 'drink_chip_3_icon' ||
+                schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label' || schema.name === 'drink_chip_4_icon') {
                 return '';
             }
             return localize(lang, 'config.' + schema.name);
@@ -1440,18 +1802,41 @@ function buildEditorForm() {
             // guard, localize() returns the raw 'config.helper.<name>' key for
             // containers (daily_panel, drinks_panel, graphs_panel, stats_panel,
             // chips, drink_chips, safe_to_take_box, pills_left_box, in_body_box,
-            // disruption_box) that have no translation defined, which then renders as
-            // visible text under the expandable headers.
+            // disruption_box, chip_1_box..chip_4_box, drink_chip_1_box..drink_chip_4_box)
+            // that have no translation defined, which then renders as visible text
+            // under the expandable headers.
             if (schema.type === 'grid' ||
                 schema.type === 'expandable' ||
                 !schema.selector) {
                 return '';
+            }
+            // Chip icon fields: helper explains the default-icon fallback.
+            if (name?.startsWith('chip_') && name?.endsWith('_icon')) {
+                return localize(lang, 'config.helper.chip_icon');
+            }
+            // Chip action fields: tap helper notes the more-info default; hold /
+            // double_tap use the generic action helper.
+            if (name?.startsWith('chip_') && name?.endsWith('_tap_action')) {
+                return localize(lang, 'config.helper.chip_tap_action');
+            }
+            if (name?.startsWith('chip_') && (name?.endsWith('_hold_action') || name?.endsWith('_double_tap_action'))) {
+                return localize(lang, 'config.helper.chip_hold_action');
             }
             if (name?.startsWith('chip_') && name?.endsWith('_label')) {
                 return localize(lang, 'config.helper.chip_label');
             }
             if (name?.startsWith('chip_')) {
                 return localize(lang, 'config.helper.chip');
+            }
+            // Drink chip icon + action fields: same helpers as the Daily chips.
+            if (name?.startsWith('drink_chip_') && name?.endsWith('_icon')) {
+                return localize(lang, 'config.helper.chip_icon');
+            }
+            if (name?.startsWith('drink_chip_') && name?.endsWith('_tap_action')) {
+                return localize(lang, 'config.helper.chip_tap_action');
+            }
+            if (name?.startsWith('drink_chip_') && (name?.endsWith('_hold_action') || name?.endsWith('_double_tap_action'))) {
+                return localize(lang, 'config.helper.chip_hold_action');
             }
             if (name?.startsWith('drink_chip_') && name?.endsWith('_label')) {
                 return localize(lang, 'config.helper.drink_chip_label');
@@ -1473,6 +1858,13 @@ function buildEditorForm() {
 // keyboard). All formatting/computation is delegated to the controller so this
 // component holds only the template + its CSS.
 let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
+    constructor() {
+        super(...arguments);
+        // 30s tick from the container — a reactive trigger so the panel re-renders
+        // to refresh time-relative rows even when hass/entities/controller refs are
+        // unchanged. The panel doesn't read this value; it just needs to change.
+        this.tick = 0;
+    }
     get _lang() {
         return this.controller.lang;
     }
@@ -1573,8 +1965,11 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
             let display = '-';
             if (v && v !== 'unknown' && v !== 'unavailable' && v !== 'None') {
                 const num = parseFloat(v);
+                // No unit suffix — the "Low - Hours Until" label already conveys the
+                // unit (hours). The backend keeps UnitOfTime.HOURS for automations /
+                // history; the card surfaces only the numeric value.
                 if (!isNaN(num))
-                    display = num + ' h';
+                    display = String(num);
             }
             rows.push({ label: localize(this._lang, 'stats.low_hours_until'), value: display, icon: 'mdi:timer-sand', entityId: e.lowHoursUntil });
         }
@@ -1602,6 +1997,9 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
     }
 };
 AxDoseStatsPanel.styles = i$3 `
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .pane-stats {
       display: flex;
       flex-direction: column;
@@ -1661,7 +2059,7 @@ AxDoseStatsPanel.styles = i$3 `
 
     .stat-cell-value {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
     }
   `;
@@ -1674,6 +2072,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseStatsPanel.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseStatsPanel.prototype, "tick", void 0);
 AxDoseStatsPanel = __decorate([
     t('ax-dose-stats-panel')
 ], AxDoseStatsPanel);
@@ -1845,6 +2246,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
     }
 };
 AxDoseToolsPanel.styles = i$3 `
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .tools-panel {
       display: flex;
       flex-direction: column;
@@ -1860,7 +2264,7 @@ AxDoseToolsPanel.styles = i$3 `
 
     .tools-section-header {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -1935,7 +2339,7 @@ AxDoseToolsPanel.styles = i$3 `
       align-items: center;
       gap: 8px;
       font-size: calc(15px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color);
     }
     .drink-tool-name ha-icon {
@@ -2032,6 +2436,9 @@ let AxDoseTrackingPanel = class AxDoseTrackingPanel extends i {
     }
 };
 AxDoseTrackingPanel.styles = i$3 `
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .tracking-panel {
       display: flex;
       flex-direction: column;
@@ -2060,7 +2467,7 @@ AxDoseTrackingPanel.styles = i$3 `
 
     .tracking-label {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
     }
 
@@ -2068,7 +2475,7 @@ AxDoseTrackingPanel.styles = i$3 `
       font-size: calc(12px + var(--pill-text-offset, 0px));
       padding: 2px 8px;
       border-radius: 10px;
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
     }
 
     .tracking-badge--set {
@@ -2101,7 +2508,7 @@ AxDoseTrackingPanel.styles = i$3 `
       min-width: 28px;
       text-align: center;
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
     }
 
@@ -2148,6 +2555,13 @@ AxDoseTrackingPanel = __decorate([
 // actions), pills-left stat-pill (refill dialog), custom chips. Every action
 // calls back into the controller so the container owns the dialog state.
 let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
+    constructor() {
+        super(...arguments);
+        // 30s tick from the container — a reactive trigger so the panel re-renders
+        // to refresh "Xh XXm" countdowns even when hass/entities/controller refs are
+        // unchanged. The panel doesn't read this value; it just needs to change.
+        this.tick = 0;
+    }
     get _lang() {
         return this.controller.lang;
     }
@@ -2247,13 +2661,11 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
           >
             <ha-icon icon="${isLimitReached ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
             <span class="take-label">${isLimitReached ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
-            <span class="take-sub">${isLimitReached
-            ? (overTime
-                ? b `<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-                : b `<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span> \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`)
-            : (overTime
-                ? b `<span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-                : b `<span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>`)}</span>
+            <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
+            ? b ` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
+            : (nextDose !== 'Unavailable'
+                ? b ` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`
+                : A)}</span>
           </button>
 
           <div class="stats-column">
@@ -2311,10 +2723,48 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
                     || c.hass?.states[chip.entityId]?.attributes?.friendly_name
                     || chip.entityId;
                 const chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement');
+                const chipDeviceClass = c.getAttr(chip.entityId, 'device_class');
+                // Icon: configured override > entity's own icon attribute > neutral default.
+                // Only rendered when the per-chip show_icon toggle is on (default off).
+                const chipIcon = chip.icon
+                    || c.hass?.states[chip.entityId]?.attributes?.icon
+                    || 'mdi:chip';
+                // Device-class-aware value: timestamp sensors render HH:MM (24-hour)
+                // so a TIMESTAMP-class entity surfaced as a chip does not show its
+                // year (the formatInteger parseFloat bug — parseFloat('2026-...') → 2026).
+                // Mirrors the Disruption box low_timestamp mode + the Stats panel row.
+                let chipValue;
+                if (chipDeviceClass === 'timestamp') {
+                    const dt = new Date(chipState);
+                    chipValue = isNaN(dt.getTime())
+                        ? localize(this._lang, 'daily.na')
+                        : dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+                else {
+                    chipValue = c.formatInteger(chipState) + (chipUnit ? ' ' + chipUnit : '');
+                }
+                const chipActionCfg = {
+                    entity: chip.entityId,
+                    tap_action: chip.tapAction,
+                    hold_action: chip.holdAction,
+                    double_tap_action: chip.doubleTapAction,
+                };
+                const hasHold = !!chip.holdAction;
+                const hasDblClick = !!chip.doubleTapAction;
                 return b `
-                    <div class="chip">
+                    <div class="chip clickable${chip.showIcon ? ' with-icon' : ''}"
+                      role="button"
+                      tabindex="0"
+                      aria-label=${chipName}
+                      @click=${(ev) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId)}
+                      @keydown=${(ev) => c.onKeyActivate(ev, () => c.handleChipAction(null, 'tap', chipActionCfg, chip.entityId))}
+                      @contextmenu=${hasHold ? (ev) => { ev.preventDefault(); c.handleChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
+                      @dblclick=${hasDblClick ? () => c.handleChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
+                      ${chip.showIcon
+                    ? b `<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
+                    : A}
                       <span class="chip-name">${chipName}</span>
-                      <span class="chip-value">${c.formatInteger(chipState)}${chipUnit ? ' ' + chipUnit : ''}</span>
+                      <span class="chip-value">${chipValue}</span>
                     </div>
                   `;
             })}
@@ -2326,6 +2776,12 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
     }
 };
 AxDoseDailyPanel.styles = i$3 `
+    /* Bold-text catch-all: sets a base font-weight so text without an explicit
+       font-weight declaration still inherits the boost when bold_text is on.
+       --pill-font-weight-boost is 1.5 (on) or 1 (off), injected on <ha-card>. */
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .pane-daily {
       display: flex;
       flex-direction: column;
@@ -2398,12 +2854,12 @@ AxDoseDailyPanel.styles = i$3 `
 
     .take-label {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 550;
+      font-weight: calc(550 * var(--pill-font-weight-boost, 1));
     }
 
     .take-sub {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 450;
+      font-weight: calc(450 * var(--pill-font-weight-boost, 1));
       opacity: 0.9;
     }
 
@@ -2415,9 +2871,10 @@ AxDoseDailyPanel.styles = i$3 `
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 14px;
+      padding: 6px 14px;
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
+      overflow: hidden;
     }
 
     .stat-pill ha-icon {
@@ -2431,13 +2888,20 @@ AxDoseDailyPanel.styles = i$3 `
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      line-height: 1.2;
+      min-height: 2.6em;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .stat-value {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
       margin-left: auto;
+      line-height: 1.5;
+      white-space: nowrap;
     }
 
     .stat-pill.clickable {
@@ -2454,6 +2918,11 @@ AxDoseDailyPanel.styles = i$3 `
       flex-wrap: wrap;
     }
 
+    /* ── Chips — match the Graph panel Day Avg Boxes format (primary-tinted
+       background, uppercase label with letter-spacing, column layout, no icon
+       by default) but with the stat-pill min-height so the chip row aligns
+       with the two boxes above it on the Daily panel. The .with-icon modifier
+       relaxes the min-height so the box grows to fit the icon-on-top. ── */
     .chip {
       flex: 1;
       min-width: 0;
@@ -2461,24 +2930,52 @@ AxDoseDailyPanel.styles = i$3 `
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      padding: 8px 6px;
-      background: var(--chip-background, rgba(128,128,128,0.08));
+      padding: 6px 4px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .chip.with-icon {
+      /* gap stays 2px (label→value spacing unchanged); the icon gets its own
+         breathing room via .chip-icon margin-bottom so toggling the icon on
+         doesn't alter the label-to-value gap. */
+    }
+
+    .chip.clickable {
+      cursor: pointer;
+    }
+
+    .chip.clickable:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    }
+
+    .chip-icon {
+      --mdc-icon-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--primary-color, #03a9f4);
+      opacity: 0.7;
+      margin-bottom: 8px;
     }
 
     .chip-name {
       font-size: calc(12px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      line-height: 1.2;
+      text-align: center;
+      word-break: break-word;
       max-width: 100%;
     }
 
     .chip-value {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
+      line-height: 1.5;
+      white-space: nowrap;
     }
   `;
 __decorate([
@@ -2490,6 +2987,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseDailyPanel.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDailyPanel.prototype, "tick", void 0);
 AxDoseDailyPanel = __decorate([
     t('ax-dose-daily-panel')
 ], AxDoseDailyPanel);
@@ -2543,14 +3043,9 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
         }
     }
     _getTimeframeHours() {
-        switch (this.activeTimeframe) {
-            case '12h': return 12;
-            case '24h': return 24;
-            case '7d': return 168;
-            case '14d': return 336;
-            case '30d': return 720;
-            default: return 48;
-        }
+        // Delegates to the shared helper (same mapping as the container's
+        // _getTimeframeHours) so the timeframe→hours logic lives in one place.
+        return getTimeframeHours(this.activeTimeframe);
     }
     render() {
         const c = this.controller;
@@ -3233,6 +3728,9 @@ AxDoseGraphsPanel.METRIC_COLORS = [
     '#9c27b0', '#00bcd4', '#ffc107', '#795548',
 ];
 AxDoseGraphsPanel.styles = i$3 `
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .pane-graphs {
       display: flex;
       flex-direction: column;
@@ -3275,7 +3773,7 @@ AxDoseGraphsPanel.styles = i$3 `
 
     .nav-title {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       color: var(--secondary-text-color, #666);
       min-width: 100px;
       text-align: center;
@@ -3310,7 +3808,7 @@ AxDoseGraphsPanel.styles = i$3 `
     .timeframe-chip {
       padding: 4px 10px;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       border-radius: 4px;
       cursor: pointer;
       color: var(--secondary-text-color);
@@ -3328,7 +3826,7 @@ AxDoseGraphsPanel.styles = i$3 `
     .timeframe-chip.active {
       color: var(--primary-color);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
     }
 
     .bar-graph-wrapper {
@@ -3399,7 +3897,7 @@ AxDoseGraphsPanel.styles = i$3 `
 
     .avg-value {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
     }
 
@@ -3439,7 +3937,7 @@ AxDoseGraphsPanel.styles = i$3 `
     .eff-view-tab {
       padding: 5px 16px;
       font-size: calc(13px + var(--pill-text-offset, 0px));
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       border-radius: 999px;
       cursor: pointer;
       color: var(--secondary-text-color);
@@ -3456,7 +3954,7 @@ AxDoseGraphsPanel.styles = i$3 `
     .eff-view-tab.active {
       color: var(--primary-color);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
     }
 
     .eff-tracker-row {
@@ -3558,6 +4056,13 @@ AxDoseGraphsPanel = AxDoseGraphsPanel_1 = __decorate([
 //   No chips row (Drinks master has no chip config). Estimated Low Time was
 //   intentionally removed to keep exactly 2 right boxes, identical to Daily.
 let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
+    constructor() {
+        super(...arguments);
+        // 30s tick from the container — a reactive trigger so the panel re-renders
+        // to refresh "Xh XXm" countdowns even when hass/entities/controller refs are
+        // unchanged. The panel doesn't read this value; it just needs to change.
+        this.tick = 0;
+    }
     get _lang() {
         return this.controller.lang;
     }
@@ -3642,9 +4147,10 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
                     : dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
             }
             else if (disruptionMode === 'low_hours_until') {
-                // Low - Hours Until is a DURATION (hours) numeric; display X h.
+                // Low - Hours Until is a DURATION (hours) numeric; display the raw
+                // number only — the "Low - Hours Until" label already conveys the unit.
                 const num = parseFloat(disruptionRaw);
-                disruptionValue = isNaN(num) ? localize(this._lang, 'daily.na') : `${num} h`;
+                disruptionValue = isNaN(num) ? localize(this._lang, 'daily.na') : String(num);
             }
             else {
                 // disruption (default) → title-cased state.
@@ -3738,10 +4244,48 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
                     || c.hass?.states[chip.entityId]?.attributes?.friendly_name
                     || chip.entityId;
                 const chipUnit = c.getAttr(chip.entityId, 'unit_of_measurement');
+                const chipDeviceClass = c.getAttr(chip.entityId, 'device_class');
+                // Icon: configured override > entity's own icon attribute > neutral default.
+                // Only rendered when the per-chip show_icon toggle is on (default off).
+                const chipIcon = chip.icon
+                    || c.hass?.states[chip.entityId]?.attributes?.icon
+                    || 'mdi:chip';
+                // Device-class-aware value: timestamp sensors render HH:MM (24-hour)
+                // so a TIMESTAMP-class entity surfaced as a chip does not show its
+                // year (the formatInteger parseFloat bug — parseFloat('2026-...') → 2026).
+                // Mirrors the Disruption box low_timestamp mode + the Stats panel row.
+                let chipValue;
+                if (chipDeviceClass === 'timestamp') {
+                    const dt = new Date(chipState);
+                    chipValue = isNaN(dt.getTime())
+                        ? localize(this._lang, 'daily.na')
+                        : dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+                else {
+                    chipValue = c.formatInteger(chipState) + (chipUnit ? ' ' + chipUnit : '');
+                }
+                const chipActionCfg = {
+                    entity: chip.entityId,
+                    tap_action: chip.tapAction,
+                    hold_action: chip.holdAction,
+                    double_tap_action: chip.doubleTapAction,
+                };
+                const hasHold = !!chip.holdAction;
+                const hasDblClick = !!chip.doubleTapAction;
                 return b `
-                    <div class="chip">
+                    <div class="chip clickable${chip.showIcon ? ' with-icon' : ''}"
+                      role="button"
+                      tabindex="0"
+                      aria-label=${chipName}
+                      @click=${(ev) => c.handleDrinkChipAction(ev, 'tap', chipActionCfg, chip.entityId)}
+                      @keydown=${(ev) => c.onKeyActivate(ev, () => c.handleDrinkChipAction(null, 'tap', chipActionCfg, chip.entityId))}
+                      @contextmenu=${hasHold ? (ev) => { ev.preventDefault(); c.handleDrinkChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
+                      @dblclick=${hasDblClick ? () => c.handleDrinkChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
+                      ${chip.showIcon
+                    ? b `<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
+                    : A}
                       <span class="chip-name">${chipName}</span>
-                      <span class="chip-value">${c.formatInteger(chipState)}${chipUnit ? ' ' + chipUnit : ''}</span>
+                      <span class="chip-value">${chipValue}</span>
                     </div>
                   `;
             })}
@@ -3753,6 +4297,9 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
     }
 };
 AxDoseDrinksPanel.styles = i$3 `
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .pane-drinks {
       display: flex;
       flex-direction: column;
@@ -3823,13 +4370,13 @@ AxDoseDrinksPanel.styles = i$3 `
 
     .take-label {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 550;
+      font-weight: calc(550 * var(--pill-font-weight-boost, 1));
     }
 
     /* ── .take-sub — verbatim from daily-panel.ts ── */
     .take-sub {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 450;
+      font-weight: calc(450 * var(--pill-font-weight-boost, 1));
       opacity: 0.9;
     }
 
@@ -3842,9 +4389,10 @@ AxDoseDrinksPanel.styles = i$3 `
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 14px;
+      padding: 6px 14px;
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
+      overflow: hidden;
     }
 
     .stat-pill.clickable {
@@ -3866,13 +4414,20 @@ AxDoseDrinksPanel.styles = i$3 `
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      line-height: 1.2;
+      min-height: 2.6em;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .stat-value {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
       margin-left: auto;
+      line-height: 1.5;
+      white-space: nowrap;
     }
 
     /* ── Custom chips — verbatim from daily-panel.ts ── */
@@ -3882,6 +4437,11 @@ AxDoseDrinksPanel.styles = i$3 `
       flex-wrap: wrap;
     }
 
+    /* ── Chips — match the Graph panel Day Avg Boxes format (primary-tinted
+       background, uppercase label with letter-spacing, column layout, no icon
+       by default) but with the stat-pill min-height so the chip row aligns
+       with the two boxes above it on the Drinks panel. The .with-icon modifier
+       relaxes the min-height so the box grows to fit the icon-on-top. ── */
     .chip {
       flex: 1;
       min-width: 0;
@@ -3889,24 +4449,52 @@ AxDoseDrinksPanel.styles = i$3 `
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      padding: 8px 6px;
-      background: var(--chip-background, rgba(128,128,128,0.08));
+      padding: 6px 4px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .chip.with-icon {
+      /* gap stays 2px (label→value spacing unchanged); the icon gets its own
+         breathing room via .chip-icon margin-bottom so toggling the icon on
+         doesn't alter the label-to-value gap. */
+    }
+
+    .chip.clickable {
+      cursor: pointer;
+    }
+
+    .chip.clickable:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    }
+
+    .chip-icon {
+      --mdc-icon-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: var(--primary-color, #03a9f4);
+      opacity: 0.7;
+      margin-bottom: 8px;
     }
 
     .chip-name {
       font-size: calc(12px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      line-height: 1.2;
+      text-align: center;
+      word-break: break-word;
       max-width: 100%;
     }
 
     .chip-value {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
+      line-height: 1.5;
+      white-space: nowrap;
     }
   `;
 __decorate([
@@ -3918,6 +4506,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDrinksPanel.prototype, "tick", void 0);
 AxDoseDrinksPanel = __decorate([
     t('ax-dose-drinks-panel')
 ], AxDoseDrinksPanel);
@@ -3932,6 +4523,13 @@ AxDoseDrinksPanel = __decorate([
 //          "Running N-Day Avg" reveal logic via drinkDaysSinceReveal, reading
 //          history_start_date on the 365-day avg sensor).
 let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
+    constructor() {
+        super(...arguments);
+        // 30s tick from the container — a reactive trigger so the panel re-renders
+        // to refresh time-relative content even when hass/entities/controller refs
+        // are unchanged. The panel doesn't read this value; it just needs to change.
+        this.tick = 0;
+    }
     get _lang() {
         return this.controller.lang;
     }
@@ -3962,11 +4560,21 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
     }
     _renderRow(d, substanceIcon) {
         const c = this.controller;
-        // Column 1 — refill box.
+        // Column 1 — refill box (2 lines: drink name + stock | Est. days left + value).
         const stockState = d.stockEntityId ? c.getState(d.stockEntityId) : '';
         const stockNum = parseInt(stockState, 10);
         const stockDisplay = isNaN(stockNum) ? '-' : c.formatInteger(String(stockNum));
         const canRefill = !!d.addStockEntityId;
+        // Per-drink "Est. days left" (DrinkDaysLeftSensor). Plain number, no unit
+        // suffix (mirrors the master Stats panel's days-left value discipline but
+        // without the "days" text — the label already conveys the unit).
+        const daysLeftState = d.daysLeftEntityId ? c.getState(d.daysLeftEntityId) : '';
+        let daysLeftDisplay = '-';
+        if (daysLeftState && daysLeftState !== 'unknown' && daysLeftState !== 'unavailable' && daysLeftState !== 'None') {
+            const num = parseFloat(daysLeftState);
+            if (!isNaN(num))
+                daysLeftDisplay = c.formatInteger(daysLeftState);
+        }
         // Column 2 — averages.
         const avg7 = d.avg7EntityId ? c.getState(d.avg7EntityId) : '';
         const avg7Display = (avg7 && avg7 !== 'unknown' && avg7 !== 'unavailable') ? avg7 : '-';
@@ -3987,9 +4595,19 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
           @click=${canRefill && d.addStockEntityId ? () => c.showRefillDialogFor(d.addStockEntityId, d.name) : null}
           @keydown=${canRefill ? (ev) => c.onKeyActivate(ev, () => d.addStockEntityId && c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
         >
-          <ha-icon icon="${substanceIcon}"></ha-icon>
-          <span class="stat-label">${d.name}</span>
-          <span class="stat-value">${stockDisplay}</span>
+          <div class="stat-pill-header">
+            <ha-icon icon="${substanceIcon}"></ha-icon>
+            <div class="stat-text">
+              <div class="stat-line">
+                <span class="stat-label">${d.name} ${localize(this._lang, 'inventory.left')}</span>
+                <span class="stat-value">${stockDisplay}</span>
+              </div>
+              <div class="stat-line">
+                <span class="stat-sublabel">${localize(this._lang, 'stats.days_left_est')}</span>
+                <span class="stat-subvalue">${daysLeftDisplay}</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="avg-cell"
              role="button" tabindex="0"
@@ -4011,11 +4629,13 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
     }
 };
 AxDoseInventoryPanel.styles = i$3 `
-    /* ── Container parity with .pane-daily / .pane-drinks ── */
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
+    /* ── Container parity with the Stats pane (.pane-stats) ── */
     .pane-inventory {
       display: flex;
       flex-direction: column;
-      gap: 12px;
     }
 
     .inv-empty {
@@ -4031,28 +4651,35 @@ AxDoseInventoryPanel.styles = i$3 `
     }
     .inv-empty ha-icon { --mdc-icon-size: 40px; opacity: 0.4; }
 
+    /* ── .inv-grid — mirrors the Stats .stats-grid: 2-col grid, 8px gap ── */
     .inv-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
+    /* One drink = two adjacent grid cells (col-1 + col-2). The .inv-row
+       wrapper spans both columns and holds its own 2-col sub-grid so the
+       pair stays together while the outer grid governs inter-pair spacing. */
     .inv-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 8px;
+      grid-column: 1 / -1;
     }
 
-    /* ── .stat-pill — verbatim from daily-panel.ts / drinks-panel.ts ──
-       (primary-tinted transparency, no border, 12px 14px padding, 8px gap,
-       20px primary-tinted icon at opacity 0.7). */
+    /* ── .stat-pill + .avg-cell — both adopt the Stats .stat-cell visual
+       language: padding 10px 8px, border-radius 10px, primary-tinted
+       background rgba(...,0.05), 4px internal gap, column flex. This makes
+       the Inventory boxes the same size + spacing as the Stats boxes. */
     .stat-pill {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 14px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
-      border-radius: var(--ha-card-border-radius, 12px);
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 8px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
+      border-radius: 10px;
+      transition: background 0.15s ease;
     }
     .stat-pill.clickable {
       cursor: pointer;
@@ -4061,59 +4688,86 @@ AxDoseInventoryPanel.styles = i$3 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
     .stat-pill.clickable:focus-visible {
-      outline: 2px solid var(--primary-color);
+      outline: 2px solid var(--primary-color, #03a9f4);
       outline-offset: 2px;
     }
-    .stat-pill ha-icon {
-      --mdc-icon-size: 20px;
+
+    /* ── stat-pill header row: icon + 2-line text block. The icon stays at
+       the left (its exact current position) and align-items:center on the
+       header row keeps it vertically centered against the 2-line text
+       block. The .stat-text wrapper takes flex:1 so the text fills the
+       space to the right of the icon. Each .stat-line is a space-between
+       row. Sizing matches the Stats .stat-cell: label 14px uppercase (but
+       the drink name keeps natural case per the proper-noun rule), value
+       18px weight-600. The 2nd line ("Est. days left" + value) uses the
+       SAME sizes as the 1st line per user request (label 15px, value 18px)
+       so both lines are equally prominent. */
+    .stat-pill-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stat-pill-header ha-icon {
+      --mdc-icon-size: 24px;
       color: var(--primary-color, #03a9f4);
       opacity: 0.7;
     }
-
-    /* ── .stat-label — Daily/Drinks parity for size/color/letter-spacing,
-       with a per-element case override: text-transform: uppercase is
-       intentionally OMITTED because col-1's label is the drink's configured
-       proper-noun name ("Coffee", "Espresso"), which should keep its
-       natural case. The sub-labels in .avg-cell below keep natural case
-       too (they were never uppercased). */
+    .stat-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      line-height: 1.1;
+      flex: 1;
+      min-width: 0;
+    }
+    .stat-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
     .stat-label {
       flex: 1;
       font-size: calc(15px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
-
-    /* ── .stat-value — verbatim from daily-panel.ts / drinks-panel.ts ── */
     .stat-value {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
-      margin-left: auto;
+    }
+    /* 2nd line — same sizes as the 1st line (label 15px, value 18px). */
+    .stat-sublabel {
+      flex: 1;
+      font-size: calc(15px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #666);
+      letter-spacing: 0.3px;
+    }
+    .stat-subvalue {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
+      color: var(--primary-text-color, #222);
     }
 
-    /* ── .avg-cell — col-2 averages box. No Daily equivalent; adopts the
-       same primary-tinted transparency surface as .stat-pill for parity,
-       keeps its two-row .avg-line internal layout. Padding/gap compressed
-       (12px→10px / 6px→4px) and .avg-value sized 18px→16px so the cell's
-       natural height matches the Stats panel's .stat-cell (~72px); the
-       col-1 .stat-pill stretches to the same height via grid
-       align-items: stretch, so both Inventory boxes match the Stats box
-       height. */
+    /* ── .avg-cell — col-2 averages box, same .stat-cell visual language. */
     .avg-cell {
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 4px;
-      padding: 10px 14px;
-      border-radius: var(--ha-card-border-radius, 12px);
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      gap: 2px;
+      line-height: 1.1;
+      padding: 10px 8px;
+      border-radius: 10px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       cursor: pointer;
+      transition: background 0.15s ease;
     }
     .avg-cell:hover {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
     .avg-cell:focus-visible {
-      outline: 2px solid var(--primary-color);
+      outline: 2px solid var(--primary-color, #03a9f4);
       outline-offset: 2px;
     }
     .avg-line {
@@ -4123,18 +4777,17 @@ AxDoseInventoryPanel.styles = i$3 `
       gap: 8px;
     }
     .avg-label {
-      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-size: calc(15px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
     }
-    /* ── .avg-value — sized to match .stat-value for visual parity ── */
     .avg-value {
-      font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
-      margin-left: auto;
     }
 
     @media (max-width: 380px) {
+      .inv-grid { grid-template-columns: 1fr; }
       .inv-row { grid-template-columns: 1fr; }
     }
   `;
@@ -4147,6 +4800,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseInventoryPanel.prototype, "hass", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseInventoryPanel.prototype, "tick", void 0);
 AxDoseInventoryPanel = __decorate([
     t('ax-dose-inventory-panel')
 ], AxDoseInventoryPanel);
@@ -4187,6 +4843,8 @@ class AxDoseLoggerCard extends i {
         // band, so there is no predicted descent — an explicit "safe" signal.
         this._drinkLowPredictions = {};
         // Race-guard token for the predict_low fetches (mirrors _amountFetchToken).
+        // Not @state() — a race-guard token has no rendering impact; making it
+        // reactive caused unnecessary shouldUpdate evaluations on every increment.
         this._predictLowToken = 0;
         // Sleep Disruption popup (Master Tracker Drinks panel). When open, renders
         // a substance-aware markdown description of how the current body-mass load
@@ -4235,6 +4893,14 @@ class AxDoseLoggerCard extends i {
         this._resolvedEntities = null;
         this._resolvedDeviceId = '';
         this._resolvedEntitiesRef = null;
+        // Cache for _getDrinksOfSubstance() — mirrors the _resolvedEntities cache
+        // pattern. DrinkInfo stores only entity IDs (stable identifiers), not
+        // entity states, so the cache is valid until the entity registry reference
+        // changes (HA replaces hass.entities on registry updates). Without this
+        // cache the method did a full O(n) entity scan on every call, including
+        // inside _relevantStateChanged() on every HA state change while the
+        // inventory pane was active.
+        this._drinksCache = null;
         // In-flight fetch management (#3 + #4):
         //  - Separate per-fetch-type tokens prevent cross-stream invalidation. When
         //    both _fetchAmountHistory and _fetchDoseHistory fire on pane entry, a
@@ -4245,6 +4911,12 @@ class AxDoseLoggerCard extends i {
         this._amountFetchToken = 0;
         this._doseFetchToken = 0;
         this._effectivenessFetchToken = 0;
+        // Debounce timer for graphs-pane history re-fetch on hass change. Rapid
+        // successive state changes (e.g. take-pill + state propagation) coalesce
+        // into one fetch after the debounce delay instead of firing 3 fetches
+        // (2 of which hit the recorder DB) per state change. The per-fetch race-
+        // guard tokens still discard stale results from superseded fetches.
+        this._graphsRefetchTimer = null;
     }
     // ── Configuration ──────────────────────────
     setConfig(config) {
@@ -4307,10 +4979,12 @@ class AxDoseLoggerCard extends i {
         this._resolvedEntitiesRef = entitiesRef;
         return result;
     }
-    /** Force the next _resolveEntities() call to re-scan. */
+    /** Force the next _resolveEntities() call to re-scan. Also clears the
+     *  drinks-of-substance cache so a device_id change re-scans granular drinks. */
     _invalidateEntityCache() {
         this._resolvedEntities = null;
         this._resolvedEntitiesRef = null;
+        this._drinksCache = null;
     }
     _computeEntities(deviceId) {
         const result = { medicationName: 'Medication', metrics: [] };
@@ -4467,19 +5141,19 @@ class AxDoseLoggerCard extends i {
                 // panel's computeTimeSinceLastDose helper works unchanged for masters.
                 else if (masterRole === 'last_dose')
                     result.lastDose = entityId;
-                // Days-left inventory-burn sensor — Master Tracker aggregates every
-                // granular drink inventory of its substance. The backend always sets
-                // estimation=true on the master variant (empirical 7-day avg), so the
-                // Stats row uses the "Est. days left" label.
-                else if (masterRole === 'days_left') {
-                    result.daysLeft = entityId;
-                    result.daysLeftEst = true;
-                }
-                // totalDoses maps to the body-mass sensor, which still carries the
-                // dose_count attribute for the Stats panel's total-doses row.
-                if (this._getAttr(entityId, 'dose_count') !== undefined && this._getAttr(entityId, 'pk_model')) {
-                    result.totalDoses = entityId;
-                }
+                // The Master Tracker no longer has a days-left sensor (removed in
+                // backend v14 — the aggregate has no single inventory). The per-
+                // granular-drink DrinkDaysLeftSensor powers the Inventory panel's
+                // per-drink "Est. days left" 2nd line instead. Do NOT map a master
+                // days_left role here — the Stats panel's `if (e.daysLeft)` guard
+                // then skips the row for master devices.
+                //
+                // The Master Tracker also has no dedicated "Total Doses" sensor.
+                // The body-mass sensor (amountInBody, mapped above) carries a
+                // dose_count attribute, but surfacing it as a "Total Doses" Stats
+                // box on the aggregate device is misleading — the box is omitted
+                // for master devices by NOT mapping totalDoses here. Medicine
+                // devices still map totalDoses via the `_total_doses` suffix above.
             }
             else if (dt === 'drink') {
                 isGranularDrink = true;
@@ -4505,6 +5179,11 @@ class AxDoseLoggerCard extends i {
         return result;
     }
     // ── Chip Helpers ───────────────────────────
+    // Enumerate configured Daily-panel custom chips (chip_1..4 + icon/label +
+    // 3 ui_action overrides).  Each chip now carries the full override suite
+    // mirroring the Safe to Take / Pills Left box pattern: entity + label +
+    // icon + tap/hold/double_tap actions.  The panel passes the configs back to
+    // handleChipAction on click/hold/double-tap.
     _getChipEntities() {
         if (!this.config)
             return [];
@@ -4513,7 +5192,20 @@ class AxDoseLoggerCard extends i {
             const val = this.config[key];
             if (val) {
                 const labelKey = `${key}_label`;
-                chips.push({ entityId: val, label: this.config[labelKey] });
+                const iconKey = `${key}_icon`;
+                const showIconKey = `${key}_show_icon`;
+                const tapKey = `${key}_tap_action`;
+                const holdKey = `${key}_hold_action`;
+                const dblKey = `${key}_double_tap_action`;
+                chips.push({
+                    entityId: val,
+                    label: this.config[labelKey],
+                    icon: this.config[iconKey],
+                    showIcon: this.config[showIconKey] === true,
+                    tapAction: this.config[tapKey],
+                    holdAction: this.config[holdKey],
+                    doubleTapAction: this.config[dblKey],
+                });
             }
         }
         return chips;
@@ -4685,14 +5377,9 @@ class AxDoseLoggerCard extends i {
     }
     // ── Computed Values: Timeframe ─────────────
     _getTimeframeHours() {
-        switch (this._activeTimeframe) {
-            case '12h': return 12;
-            case '24h': return 24;
-            case '7d': return 168;
-            case '14d': return 336;
-            case '30d': return 720;
-            default: return 48;
-        }
+        // Delegates to the shared helper so the container + graphs panel use the
+        // same timeframe→hours mapping without duplicating the switch.
+        return getTimeframeHours(this._activeTimeframe);
     }
     // ── Actions ────────────────────────────────
     _handleTakePill(entities) {
@@ -4801,6 +5488,16 @@ class AxDoseLoggerCard extends i {
     _getDrinksOfSubstance(substance) {
         if (!this.hass)
             return [];
+        // Cache hit: if the substance + entity-registry reference are unchanged
+        // since the last scan, return the cached result. DrinkInfo stores only
+        // entity IDs (stable), so the cache is valid until the registry reference
+        // changes or is explicitly invalidated.
+        const entitiesRef = this.hass.entities;
+        if (this._drinksCache &&
+            this._drinksCache.substance === substance &&
+            this._drinksCache.entitiesRef === entitiesRef) {
+            return this._drinksCache.drinks;
+        }
         const byDevice = {};
         for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
             if (entityInfo.platform !== 'ax_dose_logger')
@@ -4844,10 +5541,18 @@ class AxDoseLoggerCard extends i {
                     else if (wd === 365)
                         info.avg365EntityId = entityId;
                 }
+                // Per-granular-drink "Est. days left" sensor (DrinkDaysLeftSensor).
+                // Powers the Inventory panel's col-1 2nd line.
+                else if (role === 'days_left')
+                    info.daysLeftEntityId = entityId;
             }
             byDevice[deviceId] = info;
         }
-        return Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+        const result = Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+        // Cache the scan result so subsequent calls (e.g. _relevantStateChanged
+        // on every HA state change while inventory pane is active) skip the scan.
+        this._drinksCache = { substance, entitiesRef, drinks: result };
+        return result;
     }
     // Days-since reveal for a granular drink, reading the history_start_date
     // attribute on its 365-day avg sensor (DrinkAvgDosesSensor exposes it).
@@ -5022,6 +5727,7 @@ class AxDoseLoggerCard extends i {
     getMedName(entities) { return this._getMedName(entities); }
     getSafeBoxEntity(entities) { return this._getSafeBoxEntity(entities); }
     getChipEntities() { return this._getChipEntities(); }
+    handleChipAction(e, kind, cfg, entity) { this._handleChipAction(e, kind, cfg, entity); }
     formatInteger(value) { return this._formatInteger(value); }
     computeNextDose(entities) { return this._computeNextDose(entities); }
     computeOverTime(entities) { return this._computeOverTime(entities); }
@@ -5047,6 +5753,7 @@ class AxDoseLoggerCard extends i {
     getDisruptionBoxEntity(entities) { return this._getDisruptionBoxEntity(entities); }
     handleDisruptionBoxAction(e, kind, cfg, entity, fallback) { this._handleDisruptionBoxAction(e, kind, cfg, entity, fallback); }
     getDrinkChipEntities() { return this._getDrinkChipEntities(); }
+    handleDrinkChipAction(e, kind, cfg, entity) { this._handleDrinkChipAction(e, kind, cfg, entity); }
     handleTimeframeChange(timeframe) { this._handleTimeframeChange(timeframe); }
     handleBarTimeframeChange(timeframe) {
         if (timeframe === this._activeBarTimeframe)
@@ -5323,6 +6030,27 @@ class AxDoseLoggerCard extends i {
         }
         // hold/double_tap with no config and no fallback → no-op.
     }
+    // ── Custom chips (Daily panel) ─────────────────────────
+    // Fire the configured tap/hold/double-tap action for a Daily-panel custom
+    // chip.  Mirrors _handleSafeBoxAction: custom ActionConfig → handleAction;
+    // no tap config → more-info on the chip entity (user-confirmed default, same
+    // as the Safe to Take box).  hold/double_tap with no config are no-ops.
+    // Separate method (not a refactor of _handleSafeBoxAction) to avoid any
+    // regression risk on the working Safe to Take path.
+    _handleChipAction(_e, action, config, chipEntity) {
+        if (!this.hass)
+            return;
+        const actionKey = `${action}_action`;
+        const actionConfig = config[actionKey];
+        if (actionConfig) {
+            handleAction(this, this.hass, config, action);
+        }
+        else if (action === 'tap' && chipEntity) {
+            // No custom tap action → default to more-info on the chip entity.
+            this._openMoreInfo(chipEntity);
+        }
+        // hold/double_tap with no config → no-op.
+    }
     // Resolve the entity to display in the Pills Left box. Priority:
     //   1. pills_left_show_days_left === true → backend days_left sensor
     //      (the toggle is a first-class built-in swap; wins over a configured
@@ -5429,9 +6157,31 @@ class AxDoseLoggerCard extends i {
         // hold/double_tap with no config and no fallback → no-op.
     }
     // ── Drinks panel custom chips ─────────────────────────
-    // Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + labels).
-    // Parallel to _getChipEntities but reads the drink_chip_* config namespace
-    // so the Daily and Drinks panels' chip configs stay fully independent.
+    // Fire the configured tap/hold/double-tap action for a Drinks-panel custom
+    // chip.  Mirrors _handleChipAction (which mirrors _handleSafeBoxAction):
+    // custom ActionConfig → handleAction; no tap config → more-info on the chip
+    // entity.  hold/double_tap with no config are no-ops.  Separate method (not
+    // a refactor of _handleChipAction) to keep the two panels' action paths
+    // independent (mirrors the _handleInBodyBoxAction / _handleDisruptionBoxAction
+    // separation from _handleSafeBoxAction / _handlePillsLeftBoxAction).
+    _handleDrinkChipAction(_e, action, config, chipEntity) {
+        if (!this.hass)
+            return;
+        const actionKey = `${action}_action`;
+        const actionConfig = config[actionKey];
+        if (actionConfig) {
+            handleAction(this, this.hass, config, action);
+        }
+        else if (action === 'tap' && chipEntity) {
+            // No custom tap action → default to more-info on the chip entity.
+            this._openMoreInfo(chipEntity);
+        }
+        // hold/double_tap with no config → no-op.
+    }
+    // Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + icon/
+    // label + 3 ui_action overrides).  Parallel to _getChipEntities but reads
+    // the drink_chip_* config namespace so the Daily and Drinks panels' chip
+    // configs stay fully independent.
     _getDrinkChipEntities() {
         if (!this.config)
             return [];
@@ -5440,7 +6190,20 @@ class AxDoseLoggerCard extends i {
             const val = this.config[key];
             if (val) {
                 const labelKey = `${key}_label`;
-                chips.push({ entityId: val, label: this.config[labelKey] });
+                const iconKey = `${key}_icon`;
+                const showIconKey = `${key}_show_icon`;
+                const tapKey = `${key}_tap_action`;
+                const holdKey = `${key}_hold_action`;
+                const dblKey = `${key}_double_tap_action`;
+                chips.push({
+                    entityId: val,
+                    label: this.config[labelKey],
+                    icon: this.config[iconKey],
+                    showIcon: this.config[showIconKey] === true,
+                    tapAction: this.config[tapKey],
+                    holdAction: this.config[holdKey],
+                    doubleTapAction: this.config[dblKey],
+                });
             }
         }
         return chips;
@@ -5770,6 +6533,40 @@ class AxDoseLoggerCard extends i {
       </div>
     `;
     }
+    // ── Pre-Render Auto-Fallback ───────────────
+    /**
+     * Lit calls willUpdate() BEFORE render(), so reactive property mutations
+     * here are safe and reflected in the same render pass. This is the correct
+     * place for the auto-fallback logic that was previously mutating
+     * this._activePane inside render() — Lit's docs explicitly say "Do not
+     * update reactive properties in render()."
+     *
+     * Auto-fallback rules:
+     *  - tracking pane with no metrics → daily (metrics removed in options flow)
+     *  - master-tracker pane on a medicine device → daily (device switched)
+     *  - medicine pane on a master tracker → drinks (device switched)
+     * Granular drink devices render a placeholder (handled in render() before
+     * this logic matters) so they're skipped here.
+     */
+    willUpdate(changedProps) {
+        if (!this.config || !this.hass)
+            return;
+        if (!(changedProps.has('_activePane') || changedProps.has('config') || changedProps.has('hass')))
+            return;
+        const entities = this._resolveEntities();
+        if (entities.deviceType === 'drink')
+            return; // granular drink → placeholder, no fallback
+        if (this._activePane === 'tracking' && entities.metrics.length === 0) {
+            this._activePane = 'daily';
+        }
+        const isMaster = entities.deviceType === 'drink_master';
+        const masterPanes = ['drinks', 'inventory'];
+        const medicinePanes = ['daily', 'tracking'];
+        if (isMaster && medicinePanes.includes(this._activePane))
+            this._activePane = 'drinks';
+        if (!isMaster && masterPanes.includes(this._activePane))
+            this._activePane = 'daily';
+    }
     // ── Main Render ────────────────────────────
     render() {
         if (!this.config || !this.hass) {
@@ -5781,7 +6578,7 @@ class AxDoseLoggerCard extends i {
         <ha-card>
           <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
             <ha-icon icon="mdi:cog" style="--mdc-icon-size: 48px; opacity: 0.5; margin-bottom: 12px;"></ha-icon>
-            <div style="font-size: 16px; font-weight: 500; color: var(--primary-text-color);">${localize(this._lang, 'card.placeholder_title')}</div>
+            <div style="font-size: 16px; font-weight: calc(500 * var(--pill-font-weight-boost, 1)); color: var(--primary-text-color);">${localize(this._lang, 'card.placeholder_title')}</div>
             <div style="font-size: 14px; color: var(--secondary-text-color);">${localize(this._lang, 'card.placeholder_subtitle')}</div>
           </div>
         </ha-card>
@@ -5796,7 +6593,7 @@ class AxDoseLoggerCard extends i {
                 ? localize(this._lang, 'drinks.redirect_alcohol')
                 : localize(this._lang, 'drinks.redirect_caffeine');
             return b `
-        <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
+        <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
           <div class="card-content">
             <div class="caffeine-placeholder">
               <ha-icon icon=${entities.substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee'}></ha-icon>
@@ -5806,30 +6603,18 @@ class AxDoseLoggerCard extends i {
         </ha-card>
       `;
         }
-        // Auto-fallback: if the user is on the tracking pane but no tracking items exist
-        // (e.g. they were removed in the options flow), fall back to the daily pane.
-        if (this._activePane === 'tracking' && entities.metrics.length === 0) {
-            this._activePane = 'daily';
-        }
-        // Auto-fallback: master-tracker panes only exist on master trackers;
-        // medicine-only panes only exist on medicine devices. If the device was
-        // switched (or a stale _activePane lingers from a prior device), bounce
-        // to the device's first pane.
-        const isMaster = entities.deviceType === 'drink_master';
-        const masterPanes = ['drinks', 'inventory'];
-        const medicinePanes = ['daily', 'tracking'];
-        if (isMaster && medicinePanes.includes(this._activePane))
-            this._activePane = 'drinks';
-        if (!isMaster && masterPanes.includes(this._activePane))
-            this._activePane = 'daily';
+        // Auto-fallback now handled in willUpdate() (mutating @state in render()
+        // violates Lit's contract). The device-type / metrics guards there ensure
+        // this._activePane always points at a valid pane for the current device
+        // before render() runs.
         return b `
-      <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
+      <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
         <div class="card-content">
-          ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-daily-panel>` : A}
+          ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-daily-panel>` : A}
           ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : A}
-          ${this._activePane === 'stats' ? b `<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-stats-panel>` : A}
-          ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-drinks-panel>` : A}
-          ${this._activePane === 'inventory' ? b `<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-inventory-panel>` : A}
+          ${this._activePane === 'stats' ? b `<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : A}
+          ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-drinks-panel>` : A}
+          ${this._activePane === 'inventory' ? b `<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-inventory-panel>` : A}
           ${this._activePane === 'tools' ? b `<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : A}
           ${this._activePane === 'tracking' ? b `<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : A}
         </div>
@@ -5847,17 +6632,21 @@ class AxDoseLoggerCard extends i {
     // ── Lifecycle ──────────────────────────────
     connectedCallback() {
         super.connectedCallback();
-        // Inject CSS into ha-form shadow roots to align entity picker + text field
-        // pairs in grid containers. The implementation lives in the editor module
-        // (src/ax-dose-logger-editor.ts) since this is editor-only logic.
-        installEditorGridAlignment();
         // Reset to defaults on every connection. With ll-rebuild removed (#16),
         // the element is no longer destroyed/recreated on pane switch, so @state
         // survives naturally. The only time connectedCallback fires is on a
         // genuine view entry (navigate to the dashboard) or initial load — both
         // should start on the daily pane. Lit auto-renders on the @state
         // mutations below, so no manual requestUpdate() is needed (#17).
-        this._activePane = 'daily';
+        // Apply configured default pane, validated against the 7 valid pane IDs.
+        // Invalid/unset falls back to 'daily'. The render-time auto-fallback
+        // (see render()) handles device-type mismatches (e.g. 'drinks' on a
+        // medicine device bounces to 'daily'), so no extra validation here.
+        const validPanes = ['daily', 'graphs', 'stats', 'drinks', 'inventory', 'tools', 'tracking'];
+        const configuredView = this.config?.default_view;
+        this._activePane = (configuredView && validPanes.includes(configuredView))
+            ? configuredView
+            : 'daily';
         this._activeGraph = 0;
         // Apply configured default timescale for the Amount in Body graph,
         // falling back to '48h' if unset or invalid. Useful for medications
@@ -5888,6 +6677,10 @@ class AxDoseLoggerCard extends i {
         this._sleepDisruptionSubstance = null;
         this._toolsDialog = null;
         this._overrideDialog = null;
+        // Clear pending tracking flags so stale entries from a prior session
+        // (set_value calls that never got confirmed by HA before disconnect)
+        // don't suppress the override dialog on the next tracking change.
+        this._pendingTracking.clear();
         // Start a 30s tick so time-relative panes (daily/stats) refresh their
         // "Xh XXm" countdowns. Previously the whole card re-rendered on every
         // system-wide state change; with shouldUpdate gating, this timer keeps
@@ -5903,6 +6696,13 @@ class AxDoseLoggerCard extends i {
         this._amountFetchToken++;
         this._doseFetchToken++;
         this._effectivenessFetchToken++;
+        // Cancel any pending debounced graphs re-fetch so it doesn't fire after
+        // the card is detached (the token bumps above would discard its result
+        // anyway, but cancelling the timer avoids a needless detached fetch).
+        if (this._graphsRefetchTimer !== null) {
+            window.clearTimeout(this._graphsRefetchTimer);
+            this._graphsRefetchTimer = null;
+        }
     }
     _startTickTimer() {
         if (this._tickTimer !== null)
@@ -5957,8 +6757,9 @@ class AxDoseLoggerCard extends i {
             // resolved predictions live in _drinkLowPredictions; without these in the
             // whitelist, shouldUpdate returns false on the async mutation and the
             // popup stays on "Low: …" until the next unrelated re-render (~20s).
+            // (_predictLowToken is NOT here — it's a plain race-guard field, not
+            // @state(), so it has no rendering impact and shouldn't trigger shouldUpdate.)
             '_drinkLowPredictions',
-            '_predictLowToken',
             '_showSleepDisruptionDialog',
             '_sleepDisruptionSubstance',
             '_toolsDialog',
@@ -6026,6 +6827,8 @@ class AxDoseLoggerCard extends i {
                     watchedIds.push(d.avg7EntityId);
                 if (d.avg365EntityId)
                     watchedIds.push(d.avg365EntityId);
+                if (d.daysLeftEntityId)
+                    watchedIds.push(d.daysLeftEntityId);
             }
         }
         const cur = this.hass.states;
@@ -6070,16 +6873,29 @@ class AxDoseLoggerCard extends i {
                 // total, amountInBody, an effectiveness number — actually updated, not a
                 // system-wide state tick). Re-fetch so the bar/line/effectiveness graphs
                 // reflect a just-taken dose (or undo/reset) without requiring the user to
-                // navigate away and back. The per-fetch race-guard tokens discard any
-                // in-flight stale results after their `await` resolves, and the REST
-                // endpoint reads in-memory store data (no DB query), so this is cheap.
+                // navigate away and back. Debounced so rapid successive state changes
+                // (e.g. take-pill + immediate state propagation) coalesce into one fetch
+                // instead of 3 fetches per change — 2 of which hit the recorder DB via
+                // the history/period endpoint. The per-fetch race-guard tokens discard
+                // stale results from superseded fetches. The dose-history fetch
+                // (ax_dose_logger/history/ custom endpoint) is in-memory, but it's
+                // bundled with the DB-backed fetches for simplicity.
                 // Note: this branch does NOT fire on the _tick timer (shouldUpdate
                 // excludes _tick for the graphs pane), so there is no periodic polling.
-                this._fetchDoseHistory(entities);
-                this._fetchAmountHistory(entities);
-                if (entities.metrics.length) {
-                    this._fetchEffectivenessHistory(entities);
+                if (this._graphsRefetchTimer !== null) {
+                    window.clearTimeout(this._graphsRefetchTimer);
                 }
+                this._graphsRefetchTimer = window.setTimeout(() => {
+                    this._graphsRefetchTimer = null;
+                    // Re-resolve entities inside the timeout in case the device changed
+                    // during the debounce window (unlikely but defense-in-depth).
+                    const e = this._resolveEntities();
+                    this._fetchDoseHistory(e);
+                    this._fetchAmountHistory(e);
+                    if (e.metrics.length) {
+                        this._fetchEffectivenessHistory(e);
+                    }
+                }, AxDoseLoggerCard.GRAPHS_REFETCH_DEBOUNCE_MS);
             }
         }
         // Clean up _pendingTracking: once HA confirms logged_today=true for an
@@ -6123,6 +6939,12 @@ class AxDoseLoggerCard extends i {
         // The ~280-line schema + computeLabel/computeHelper callbacks live in the
         // editor module (src/ax-dose-logger-editor.ts) so the main card file stays
         // focused on runtime dashboard logic. HA renders <ha-form> from this schema.
+        // Install the grid-alignment CSS observer here (only when the user opens
+        // the visual editor), not in connectedCallback (which fired on every
+        // dashboard load for every card instance and never disconnected the
+        // observer → memory leak + needless document-wide DOM scanning). The
+        // observer auto-cleans when the editor dialog closes.
+        installEditorGridAlignment();
         return buildEditorForm();
     }
     static getStubConfig() {
@@ -6132,10 +6954,12 @@ class AxDoseLoggerCard extends i {
         };
     }
 }
+AxDoseLoggerCard.GRAPHS_REFETCH_DEBOUNCE_MS = 500;
 // ── Styles ─────────────────────────────────
 AxDoseLoggerCard.styles = i$3 `
     :host {
       display: block;
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
 
     *, *::before, *::after {
@@ -6175,6 +6999,7 @@ AxDoseLoggerCard.styles = i$3 `
       color: var(--secondary-text-color, #666);
       font-size: calc(16px + var(--pill-text-offset, 0px));
       font-family: inherit;
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
       cursor: pointer;
       transition: color 0.2s, background 0.2s, box-shadow 0.2s;
       border-bottom: 2px solid transparent;
@@ -6194,7 +7019,7 @@ AxDoseLoggerCard.styles = i$3 `
     .pane-btn.active {
       color: var(--primary-color, #03a9f4);
       border-bottom-color: var(--primary-color, #03a9f4);
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
     }
 
     .pane-btn ha-icon {
@@ -6219,7 +7044,7 @@ AxDoseLoggerCard.styles = i$3 `
        renamed the slot to "header". Using the slot element works on both. */
     .dialog-header {
       font-size: 1.5rem;
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
       text-align: center;
     }
@@ -6247,7 +7072,7 @@ AxDoseLoggerCard.styles = i$3 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
       font-size: 16px;
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       font-family: inherit;
       cursor: pointer;
       transition: background 0.2s;
@@ -6280,7 +7105,7 @@ AxDoseLoggerCard.styles = i$3 `
     }
 
     .log-drink-name {
-      font-weight: 550;
+      font-weight: calc(550 * var(--pill-font-weight-boost, 1));
       text-align: center;
     }
     /* Predicted Low-band timestamp under each drink name ("Low: hh:mm" /
@@ -6288,7 +7113,7 @@ AxDoseLoggerCard.styles = i$3 `
        above the Low band). Muted + smaller so the name stays primary. */
     .log-drink-low {
       font-size: calc(12px + var(--pill-text-offset, 0px));
-      font-weight: 400;
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
       color: var(--secondary-text-color, rgba(0,0,0,0.5));
       text-align: center;
     }
@@ -6383,9 +7208,6 @@ __decorate([
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_drinkLowPredictions", void 0);
-__decorate([
-    r()
-], AxDoseLoggerCard.prototype, "_predictLowToken", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_showSleepDisruptionDialog", void 0);

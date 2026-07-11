@@ -18,6 +18,10 @@ export class AxDoseInventoryPanel extends LitElement {
   @property({ attribute: false }) controller!: CardController;
   @property({ attribute: false }) entities!: ResolvedEntities;
   @property({ attribute: false }) hass?: AxDoseLoggerHass;
+  // 30s tick from the container — a reactive trigger so the panel re-renders
+  // to refresh time-relative content even when hass/entities/controller refs
+  // are unchanged. The panel doesn't read this value; it just needs to change.
+  @property({ attribute: false }) tick: number = 0;
 
   private get _lang(): string {
     return this.controller.lang;
@@ -53,11 +57,20 @@ export class AxDoseInventoryPanel extends LitElement {
 
   private _renderRow(d: DrinkInfo, substanceIcon: string) {
     const c = this.controller;
-    // Column 1 — refill box.
+    // Column 1 — refill box (2 lines: drink name + stock | Est. days left + value).
     const stockState = d.stockEntityId ? c.getState(d.stockEntityId) : '';
     const stockNum = parseInt(stockState, 10);
     const stockDisplay = isNaN(stockNum) ? '-' : c.formatInteger(String(stockNum));
     const canRefill = !!d.addStockEntityId;
+    // Per-drink "Est. days left" (DrinkDaysLeftSensor). Plain number, no unit
+    // suffix (mirrors the master Stats panel's days-left value discipline but
+    // without the "days" text — the label already conveys the unit).
+    const daysLeftState = d.daysLeftEntityId ? c.getState(d.daysLeftEntityId) : '';
+    let daysLeftDisplay = '-';
+    if (daysLeftState && daysLeftState !== 'unknown' && daysLeftState !== 'unavailable' && daysLeftState !== 'None') {
+      const num = parseFloat(daysLeftState);
+      if (!isNaN(num)) daysLeftDisplay = c.formatInteger(daysLeftState);
+    }
 
     // Column 2 — averages.
     const avg7 = d.avg7EntityId ? c.getState(d.avg7EntityId) : '';
@@ -80,9 +93,19 @@ export class AxDoseInventoryPanel extends LitElement {
           @click=${canRefill && d.addStockEntityId ? () => c.showRefillDialogFor(d.addStockEntityId, d.name) : null}
           @keydown=${canRefill ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => d.addStockEntityId && c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
         >
-          <ha-icon icon="${substanceIcon}"></ha-icon>
-          <span class="stat-label">${d.name}</span>
-          <span class="stat-value">${stockDisplay}</span>
+          <div class="stat-pill-header">
+            <ha-icon icon="${substanceIcon}"></ha-icon>
+            <div class="stat-text">
+              <div class="stat-line">
+                <span class="stat-label">${d.name} ${localize(this._lang, 'inventory.left')}</span>
+                <span class="stat-value">${stockDisplay}</span>
+              </div>
+              <div class="stat-line">
+                <span class="stat-sublabel">${localize(this._lang, 'stats.days_left_est')}</span>
+                <span class="stat-subvalue">${daysLeftDisplay}</span>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="avg-cell"
              role="button" tabindex="0"
@@ -104,11 +127,13 @@ export class AxDoseInventoryPanel extends LitElement {
   }
 
   static styles = css`
-    /* ── Container parity with .pane-daily / .pane-drinks ── */
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
+    /* ── Container parity with the Stats pane (.pane-stats) ── */
     .pane-inventory {
       display: flex;
       flex-direction: column;
-      gap: 12px;
     }
 
     .inv-empty {
@@ -124,28 +149,35 @@ export class AxDoseInventoryPanel extends LitElement {
     }
     .inv-empty ha-icon { --mdc-icon-size: 40px; opacity: 0.4; }
 
+    /* ── .inv-grid — mirrors the Stats .stats-grid: 2-col grid, 8px gap ── */
     .inv-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
+    /* One drink = two adjacent grid cells (col-1 + col-2). The .inv-row
+       wrapper spans both columns and holds its own 2-col sub-grid so the
+       pair stays together while the outer grid governs inter-pair spacing. */
     .inv-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 8px;
+      grid-column: 1 / -1;
     }
 
-    /* ── .stat-pill — verbatim from daily-panel.ts / drinks-panel.ts ──
-       (primary-tinted transparency, no border, 12px 14px padding, 8px gap,
-       20px primary-tinted icon at opacity 0.7). */
+    /* ── .stat-pill + .avg-cell — both adopt the Stats .stat-cell visual
+       language: padding 10px 8px, border-radius 10px, primary-tinted
+       background rgba(...,0.05), 4px internal gap, column flex. This makes
+       the Inventory boxes the same size + spacing as the Stats boxes. */
     .stat-pill {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 14px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
-      border-radius: var(--ha-card-border-radius, 12px);
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 8px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
+      border-radius: 10px;
+      transition: background 0.15s ease;
     }
     .stat-pill.clickable {
       cursor: pointer;
@@ -154,59 +186,86 @@ export class AxDoseInventoryPanel extends LitElement {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
     .stat-pill.clickable:focus-visible {
-      outline: 2px solid var(--primary-color);
+      outline: 2px solid var(--primary-color, #03a9f4);
       outline-offset: 2px;
     }
-    .stat-pill ha-icon {
-      --mdc-icon-size: 20px;
+
+    /* ── stat-pill header row: icon + 2-line text block. The icon stays at
+       the left (its exact current position) and align-items:center on the
+       header row keeps it vertically centered against the 2-line text
+       block. The .stat-text wrapper takes flex:1 so the text fills the
+       space to the right of the icon. Each .stat-line is a space-between
+       row. Sizing matches the Stats .stat-cell: label 14px uppercase (but
+       the drink name keeps natural case per the proper-noun rule), value
+       18px weight-600. The 2nd line ("Est. days left" + value) uses the
+       SAME sizes as the 1st line per user request (label 15px, value 18px)
+       so both lines are equally prominent. */
+    .stat-pill-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stat-pill-header ha-icon {
+      --mdc-icon-size: 24px;
       color: var(--primary-color, #03a9f4);
       opacity: 0.7;
     }
-
-    /* ── .stat-label — Daily/Drinks parity for size/color/letter-spacing,
-       with a per-element case override: text-transform: uppercase is
-       intentionally OMITTED because col-1's label is the drink's configured
-       proper-noun name ("Coffee", "Espresso"), which should keep its
-       natural case. The sub-labels in .avg-cell below keep natural case
-       too (they were never uppercased). */
+    .stat-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      line-height: 1.1;
+      flex: 1;
+      min-width: 0;
+    }
+    .stat-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
     .stat-label {
       flex: 1;
       font-size: calc(15px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
-
-    /* ── .stat-value — verbatim from daily-panel.ts / drinks-panel.ts ── */
     .stat-value {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
-      margin-left: auto;
+    }
+    /* 2nd line — same sizes as the 1st line (label 15px, value 18px). */
+    .stat-sublabel {
+      flex: 1;
+      font-size: calc(15px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #666);
+      letter-spacing: 0.3px;
+    }
+    .stat-subvalue {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
+      color: var(--primary-text-color, #222);
     }
 
-    /* ── .avg-cell — col-2 averages box. No Daily equivalent; adopts the
-       same primary-tinted transparency surface as .stat-pill for parity,
-       keeps its two-row .avg-line internal layout. Padding/gap compressed
-       (12px→10px / 6px→4px) and .avg-value sized 18px→16px so the cell's
-       natural height matches the Stats panel's .stat-cell (~72px); the
-       col-1 .stat-pill stretches to the same height via grid
-       align-items: stretch, so both Inventory boxes match the Stats box
-       height. */
+    /* ── .avg-cell — col-2 averages box, same .stat-cell visual language. */
     .avg-cell {
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 4px;
-      padding: 10px 14px;
-      border-radius: var(--ha-card-border-radius, 12px);
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      gap: 2px;
+      line-height: 1.1;
+      padding: 10px 8px;
+      border-radius: 10px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       cursor: pointer;
+      transition: background 0.15s ease;
     }
     .avg-cell:hover {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
     .avg-cell:focus-visible {
-      outline: 2px solid var(--primary-color);
+      outline: 2px solid var(--primary-color, #03a9f4);
       outline-offset: 2px;
     }
     .avg-line {
@@ -216,18 +275,17 @@ export class AxDoseInventoryPanel extends LitElement {
       gap: 8px;
     }
     .avg-label {
-      font-size: calc(13px + var(--pill-text-offset, 0px));
+      font-size: calc(15px + var(--pill-text-offset, 0px));
       color: var(--secondary-text-color, #666);
     }
-    /* ── .avg-value — sized to match .stat-value for visual parity ── */
     .avg-value {
-      font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
-      margin-left: auto;
     }
 
     @media (max-width: 380px) {
+      .inv-grid { grid-template-columns: 1fr; }
       .inv-row { grid-template-columns: 1fr; }
     }
   `;

@@ -1,4 +1,4 @@
-import { LitElement, html, svg, css, nothing } from 'lit';
+import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type { PropertyValues } from 'lit';
 import type { LovelaceCard, ActionConfig } from 'custom-card-helpers';
@@ -11,6 +11,7 @@ import {
   getColorOverrides as getColorOverridesHelper,
   getState as getStateHelper,
   getAttr as getAttrHelper,
+  getTimeframeHours as getTimeframeHoursHelper,
 } from './helpers.js';
 import { buildEditorForm, installEditorGridAlignment } from './ax-dose-logger-editor.js';
 // Panel components are statically imported so Rollup bundles them into the
@@ -30,19 +31,7 @@ import type {
   MetricEntity,
   DayBucket,
   DrinkInfo,
-} from './types.js';
-
-// Re-export the types that downstream code (the editor module, panel components)
-// imports from the container's module surface. They are authored in src/types.ts
-// to avoid circular imports between the container and the panels.
-export type {
-  AxDoseLoggerCardConfig,
-  AxDoseLoggerHass,
-  CardController,
-  ResolvedEntities,
-  MetricEntity,
-  DayBucket,
-  DrinkInfo,
+  ChipConfig,
 } from './types.js';
 
 // ──────────────────────────────────────────────
@@ -83,7 +72,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // band, so there is no predicted descent — an explicit "safe" signal.
   @state() private _drinkLowPredictions: Record<string, string | null> = {};
   // Race-guard token for the predict_low fetches (mirrors _amountFetchToken).
-  @state() private _predictLowToken: number = 0;
+  // Not @state() — a race-guard token has no rendering impact; making it
+  // reactive caused unnecessary shouldUpdate evaluations on every increment.
+  private _predictLowToken: number = 0;
   // Sleep Disruption popup (Master Tracker Drinks panel). When open, renders
   // a substance-aware markdown description of how the current body-mass load
   // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
@@ -138,6 +129,15 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   private _resolvedDeviceId: string = '';
   private _resolvedEntitiesRef: object | null = null;
 
+  // Cache for _getDrinksOfSubstance() — mirrors the _resolvedEntities cache
+  // pattern. DrinkInfo stores only entity IDs (stable identifiers), not
+  // entity states, so the cache is valid until the entity registry reference
+  // changes (HA replaces hass.entities on registry updates). Without this
+  // cache the method did a full O(n) entity scan on every call, including
+  // inside _relevantStateChanged() on every HA state change while the
+  // inventory pane was active.
+  private _drinksCache: { substance: 'caffeine' | 'alcohol'; entitiesRef: object; drinks: DrinkInfo[] } | null = null;
+
   // In-flight fetch management (#3 + #4):
   //  - Separate per-fetch-type tokens prevent cross-stream invalidation. When
   //    both _fetchAmountHistory and _fetchDoseHistory fire on pane entry, a
@@ -148,6 +148,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   private _amountFetchToken: number = 0;
   private _doseFetchToken: number = 0;
   private _effectivenessFetchToken: number = 0;
+
+  // Debounce timer for graphs-pane history re-fetch on hass change. Rapid
+  // successive state changes (e.g. take-pill + state propagation) coalesce
+  // into one fetch after the debounce delay instead of firing 3 fetches
+  // (2 of which hit the recorder DB) per state change. The per-fetch race-
+  // guard tokens still discard stale results from superseded fetches.
+  private _graphsRefetchTimer: number | null = null;
+  private static readonly GRAPHS_REFETCH_DEBOUNCE_MS = 500;
 
   // ── Configuration ──────────────────────────
 
@@ -215,10 +223,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     return result;
   }
 
-  /** Force the next _resolveEntities() call to re-scan. */
+  /** Force the next _resolveEntities() call to re-scan. Also clears the
+   *  drinks-of-substance cache so a device_id change re-scans granular drinks. */
   private _invalidateEntityCache(): void {
     this._resolvedEntities = null;
     this._resolvedEntitiesRef = null;
+    this._drinksCache = null;
   }
 
   private _computeEntities(deviceId: string): ResolvedEntities {
@@ -342,19 +352,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         // the last-dose timestamp (single source of truth), so the Daily
         // panel's computeTimeSinceLastDose helper works unchanged for masters.
         else if (masterRole === 'last_dose') result.lastDose = entityId;
-        // Days-left inventory-burn sensor — Master Tracker aggregates every
-        // granular drink inventory of its substance. The backend always sets
-        // estimation=true on the master variant (empirical 7-day avg), so the
-        // Stats row uses the "Est. days left" label.
-        else if (masterRole === 'days_left') {
-          result.daysLeft = entityId;
-          result.daysLeftEst = true;
-        }
-        // totalDoses maps to the body-mass sensor, which still carries the
-        // dose_count attribute for the Stats panel's total-doses row.
-        if (this._getAttr(entityId, 'dose_count') !== undefined && this._getAttr(entityId, 'pk_model')) {
-          result.totalDoses = entityId;
-        }
+        // The Master Tracker no longer has a days-left sensor (removed in
+        // backend v14 — the aggregate has no single inventory). The per-
+        // granular-drink DrinkDaysLeftSensor powers the Inventory panel's
+        // per-drink "Est. days left" 2nd line instead. Do NOT map a master
+        // days_left role here — the Stats panel's `if (e.daysLeft)` guard
+        // then skips the row for master devices.
+        //
+        // The Master Tracker also has no dedicated "Total Doses" sensor.
+        // The body-mass sensor (amountInBody, mapped above) carries a
+        // dose_count attribute, but surfacing it as a "Total Doses" Stats
+        // box on the aggregate device is misleading — the box is omitted
+        // for master devices by NOT mapping totalDoses here. Medicine
+        // devices still map totalDoses via the `_total_doses` suffix above.
       } else if (dt === 'drink') {
         isGranularDrink = true;
         const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
@@ -380,14 +390,32 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   // ── Chip Helpers ───────────────────────────
 
-  private _getChipEntities(): Array<{ entityId: string; label?: string }> {
+  // Enumerate configured Daily-panel custom chips (chip_1..4 + icon/label +
+  // 3 ui_action overrides).  Each chip now carries the full override suite
+  // mirroring the Safe to Take / Pills Left box pattern: entity + label +
+  // icon + tap/hold/double_tap actions.  The panel passes the configs back to
+  // handleChipAction on click/hold/double-tap.
+  private _getChipEntities(): ChipConfig[] {
     if (!this.config) return [];
-    const chips: Array<{ entityId: string; label?: string }> = [];
+    const chips: ChipConfig[] = [];
     for (const key of ['chip_1', 'chip_2', 'chip_3', 'chip_4'] as const) {
       const val = this.config[key];
       if (val) {
         const labelKey = `${key}_label` as keyof AxDoseLoggerCardConfig;
-        chips.push({ entityId: val, label: this.config[labelKey] as string | undefined });
+        const iconKey = `${key}_icon` as keyof AxDoseLoggerCardConfig;
+        const showIconKey = `${key}_show_icon` as keyof AxDoseLoggerCardConfig;
+        const tapKey = `${key}_tap_action` as keyof AxDoseLoggerCardConfig;
+        const holdKey = `${key}_hold_action` as keyof AxDoseLoggerCardConfig;
+        const dblKey = `${key}_double_tap_action` as keyof AxDoseLoggerCardConfig;
+        chips.push({
+          entityId: val,
+          label: this.config[labelKey] as string | undefined,
+          icon: this.config[iconKey] as string | undefined,
+          showIcon: this.config[showIconKey] === true,
+          tapAction: this.config[tapKey] as ActionConfig | undefined,
+          holdAction: this.config[holdKey] as ActionConfig | undefined,
+          doubleTapAction: this.config[dblKey] as ActionConfig | undefined,
+        });
       }
     }
     return chips;
@@ -573,14 +601,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // ── Computed Values: Timeframe ─────────────
 
   private _getTimeframeHours(): number {
-    switch (this._activeTimeframe) {
-      case '12h': return 12;
-      case '24h': return 24;
-      case '7d': return 168;
-      case '14d': return 336;
-      case '30d': return 720;
-      default: return 48;
-    }
+    // Delegates to the shared helper so the container + graphs panel use the
+    // same timeframe→hours mapping without duplicating the switch.
+    return getTimeframeHoursHelper(this._activeTimeframe);
   }
 
   // ── Actions ────────────────────────────────
@@ -691,6 +714,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // pk_model. Avg sensors also carry window_days to distinguish 7/365.
   private _getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[] {
     if (!this.hass) return [];
+    // Cache hit: if the substance + entity-registry reference are unchanged
+    // since the last scan, return the cached result. DrinkInfo stores only
+    // entity IDs (stable), so the cache is valid until the registry reference
+    // changes or is explicitly invalidated.
+    const entitiesRef = this.hass.entities;
+    if (
+      this._drinksCache &&
+      this._drinksCache.substance === substance &&
+      this._drinksCache.entitiesRef === entitiesRef
+    ) {
+      return this._drinksCache.drinks;
+    }
     const byDevice: Record<string, DrinkInfo> = {};
     for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
       if (entityInfo.platform !== 'ax_dose_logger') continue;
@@ -721,10 +756,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           if (wd === 7) info.avg7EntityId = entityId;
           else if (wd === 365) info.avg365EntityId = entityId;
         }
+        // Per-granular-drink "Est. days left" sensor (DrinkDaysLeftSensor).
+        // Powers the Inventory panel's col-1 2nd line.
+        else if (role === 'days_left') info.daysLeftEntityId = entityId;
       }
       byDevice[deviceId] = info;
     }
-    return Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+    const result = Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+    // Cache the scan result so subsequent calls (e.g. _relevantStateChanged
+    // on every HA state change while inventory pane is active) skip the scan.
+    this._drinksCache = { substance, entitiesRef, drinks: result };
+    return result;
   }
 
   // Days-since reveal for a granular drink, reading the history_start_date
@@ -904,7 +946,13 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public getStrengthUnit(entities: ResolvedEntities): string { return this._getStrengthUnit(entities); }
   public getMedName(entities: ResolvedEntities): string { return this._getMedName(entities); }
   public getSafeBoxEntity(entities: ResolvedEntities): string | undefined { return this._getSafeBoxEntity(entities); }
-  public getChipEntities(): Array<{ entityId: string; label?: string }> { return this._getChipEntities(); }
+  public getChipEntities(): ChipConfig[] { return this._getChipEntities(); }
+  public handleChipAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+  ): void { this._handleChipAction(e as MouseEvent | null, kind, cfg, entity); }
   public formatInteger(value: string): string { return this._formatInteger(value); }
   public computeNextDose(entities: ResolvedEntities): string { return this._computeNextDose(entities); }
   public computeOverTime(entities: ResolvedEntities): string | null { return this._computeOverTime(entities); }
@@ -951,7 +999,13 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     entity?: string,
     fallback?: () => void,
   ): void { this._handleDisruptionBoxAction(e as MouseEvent | null, kind, cfg, entity, fallback); }
-  public getDrinkChipEntities(): Array<{ entityId: string; label?: string }> { return this._getDrinkChipEntities(); }
+  public getDrinkChipEntities(): ChipConfig[] { return this._getDrinkChipEntities(); }
+  public handleDrinkChipAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+  ): void { this._handleDrinkChipAction(e as MouseEvent | null, kind, cfg, entity); }
   public handleTimeframeChange(timeframe: string): void { this._handleTimeframeChange(timeframe); }
   public handleBarTimeframeChange(timeframe: string): void {
     if (timeframe === this._activeBarTimeframe) return;
@@ -1239,6 +1293,32 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // hold/double_tap with no config and no fallback → no-op.
   }
 
+  // ── Custom chips (Daily panel) ─────────────────────────
+
+  // Fire the configured tap/hold/double-tap action for a Daily-panel custom
+  // chip.  Mirrors _handleSafeBoxAction: custom ActionConfig → handleAction;
+  // no tap config → more-info on the chip entity (user-confirmed default, same
+  // as the Safe to Take box).  hold/double_tap with no config are no-ops.
+  // Separate method (not a refactor of _handleSafeBoxAction) to avoid any
+  // regression risk on the working Safe to Take path.
+  private _handleChipAction(
+    _e: MouseEvent | null,
+    action: 'tap' | 'hold' | 'double_tap',
+    config: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    chipEntity: string | undefined,
+  ): void {
+    if (!this.hass) return;
+    const actionKey = `${action}_action` as 'tap_action' | 'hold_action' | 'double_tap_action';
+    const actionConfig = config[actionKey];
+    if (actionConfig) {
+      handleAction(this, this.hass, config, action);
+    } else if (action === 'tap' && chipEntity) {
+      // No custom tap action → default to more-info on the chip entity.
+      this._openMoreInfo(chipEntity);
+    }
+    // hold/double_tap with no config → no-op.
+  }
+
   // Resolve the entity to display in the Pills Left box. Priority:
   //   1. pills_left_show_days_left === true → backend days_left sensor
   //      (the toggle is a first-class built-in swap; wins over a configured
@@ -1360,17 +1440,57 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   // ── Drinks panel custom chips ─────────────────────────
 
-  // Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + labels).
-  // Parallel to _getChipEntities but reads the drink_chip_* config namespace
-  // so the Daily and Drinks panels' chip configs stay fully independent.
-  private _getDrinkChipEntities(): Array<{ entityId: string; label?: string }> {
+  // Fire the configured tap/hold/double-tap action for a Drinks-panel custom
+  // chip.  Mirrors _handleChipAction (which mirrors _handleSafeBoxAction):
+  // custom ActionConfig → handleAction; no tap config → more-info on the chip
+  // entity.  hold/double_tap with no config are no-ops.  Separate method (not
+  // a refactor of _handleChipAction) to keep the two panels' action paths
+  // independent (mirrors the _handleInBodyBoxAction / _handleDisruptionBoxAction
+  // separation from _handleSafeBoxAction / _handlePillsLeftBoxAction).
+  private _handleDrinkChipAction(
+    _e: MouseEvent | null,
+    action: 'tap' | 'hold' | 'double_tap',
+    config: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    chipEntity: string | undefined,
+  ): void {
+    if (!this.hass) return;
+    const actionKey = `${action}_action` as 'tap_action' | 'hold_action' | 'double_tap_action';
+    const actionConfig = config[actionKey];
+    if (actionConfig) {
+      handleAction(this, this.hass, config, action);
+    } else if (action === 'tap' && chipEntity) {
+      // No custom tap action → default to more-info on the chip entity.
+      this._openMoreInfo(chipEntity);
+    }
+    // hold/double_tap with no config → no-op.
+  }
+
+
+  // Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + icon/
+  // label + 3 ui_action overrides).  Parallel to _getChipEntities but reads
+  // the drink_chip_* config namespace so the Daily and Drinks panels' chip
+  // configs stay fully independent.
+  private _getDrinkChipEntities(): ChipConfig[] {
     if (!this.config) return [];
-    const chips: Array<{ entityId: string; label?: string }> = [];
+    const chips: ChipConfig[] = [];
     for (const key of ['drink_chip_1', 'drink_chip_2', 'drink_chip_3', 'drink_chip_4'] as const) {
       const val = this.config[key];
       if (val) {
         const labelKey = `${key}_label` as keyof AxDoseLoggerCardConfig;
-        chips.push({ entityId: val, label: this.config[labelKey] as string | undefined });
+        const iconKey = `${key}_icon` as keyof AxDoseLoggerCardConfig;
+        const showIconKey = `${key}_show_icon` as keyof AxDoseLoggerCardConfig;
+        const tapKey = `${key}_tap_action` as keyof AxDoseLoggerCardConfig;
+        const holdKey = `${key}_hold_action` as keyof AxDoseLoggerCardConfig;
+        const dblKey = `${key}_double_tap_action` as keyof AxDoseLoggerCardConfig;
+        chips.push({
+          entityId: val,
+          label: this.config[labelKey] as string | undefined,
+          icon: this.config[iconKey] as string | undefined,
+          showIcon: this.config[showIconKey] === true,
+          tapAction: this.config[tapKey] as ActionConfig | undefined,
+          holdAction: this.config[holdKey] as ActionConfig | undefined,
+          doubleTapAction: this.config[dblKey] as ActionConfig | undefined,
+        });
       }
     }
     return chips;
@@ -1736,6 +1856,37 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     `;
   }
 
+  // ── Pre-Render Auto-Fallback ───────────────
+
+  /**
+   * Lit calls willUpdate() BEFORE render(), so reactive property mutations
+   * here are safe and reflected in the same render pass. This is the correct
+   * place for the auto-fallback logic that was previously mutating
+   * this._activePane inside render() — Lit's docs explicitly say "Do not
+   * update reactive properties in render()."
+   *
+   * Auto-fallback rules:
+   *  - tracking pane with no metrics → daily (metrics removed in options flow)
+   *  - master-tracker pane on a medicine device → daily (device switched)
+   *  - medicine pane on a master tracker → drinks (device switched)
+   * Granular drink devices render a placeholder (handled in render() before
+   * this logic matters) so they're skipped here.
+   */
+  protected willUpdate(changedProps: PropertyValues): void {
+    if (!this.config || !this.hass) return;
+    if (!(changedProps.has('_activePane') || changedProps.has('config') || changedProps.has('hass'))) return;
+    const entities = this._resolveEntities();
+    if (entities.deviceType === 'drink') return; // granular drink → placeholder, no fallback
+    if (this._activePane === 'tracking' && entities.metrics.length === 0) {
+      this._activePane = 'daily';
+    }
+    const isMaster = entities.deviceType === 'drink_master';
+    const masterPanes = ['drinks', 'inventory'];
+    const medicinePanes = ['daily', 'tracking'];
+    if (isMaster && medicinePanes.includes(this._activePane)) this._activePane = 'drinks';
+    if (!isMaster && masterPanes.includes(this._activePane)) this._activePane = 'daily';
+  }
+
   // ── Main Render ────────────────────────────
 
   render() {
@@ -1749,7 +1900,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         <ha-card>
           <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
             <ha-icon icon="mdi:cog" style="--mdc-icon-size: 48px; opacity: 0.5; margin-bottom: 12px;"></ha-icon>
-            <div style="font-size: 16px; font-weight: 500; color: var(--primary-text-color);">${localize(this._lang, 'card.placeholder_title')}</div>
+            <div style="font-size: 16px; font-weight: calc(500 * var(--pill-font-weight-boost, 1)); color: var(--primary-text-color);">${localize(this._lang, 'card.placeholder_title')}</div>
             <div style="font-size: 14px; color: var(--secondary-text-color);">${localize(this._lang, 'card.placeholder_subtitle')}</div>
           </div>
         </ha-card>
@@ -1766,7 +1917,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         ? localize(this._lang, 'drinks.redirect_alcohol')
         : localize(this._lang, 'drinks.redirect_caffeine');
       return html`
-        <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
+        <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
           <div class="card-content">
             <div class="caffeine-placeholder">
               <ha-icon icon=${entities.substance === 'alcohol' ? 'mdi:glass-wine' : 'mdi:coffee'}></ha-icon>
@@ -1777,29 +1928,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       `;
     }
 
-    // Auto-fallback: if the user is on the tracking pane but no tracking items exist
-    // (e.g. they were removed in the options flow), fall back to the daily pane.
-    if (this._activePane === 'tracking' && entities.metrics.length === 0) {
-      this._activePane = 'daily';
-    }
-    // Auto-fallback: master-tracker panes only exist on master trackers;
-    // medicine-only panes only exist on medicine devices. If the device was
-    // switched (or a stale _activePane lingers from a prior device), bounce
-    // to the device's first pane.
-    const isMaster = entities.deviceType === 'drink_master';
-    const masterPanes: Array<string> = ['drinks', 'inventory'];
-    const medicinePanes: Array<string> = ['daily', 'tracking'];
-    if (isMaster && medicinePanes.includes(this._activePane)) this._activePane = 'drinks';
-    if (!isMaster && masterPanes.includes(this._activePane)) this._activePane = 'daily';
+    // Auto-fallback now handled in willUpdate() (mutating @state in render()
+    // violates Lit's contract). The device-type / metrics guards there ensure
+    // this._activePane always points at a valid pane for the current device
+    // before render() runs.
 
     return html`
-      <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'};">
+      <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
         <div class="card-content">
-          ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-daily-panel>` : nothing}
+          ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-daily-panel>` : nothing}
           ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : nothing}
-          ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-stats-panel>` : nothing}
-          ${this._activePane === 'drinks' ? html`<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-drinks-panel>` : nothing}
-          ${this._activePane === 'inventory' ? html`<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-inventory-panel>` : nothing}
+          ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : nothing}
+          ${this._activePane === 'drinks' ? html`<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-drinks-panel>` : nothing}
+          ${this._activePane === 'inventory' ? html`<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-inventory-panel>` : nothing}
           ${this._activePane === 'tools' ? html`<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : nothing}
           ${this._activePane === 'tracking' ? html`<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : nothing}
         </div>
@@ -1819,17 +1960,21 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   connectedCallback(): void {
     super.connectedCallback();
-    // Inject CSS into ha-form shadow roots to align entity picker + text field
-    // pairs in grid containers. The implementation lives in the editor module
-    // (src/ax-dose-logger-editor.ts) since this is editor-only logic.
-    installEditorGridAlignment();
     // Reset to defaults on every connection. With ll-rebuild removed (#16),
     // the element is no longer destroyed/recreated on pane switch, so @state
     // survives naturally. The only time connectedCallback fires is on a
     // genuine view entry (navigate to the dashboard) or initial load — both
     // should start on the daily pane. Lit auto-renders on the @state
     // mutations below, so no manual requestUpdate() is needed (#17).
-    this._activePane = 'daily';
+    // Apply configured default pane, validated against the 7 valid pane IDs.
+    // Invalid/unset falls back to 'daily'. The render-time auto-fallback
+    // (see render()) handles device-type mismatches (e.g. 'drinks' on a
+    // medicine device bounces to 'daily'), so no extra validation here.
+    const validPanes = ['daily', 'graphs', 'stats', 'drinks', 'inventory', 'tools', 'tracking'];
+    const configuredView = this.config?.default_view;
+    this._activePane = (configuredView && validPanes.includes(configuredView))
+      ? (configuredView as 'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking')
+      : 'daily';
     this._activeGraph = 0;
     // Apply configured default timescale for the Amount in Body graph,
     // falling back to '48h' if unset or invalid. Useful for medications
@@ -1861,6 +2006,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._sleepDisruptionSubstance = null;
     this._toolsDialog = null;
     this._overrideDialog = null;
+    // Clear pending tracking flags so stale entries from a prior session
+    // (set_value calls that never got confirmed by HA before disconnect)
+    // don't suppress the override dialog on the next tracking change.
+    this._pendingTracking.clear();
 
     // Start a 30s tick so time-relative panes (daily/stats) refresh their
     // "Xh XXm" countdowns. Previously the whole card re-rendered on every
@@ -1878,6 +2027,13 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._amountFetchToken++;
     this._doseFetchToken++;
     this._effectivenessFetchToken++;
+    // Cancel any pending debounced graphs re-fetch so it doesn't fire after
+    // the card is detached (the token bumps above would discard its result
+    // anyway, but cancelling the timer avoids a needless detached fetch).
+    if (this._graphsRefetchTimer !== null) {
+      window.clearTimeout(this._graphsRefetchTimer);
+      this._graphsRefetchTimer = null;
+    }
   }
 
   private _startTickTimer(): void {
@@ -1934,8 +2090,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       // resolved predictions live in _drinkLowPredictions; without these in the
       // whitelist, shouldUpdate returns false on the async mutation and the
       // popup stays on "Low: …" until the next unrelated re-render (~20s).
+      // (_predictLowToken is NOT here — it's a plain race-guard field, not
+      // @state(), so it has no rendering impact and shouldn't trigger shouldUpdate.)
       '_drinkLowPredictions',
-      '_predictLowToken',
       '_showSleepDisruptionDialog',
       '_sleepDisruptionSubstance',
       '_toolsDialog',
@@ -1996,6 +2153,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         if (d.addStockEntityId) watchedIds.push(d.addStockEntityId);
         if (d.avg7EntityId) watchedIds.push(d.avg7EntityId);
         if (d.avg365EntityId) watchedIds.push(d.avg365EntityId);
+        if (d.daysLeftEntityId) watchedIds.push(d.daysLeftEntityId);
       }
     }
     const cur = this.hass.states;
@@ -2036,16 +2194,29 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         // total, amountInBody, an effectiveness number — actually updated, not a
         // system-wide state tick). Re-fetch so the bar/line/effectiveness graphs
         // reflect a just-taken dose (or undo/reset) without requiring the user to
-        // navigate away and back. The per-fetch race-guard tokens discard any
-        // in-flight stale results after their `await` resolves, and the REST
-        // endpoint reads in-memory store data (no DB query), so this is cheap.
+        // navigate away and back. Debounced so rapid successive state changes
+        // (e.g. take-pill + immediate state propagation) coalesce into one fetch
+        // instead of 3 fetches per change — 2 of which hit the recorder DB via
+        // the history/period endpoint. The per-fetch race-guard tokens discard
+        // stale results from superseded fetches. The dose-history fetch
+        // (ax_dose_logger/history/ custom endpoint) is in-memory, but it's
+        // bundled with the DB-backed fetches for simplicity.
         // Note: this branch does NOT fire on the _tick timer (shouldUpdate
         // excludes _tick for the graphs pane), so there is no periodic polling.
-        this._fetchDoseHistory(entities);
-        this._fetchAmountHistory(entities);
-        if (entities.metrics.length) {
-          this._fetchEffectivenessHistory(entities);
+        if (this._graphsRefetchTimer !== null) {
+          window.clearTimeout(this._graphsRefetchTimer);
         }
+        this._graphsRefetchTimer = window.setTimeout(() => {
+          this._graphsRefetchTimer = null;
+          // Re-resolve entities inside the timeout in case the device changed
+          // during the debounce window (unlikely but defense-in-depth).
+          const e = this._resolveEntities();
+          this._fetchDoseHistory(e);
+          this._fetchAmountHistory(e);
+          if (e.metrics.length) {
+            this._fetchEffectivenessHistory(e);
+          }
+        }, AxDoseLoggerCard.GRAPHS_REFETCH_DEBOUNCE_MS);
       }
     }
     // Clean up _pendingTracking: once HA confirms logged_today=true for an
@@ -2093,6 +2264,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // The ~280-line schema + computeLabel/computeHelper callbacks live in the
     // editor module (src/ax-dose-logger-editor.ts) so the main card file stays
     // focused on runtime dashboard logic. HA renders <ha-form> from this schema.
+    // Install the grid-alignment CSS observer here (only when the user opens
+    // the visual editor), not in connectedCallback (which fired on every
+    // dashboard load for every card instance and never disconnected the
+    // observer → memory leak + needless document-wide DOM scanning). The
+    // observer auto-cleans when the editor dialog closes.
+    installEditorGridAlignment();
     return buildEditorForm();
   }
 
@@ -2108,6 +2285,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   static styles = css`
     :host {
       display: block;
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
 
     *, *::before, *::after {
@@ -2147,6 +2325,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       color: var(--secondary-text-color, #666);
       font-size: calc(16px + var(--pill-text-offset, 0px));
       font-family: inherit;
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
       cursor: pointer;
       transition: color 0.2s, background 0.2s, box-shadow 0.2s;
       border-bottom: 2px solid transparent;
@@ -2166,7 +2345,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     .pane-btn.active {
       color: var(--primary-color, #03a9f4);
       border-bottom-color: var(--primary-color, #03a9f4);
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
     }
 
     .pane-btn ha-icon {
@@ -2191,7 +2370,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
        renamed the slot to "header". Using the slot element works on both. */
     .dialog-header {
       font-size: 1.5rem;
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
       text-align: center;
     }
@@ -2219,7 +2398,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
       font-size: 16px;
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       font-family: inherit;
       cursor: pointer;
       transition: background 0.2s;
@@ -2252,7 +2431,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
 
     .log-drink-name {
-      font-weight: 550;
+      font-weight: calc(550 * var(--pill-font-weight-boost, 1));
       text-align: center;
     }
     /* Predicted Low-band timestamp under each drink name ("Low: hh:mm" /
@@ -2260,7 +2439,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
        above the Low band). Muted + smaller so the name stays primary. */
     .log-drink-low {
       font-size: calc(12px + var(--pill-text-offset, 0px));
-      font-weight: 400;
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
       color: var(--secondary-text-color, rgba(0,0,0,0.5));
       text-align: center;
     }

@@ -22,6 +22,10 @@ export class AxDoseStatsPanel extends LitElement {
   // remounted on a pane switch, so live changes (e.g. take-pill) did not
   // appear until the user navigated away and back.
   @property({ attribute: false }) hass?: AxDoseLoggerHass;
+  // 30s tick from the container — a reactive trigger so the panel re-renders
+  // to refresh time-relative rows even when hass/entities/controller refs are
+  // unchanged. The panel doesn't read this value; it just needs to change.
+  @property({ attribute: false }) tick: number = 0;
 
   private get _lang(): string {
     return this.controller.lang;
@@ -115,7 +119,10 @@ export class AxDoseStatsPanel extends LitElement {
       let display = '-';
       if (v && v !== 'unknown' && v !== 'unavailable' && v !== 'None') {
         const num = parseFloat(v);
-        if (!isNaN(num)) display = num + ' h';
+        // No unit suffix — the "Low - Hours Until" label already conveys the
+        // unit (hours). The backend keeps UnitOfTime.HOURS for automations /
+        // history; the card surfaces only the numeric value.
+        if (!isNaN(num)) display = String(num);
       }
       rows.push({ label: localize(this._lang, 'stats.low_hours_until'), value: display, icon: 'mdi:timer-sand', entityId: e.lowHoursUntil });
     }
@@ -144,6 +151,9 @@ export class AxDoseStatsPanel extends LitElement {
   }
 
   static styles = css`
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .pane-stats {
       display: flex;
       flex-direction: column;
@@ -203,7 +213,7 @@ export class AxDoseStatsPanel extends LitElement {
 
     .stat-cell-value {
       font-size: calc(18px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
     }
   `;

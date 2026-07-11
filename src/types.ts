@@ -18,14 +18,39 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   device_id?: string;
   name?: string;
   color_scheme?: string;
+  // ── Custom Chips (Daily Panel) — per-chip full override suite ──
+  // Each chip_N pair (entity + label) is now joined by an icon + 3 ui_action
+  // overrides, mirroring the Safe to Take / Pills Left box pattern.  The
+  // editor nests each chip inside its own collapsable "Chip N" expandable so
+  // the full suite does not clutter the editor.
   chip_1?: string;
   chip_1_label?: string;
+  chip_1_icon?: string;
+  chip_1_show_icon?: boolean;
+  chip_1_tap_action?: ActionConfig;
+  chip_1_hold_action?: ActionConfig;
+  chip_1_double_tap_action?: ActionConfig;
   chip_2?: string;
   chip_2_label?: string;
+  chip_2_icon?: string;
+  chip_2_show_icon?: boolean;
+  chip_2_tap_action?: ActionConfig;
+  chip_2_hold_action?: ActionConfig;
+  chip_2_double_tap_action?: ActionConfig;
   chip_3?: string;
   chip_3_label?: string;
+  chip_3_icon?: string;
+  chip_3_show_icon?: boolean;
+  chip_3_tap_action?: ActionConfig;
+  chip_3_hold_action?: ActionConfig;
+  chip_3_double_tap_action?: ActionConfig;
   chip_4?: string;
   chip_4_label?: string;
+  chip_4_icon?: string;
+  chip_4_show_icon?: boolean;
+  chip_4_tap_action?: ActionConfig;
+  chip_4_hold_action?: ActionConfig;
+  chip_4_double_tap_action?: ActionConfig;
   show_amount_in_body?: boolean;
   amount_in_body_default_timeframe?: string;
   show_day_avg_boxes?: boolean;
@@ -33,6 +58,12 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   stats_3_columns?: boolean;
   big_text?: boolean;
   hide_nav_bar?: boolean;
+  bold_text?: boolean;
+  /** Default pane shown when the card loads. One of:
+   *  'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking'.
+   *  Falls back to 'daily' when unset/invalid or when the pane is invalid for
+   *  the bound device type (handled by the render-time auto-fallback). */
+  default_view?: string;
   take_pill_icon?: string;
   take_pill_label?: string;
   safe_to_take_entity?: string;
@@ -71,14 +102,38 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   disruption_tap_action?: ActionConfig;
   disruption_hold_action?: ActionConfig;
   disruption_double_tap_action?: ActionConfig;
+  // ── Custom Chips (Drinks Panel) — per-chip full override suite ──
+  // Mirrors the Daily Panel chip_* fields above.  Separate namespace so the
+  // two panels' chip configs stay fully independent (a card is bound to one
+  // device, but shared fields would carry over confusingly on device switch).
   drink_chip_1?: string;
   drink_chip_1_label?: string;
+  drink_chip_1_icon?: string;
+  drink_chip_1_show_icon?: boolean;
+  drink_chip_1_tap_action?: ActionConfig;
+  drink_chip_1_hold_action?: ActionConfig;
+  drink_chip_1_double_tap_action?: ActionConfig;
   drink_chip_2?: string;
   drink_chip_2_label?: string;
+  drink_chip_2_icon?: string;
+  drink_chip_2_show_icon?: boolean;
+  drink_chip_2_tap_action?: ActionConfig;
+  drink_chip_2_hold_action?: ActionConfig;
+  drink_chip_2_double_tap_action?: ActionConfig;
   drink_chip_3?: string;
   drink_chip_3_label?: string;
+  drink_chip_3_icon?: string;
+  drink_chip_3_show_icon?: boolean;
+  drink_chip_3_tap_action?: ActionConfig;
+  drink_chip_3_hold_action?: ActionConfig;
+  drink_chip_3_double_tap_action?: ActionConfig;
   drink_chip_4?: string;
   drink_chip_4_label?: string;
+  drink_chip_4_icon?: string;
+  drink_chip_4_show_icon?: boolean;
+  drink_chip_4_tap_action?: ActionConfig;
+  drink_chip_4_hold_action?: ActionConfig;
+  drink_chip_4_double_tap_action?: ActionConfig;
 }
 
 // Extends the official HomeAssistant type from custom-card-helpers with the
@@ -175,6 +230,26 @@ export interface DrinkInfo {
   addStockEntityId?: string;
   avg7EntityId?: string;
   avg365EntityId?: string;
+  /** Per-granular-drink "Est. days left" sensor (DrinkDaysLeftSensor,
+   *  role=days_left). Powers the Inventory panel's col-1 2nd line. */
+  daysLeftEntityId?: string;
+}
+
+/**
+ * Per-chip configuration surfaced to the panel render by
+ * CardController.getChipEntities() / getDrinkChipEntities().  Mirrors the box
+ * override pattern: entity + label + icon + 3 ui_action configs.  The panel
+ * reads the configured overrides and passes them back to handleChipAction /
+ * handleDrinkChipAction on click/hold/double-tap.
+ */
+export interface ChipConfig {
+  entityId: string;
+  label?: string;
+  icon?: string;
+  showIcon?: boolean;
+  tapAction?: ActionConfig;
+  holdAction?: ActionConfig;
+  doubleTapAction?: ActionConfig;
 }
 
 export interface DayBucket {
@@ -235,9 +310,11 @@ export interface CardController {
   /** Resolve the entity to display in the Drinks panel Disruption box:
    *  disruption_mode (low_timestamp / low_hours_until) > swapped entity > default sleepDisruption sensor. */
   getDisruptionBoxEntity(entities: ResolvedEntities): string | undefined;
-  getChipEntities(): Array<{ entityId: string; label?: string }>;
+  /** Per-chip configuration surfaced to the panel render.  Mirrors the box
+   *  override pattern: entity + label + icon + 3 ui_action configs. */
+  getChipEntities(): ChipConfig[];
   /** Enumerate configured Drinks-panel custom chips (drink_chip_1..4 + labels). */
-  getDrinkChipEntities(): Array<{ entityId: string; label?: string }>;
+  getDrinkChipEntities(): ChipConfig[];
   formatInteger(value: string): string;
   computeNextDose(entities: ResolvedEntities): string;
   computeOverTime(entities: ResolvedEntities): string | null;
@@ -326,6 +403,22 @@ export interface CardController {
     cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
     entity?: string,
     fallback?: () => void,
+  ): void;
+  /** Dispatch a Daily-panel custom chip tap/hold/double-tap action
+   *  (handleAction or more-info fallback on the chip entity). */
+  handleChipAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
+  ): void;
+  /** Dispatch a Drinks-panel custom chip tap/hold/double-tap action
+   *  (handleAction or more-info fallback on the chip entity). */
+  handleDrinkChipAction(
+    e: Event | null,
+    kind: 'tap' | 'hold' | 'double_tap',
+    cfg: { entity?: string; tap_action?: ActionConfig; hold_action?: ActionConfig; double_tap_action?: ActionConfig },
+    entity?: string,
   ): void;
   /** Line-graph timeframe chip click. */
   handleTimeframeChange(timeframe: string): void;

@@ -2564,3 +2564,416 @@ Three related frontend changes to the Master Tracker (Caffeine / Alcohol) Stats 
 - [x] Step 6: Verify markdown — `search_files` confirmed all 3 insertions (top badge, section heading, section badge) present with correct link syntax pointing to `https://ko-fi.com/axildor`
 - [x] Step 7: Update memory-bank files (frontend activeContext.md + progress.md)
 - Key decisions: (1) Two touchpoints — compact badge near top (low friction, high visibility) + dedicated section near end (context + conversion); (2) Top badge uses `flat-square` style (unobtrusive), section badge uses `for-the-badge` style (primary CTA); (3) Badge color `FF5E5B` (Ko-fi brand red) with white ko-fi logo; (4) Condensed blurb distills the user's Ko-fi page into two conversion-optimized sentences; (5) Top badge placed after the intro paragraph (not the very first thing readers see); (6) Support section placed before License (standard open-source convention); (7) Documentation-only change — no source code, localize, types, editor, or build artifact changes; no `yarn run build` needed (README is not compiled).
+
+---
+
+## Take Pill Sub-Line Next-Label Fix (2026-07-11)
+
+**Feature:** Restructure the Take Pill button sub-line in [`daily-panel.ts`](src/components/daily-panel.ts:131) so the `Next:` segment renders in **all** branches whenever a useful next-dose value exists. Reported by user: Brintellix (cyclic, every-other-day) showed only `Last: 31h 40m` on the Take Pill button with no `Next:` segment, even though [`sensor.brintellix_next_dose`](../../Home-Assistant-Pill-Logger/custom_components/ax_dose_logger/sensors/next_dose.py) correctly reported `2026-07-11T06:00:00+00:00`.
+
+**Root cause:** the sub-line template at [`daily-panel.ts:131`](src/components/daily-panel.ts:131) was a 4-branch ternary. The user's pill was in the **safe + not overdue** branch (`safe_to_take=1`, `overdue=0`), which rendered only `Last: X` — the `Next:` segment was wired only into the limit-reached branch. The "24h limit is up" was a red herring: the 31h-old dose is *outside* the 24h window, so safety correctly reset to 1; the next_dose sensor was correct, but the template never printed it in the safe branches.
+
+### Steps
+- [x] Step 1: Investigate — read [`daily-panel.ts`](src/components/daily-panel.ts:1) sub-line template (lines 131-137), confirmed the 4-branch matrix and that the safe branches omit `Next:`.
+- [x] Step 2: Investigate — read [`ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts:461) `_computeNextDose` (returns `'Unavailable'` for unavailable/unknown, `'now'` for past-due) and `_computeOverTime` to confirm the guard semantics.
+- [x] Step 3: Write architecture plan — [`../../Home-Assistant-Pill-Logger/plans/two-bugs-next-label-and-cyclic-days-left-plan.md`](../../Home-Assistant-Pill-Logger/plans/two-bugs-next-label-and-cyclic-days-left-plan.md:1) (covers the paired backend cyclic days-left fix too).
+- [x] Step 4: Implement — replaced the 4-branch ternary with a unified 2-segment structure: always render `Last:` first, then conditionally append `• Overdue: X` (when `overTime` truthy) or `• Next: Y` (when `nextDose !== 'Unavailable'`), or `nothing`. Fixes both safe branches in one edit.
+- [x] Step 5: Verify — `yarn run build` clean (`dist/ax-dose-logger-card.js` created in 3.6s, exit 0).
+- [x] Step 6: Update memory-bank — [`activeContext.md`](memory-bank/activeContext.md:1) new Current Status + archive previous; [`progress.md`](memory-bank/progress.md:1) this section.
+- [x] Step 7: No README change (internal UX tweak — the card README documents installation/config, not sub-line display rules). No `projectstructure.md` change (no files added/renamed/deleted).
+
+**Key decisions:**
+1. **Always show Last + one of {Overdue, Next}** — the prior safe+overdue branch showed only `Overdue:`, dropping last-dose context. The new structure mirrors the limit-reached+overdue branch (which always shows `Last: X • Overdue: Y`), making the "always show Last" convention consistent across all four states.
+2. **Guard is `nextDose !== 'Unavailable'`** — a past or `'now'` next-dose is informative (dose window opened), so only the unavailable sentinel suppresses the segment. Matches the existing `_computeNextDose` contract.
+3. **`isLimitReached` no longer affects the sub-line** — limit state now only controls button color/label (`danger` class + "LIMIT REACHED" label at lines 123-130), not sub-line content. Sub-line is purely time-context (Last/Next/Overdue) — correct separation of concerns.
+4. **No backend change for this bug** — the next_dose sensor was already correct; purely a frontend display omission.
+
+---
+
+## Low - Hours Until Redundant Unit Suffix Removal (2026-07-11)
+
+**Feature:** Remove the redundant ` h` unit suffix from both card surfaces that render the "Low - Hours Until" value, since the label itself ("Low - Hours Until") already conveys the unit. User-reported: the box displayed e.g. `3.5 h` even though "Hours Until" in the label makes the ` h` redundant — mirrors the same refinement already applied to the Days Left row (where the "Days left" label conveys the unit and no ` d` suffix is appended).
+
+### Steps
+- [x] Step 1: Investigate — `search_files` across both repos for `hours_until` / `low_hours_until` confirmed the ` h` suffix is appended in exactly two frontend locations: the Stats panel row ([`stats-panel.ts`](src/components/stats-panel.ts:118)) and the Disruption box `low_hours_until` display mode ([`drinks-panel.ts`](src/components/drinks-panel.ts:120)).
+- [x] Step 2: Architecture plan — presented the two-edit plan (replace `num + ' h'` / `` `${num} h` `` with `String(num)` in both files, backend untouched, `-` fallback preserved); user approved as-is.
+- [x] Step 3: Edit [`stats-panel.ts`](src/components/stats-panel.ts:113) — `display = num + ' h'` → `display = String(num)` with an explanatory comment (label conveys unit; backend keeps `UnitOfTime.HOURS` for automations/history).
+- [x] Step 4: Edit [`drinks-panel.ts`](src/components/drinks-panel.ts:117) — `` `${num} h` `` → `String(num)` with an explanatory comment; the `disruptionIsSwapped` branch (line 109, appends `unit_of_measurement` from swapped entity) intentionally left untouched.
+- [x] Step 5: Verify — `yarn run build` clean (`dist/ax-dose-logger-card.js` created in 3.5s, exit 0).
+- [x] Step 6: Update memory-bank — [`activeContext.md`](memory-bank/activeContext.md:1) new Current Status + archive previous; [`progress.md`](memory-bank/progress.md:1) this section.
+- [x] Step 7: No README change (internal UX tweak — the card README documents installation/config, not per-row display suffix rules). No `projectstructure.md` change (no files added/renamed/deleted).
+
+**Key decisions:**
+1. **Label-conveys-unit convention (mirrors Days Left row)** — the Stats panel Days Left row already renders `formatInteger(state)` with no ` d` suffix because the "Days left" label conveys the unit. Applying the same convention to "Low - Hours Until" keeps the two countdown rows visually consistent.
+2. **Backend untouched** — the backend `DrinkMasterLowHoursUntilSensor` (`UnitOfTime.HOURS`, `SensorDeviceClass.DURATION`) stays; automations parsing `states('sensor.*_low_hours_until')` and the history graph still see the `h` unit. The change is purely a card display concern.
+3. **Disruption box entity-swap path untouched** — [`drinks-panel.ts`](src/components/drinks-panel.ts:109) `disruptionIsSwapped` branch still appends `unit_of_measurement` from the swapped entity's attributes (a different code path — user-swapped arbitrary entity), intentionally left as-is.
+4. **Both display locations covered** — the Disruption box (`disruption_mode: 'low_hours_until'`) and the Stats panel row are the only two card surfaces that render this sensor; both updated in one pass.
+
+## Nested Chip Expandables — Third Config Layer with Full Override Suite (2026-07-11)
+
+### Planning
+- [x] Read memory-bank/activeContext.md and projectstructure.md for context
+- [x] Examine current chip schema in ax-dose-logger-editor.ts (layer-2 expandable + flat grid rows)
+- [x] Examine types.ts chip config fields and CardController interface
+- [x] Examine daily-panel.ts + drinks-panel.ts chip render + CSS
+- [x] Confirm design decisions with user (icon rendered, both panels, more-info default tap)
+- [x] Write architecture plan to plans/chips-nested-expandable-plan.md
+
+### Implementation
+- [x] Implement types.ts — add 32 new config fields + ChipConfig interface + 2 CardController methods
+- [x] Implement ax-dose-logger-editor.ts — nested chip_N_box / drink_chip_N_box expandables + computeLabel/computeHelper updates
+- [x] Implement localize.ts — label + helper keys (chip_N_box titles, chip_N_icon/tap/hold/double_tap labels, helpers)
+- [x] Implement ax-dose-logger-card.ts — extend _getChipEntities/_getDrinkChipEntities + _handleChipAction/_handleDrinkChipAction + public wrappers + ChipConfig import/re-export
+- [x] Implement daily-panel.ts — chip icon + click/hold/double-tap wiring + .clickable/.chip-icon CSS
+- [x] Implement drinks-panel.ts — same chip render changes (drink chips)
+- [x] Update README.md — new config rows + editor description + feature descriptions
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.9s)
+- [x] No backend / coordinator / store / config-flow changes
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+## Stat-Pill + Chip Fixed Height for UI Consistency (2026-07-11)
+
+### Planning
+- [x] Read memory-bank/activeContext.md for current context
+- [x] Read daily-panel.ts + drinks-panel.ts CSS (.stat-pill / .stat-label / .stat-value / .chip / .chip-name / .chip-value)
+- [x] Confirm user intent: all .stat-pill boxes same height regardless of 2-line wrapping; also apply to chips
+- [x] Write architecture plan to plans/stat-pill-fixed-height-plan.md (stat-pill + chip line-height math)
+
+### Implementation
+- [x] daily-panel.ts: .stat-pill → overflow:hidden; .stat-label → line-height 0.9; .stat-value → line-height 1.5 + white-space nowrap
+- [x] daily-panel.ts: .chip → overflow:hidden; .chip-name → remove nowrap/ellipsis, add line-height 0.75 + text-align center + word-break break-word; .chip-value → line-height 1.5 + white-space nowrap
+- [x] drinks-panel.ts: same 6 CSS changes (stat-pill + chip blocks identical between panels)
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.4s)
+- [x] No backend / coordinator / store / config-flow / editor / types / localize / README changes
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+## Stat-Pill + Chip Equal-Spacing Two-Line Fix — Revision (2026-07-11)
+
+### Planning
+- [x] User feedback: first pass (line-height 0.9 / 0.75) squeezed two lines too tightly — needs more space + equal spacing above/between/below
+- [x] Derive equal-spacing formula: line-height L + min-height (3L-1)em + flex column centering → all three gaps = (L-1) × font-size
+- [x] Choose line-height 1.2 (3px gaps for 15px label, 2.4px for 12px chip-name); min-height 2.6em
+- [x] Write revision plan to plans/stat-pill-equal-spacing-plan.md
+- [x] User confirmed: implement the equal-spacing formula
+
+### Implementation
+- [x] daily-panel.ts: .stat-label → line-height 1.2 + min-height 2.6em + display flex column + justify-content center
+- [x] daily-panel.ts: .chip-name → same (line-height 1.2 + min-height 2.6em + flex column centering), keep text-align/word-break/max-width
+- [x] drinks-panel.ts: same .stat-label change
+- [x] drinks-panel.ts: same .chip-name change
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.8s)
+- [x] No backend / coordinator / store / config-flow / editor / types / localize / README changes
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+## Stat-Pill + Chip Box Padding Reduction (2026-07-11)
+
+### Planning
+- [x] User feedback: boxes too big with excess headroom above/below text; between-line spacing is fine
+- [x] Identify source of headroom: box vertical padding (.stat-pill 12px, .chip 8px) + label flex centering
+- [x] Decision: reduce vertical padding only; keep equal-spacing formula (line-height 1.2 + min-height 2.6em) unchanged
+
+### Implementation
+- [x] daily-panel.ts: .stat-pill padding 12px 14px → 6px 14px (vertical halved, horizontal unchanged)
+- [x] daily-panel.ts: .chip padding 8px 6px → 4px 6px (vertical halved, horizontal unchanged)
+- [x] drinks-panel.ts: same 2 padding reductions
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.9s)
+- [x] No backend / coordinator / store / config-flow / editor / types / localize / README changes
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+
+## Chip Rework — Day-Avg-Box Format + Per-Chip Icon Toggle + Timestamp Bug Fix (2026-07-11)
+
+### Planning
+- [x] User feedback: lose the icons by default; format chips like the Graph panel Day Avg Boxes; match the box height of the stat-pill boxes to the right of the Take Pill / Log Drink button; add a per-chip "Show Icon" toggle in the card settings (box grows when icon on)
+- [x] Bug report: sensor.caffeine_tracker_low_timestamp as a chip shows "2026" (year) instead of a formatted time — root cause: formatInteger parseFloat extracts the year from ISO datetime strings
+- [x] Architect plan created: plans/chip-rework-format-and-icon-toggle-plan.md
+- [x] User-confirmed icon layout: icon on top (column layout) — icon above label/value, box grows taller
+
+### Implementation
+- [x] types.ts: added chip_N_show_icon / drink_chip_N_show_icon (8 boolean fields) to AxDoseLoggerCardConfig; added showIcon?: boolean to ChipConfig interface
+- [x] ax-dose-logger-card.ts: _getChipEntities() + _getDrinkChipEntities() read *_show_icon config and populate showIcon on each ChipConfig
+- [x] daily-panel.ts: chip render gates <ha-icon> on chip.showIcon (icon above label/value); device-class-aware value (timestamp -> HH:MM via new Date + toLocaleTimeString, else formatInteger + unit); .with-icon class added; CSS reworked (.chip primary-tinted bg, padding 6px 4px, justify-content center, min-height ~51px matching stat-pill; .chip.with-icon min-height auto; .chip-name uppercase + letter-spacing 0.3px, removed min-height 2.6em)
+- [x] drinks-panel.ts: same chip render + CSS changes verbatim (parity)
+- [x] ax-dose-logger-editor.ts: added { name: 'chip_N_show_icon' / 'drink_chip_N_show_icon', selector: { boolean: {} } } toggle at the top of each chip_N_box / drink_chip_N_box expandable schema, with label + helper from localize
+- [x] localize.ts: added 8 label keys config.chip_N_show_icon / config.drink_chip_N_show_icon ("Show Icon") + 1 helper key config.helper.chip_show_icon
+- [x] README.md: added 2 Configuration Options rows (chip_N_show_icon + drink_chip_N_show_icon) documenting default-off + box-grows-when-on semantics
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.9s)
+- [x] No backend / coordinator / store / config-flow changes (timestamp bug was purely frontend rendering)
+- [x] No projectstructure.md change (no files added/renamed/deleted/repurposed — only edits to existing files)
+
+
+## Chip Refinement — Height Fix + Icon Spacing + Button-Use Note (2026-07-11)
+
+### Problem
+- Chips were too tall: `.chip` had `min-height: 51px` applied as content-box (Shadow DOM defaults to content-box, not HA's global border-box), so actual height was 51px + 12px padding = 63px, ~12px taller than the stat-pill (~51px).
+- Icon sat too close to the label when toggled on (`.chip` gap was 2px).
+
+### Fix
+- [x] daily-panel.ts + drinks-panel.ts: removed `min-height` + `justify-content: center` from `.chip` (natural column height ~52px already matches stat-pill); removed `.chip.with-icon { min-height: auto }`; added `.chip.with-icon { gap: 6px }` for icon breathing room
+- [x] README.md: updated `chip_N_show_icon` + `drink_chip_N_show_icon` row descriptions to note the icon toggle makes chips taller — useful for a button-like layout
+- [x] localize.ts: updated `config.helper.chip_show_icon` helper text to mention the button-like use
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.4s)
+- [x] No backend / coordinator / store / config-flow / types / editor changes
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+
+## Chip Icon Spacing + Color Scheme Refinement (2026-07-11)
+
+### Fix
+- [x] daily-panel.ts + drinks-panel.ts: .chip.with-icon gap 6px -> 10px (more breathing room between icon and label)
+- [x] daily-panel.ts + drinks-panel.ts: .chip-icon color var(--secondary-text-color) -> var(--primary-color) + opacity 0.7 (matches the stat-pill icon color scheme)
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.1s)
+
+
+## Chip Icon Gap-Isolation + Size Match Refinement (2026-07-11)
+
+### Problem
+- .chip.with-icon { gap: 10px } changed the gap for ALL flex children, so the label-to-value spacing also jumped to 10px (was 2px) when the icon was toggled on — user wanted label-to-value to stay the same in both modes.
+- Chip icon was 18px; stat-pill icons are 20px — not the same size.
+
+### Fix
+- [x] daily-panel.ts + drinks-panel.ts: reverted .chip.with-icon gap override (gap stays 2px in both modes); moved the icon breathing room to .chip-icon { margin-bottom: 8px } so only the icon-to-label gap grows, not label-to-value
+- [x] daily-panel.ts + drinks-panel.ts: .chip-icon --mdc-icon-size 18px -> 20px + width/height 20px (matches the .stat-pill ha-icon size)
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.6s)
+
+
+## Default View Override + Bold Text + Editor Reorder (2026-07-11)
+
+### Planning
+- [x] Read activeContext.md + projectstructure.md for current editor schema + CSS architecture context
+- [x] Inspect editor schema (ax-dose-logger-editor.ts lines 112-160) — identified 2 existing grid rows: big_text|hide_nav_bar, color_scheme|name
+- [x] Inspect connectedCallback pane reset (ax-dose-logger-card.ts line 1930) — hardcoded 'daily'
+- [x] Inspect --pill-text-offset CSS custom property pattern (injected on <ha-card>, consumed via calc() in all panels)
+- [x] Architect mode: design plan with 3-row editor reorder, default_view select dropdown, bold_text CSS custom property (--pill-font-weight-boost), friendly-name dropdown labels reusing pane.* localize keys
+
+### Implementation
+- [x] types.ts: add default_view?: string + bold_text?: boolean to AxDoseLoggerCardConfig
+- [x] ax-dose-logger-editor.ts: reorder 2 grid rows → 3 grid rows (Row1: color_scheme|name, Row2: default_view|hide_nav_bar, Row3: big_text|bold_text); add default_view select dropdown with 7 pane options using pane.* localize keys for labels
+- [x] localize.ts: add config.bold_text + config.default_view labels, config.helper.bold_text + config.helper.default_view helpers
+- [x] ax-dose-logger-card.ts connectedCallback: replace hardcoded 'daily' with validated config.default_view (whitelist of 7 pane IDs, fallback 'daily')
+- [x] ax-dose-logger-card.ts: inject --pill-font-weight-boost CSS custom property on both <ha-card> inline styles (100 when bold_text === true, 0 otherwise)
+- [x] daily-panel.ts: wrap 4 font-weight declarations in calc(N + var(--pill-font-weight-boost, 0))
+- [x] drinks-panel.ts: wrap 4 font-weight declarations (parity with daily-panel)
+- [x] stats-panel.ts: wrap 1 font-weight declaration
+- [x] inventory-panel.ts: wrap 2 font-weight declarations
+- [x] tools-panel.ts: wrap 2 font-weight declarations
+- [x] tracking-panel.ts: wrap 3 font-weight declarations
+- [x] graphs-panel.ts: wrap 6 font-weight declarations
+- [x] ax-dose-logger-card.ts: wrap 6 font-weight declarations (pane selector + dialog CSS + placeholder inline style)
+- [x] Verified zero remaining bare font-weight:N declarations across all src/*.ts files
+- [x] README.md: add default_view + bold_text config option rows
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.9s)
+- [x] No backend / coordinator / store / config-flow changes
+- [x] No projectstructure.md change (no files added/renamed/deleted — only edits to existing files)
+
+
+## Bold Text Revision: 50% Multiplicative + Catch-All + Helper Text Trim (2026-07-11)
+
+### Problem
+- First-pass bold_text used a flat +100 additive boost (calc(N + var(..., 0)) with value 0/100) — user feedback: "hardly a difference and some text did not change"
+- Elements without an explicit font-weight declaration (inherited text, labels, spans) never received the boost at all
+- Helper text for default_view was too verbose ("Pane shown when the card loads." + "for this device.")
+
+### Fix
+- [x] Switched --pill-font-weight-boost from additive (0/100) to multiplicative (1/1.5) — formula changed from calc(N + var(..., 0)) to calc(N * var(..., 1)) across all 28 font-weight declarations in all 8 source files
+- [x] Added :host { font-weight: calc(400 * var(--pill-font-weight-boost, 1)); } catch-all rule to all 7 panel components + the card's own :host — so inherited text without explicit font-weight also gets boosted (400 → 600 when on)
+- [x] Trimmed config.helper.default_view from "Pane shown when the card loads. Falls back to Daily if invalid for this device." to "Falls back to Daily if invalid."
+- [x] Updated README bold_text description to "50% bolder"
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3s)
+- [x] grep confirmed zero remaining triple-paren issues from sed
+- [x] No projectstructure.md change
+
+
+## Bold Text Refinements: Title Exclusion + Nav Inactive Buttons + Helper Trim (2026-07-11)
+
+### User Feedback
+- Remove ", especially in light mode." from the Bold Text helper description
+- Don't apply bold to the title (device name at the top)
+- Bold effect only appearing on the active nav button — should apply to inactive panel names too
+
+### Fix
+- [x] localize.ts: config.helper.bold_text trimmed "Makes all card text bolder for better readability, especially in light mode." → "Makes all card text bolder for better readability."
+- [x] daily-panel.ts: .med-name font-weight reverted from calc(600 * var(...)) → fixed 600 (title excluded from bold)
+- [x] drinks-panel.ts: .drinks-title font-weight reverted from calc(600 * var(...)) → fixed 600 (title excluded from bold, parity with daily-panel)
+- [x] ax-dose-logger-card.ts: .pane-btn base rule gained explicit font-weight: calc(400 * var(--pill-font-weight-boost, 1)) — so inactive nav buttons now get the 50% boost (400→600 when on); the .pane-btn.active rule's calc(500 * var(...)) still overrides for active buttons (500→750)
+- [x] README.md: bold_text description trimmed ", especially in light mode."
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.9s)
+- [x] No projectstructure.md change
+
+## Card Integration Audit + HIGH Findings Fix — Complete
+
+### Planning
+- [x] Read memory-bank context (activeContext, progress, projectstructure)
+- [x] Read main card source (ax-dose-logger-card.ts — 2439 lines)
+- [x] Read editor module (ax-dose-logger-editor.ts — 1021 lines)
+- [x] Read types, helpers, localize
+- [x] Read panel components (daily, graphs, drinks, stats)
+- [x] Search for redundant/dead references, unused imports, HA best-practice violations, memory leak patterns
+- [x] Compile audit findings into structured report → plans/card-integration-audit.md
+- [x] Write fix plan for H1 + H2 → plans/fix-high-audit-findings-plan.md
+
+### Audit Findings (documented in plans/card-integration-audit.md)
+- [x] H1 (HIGH): installEditorGridAlignment() MutationObserver leak + global CSS injection — observer on document.body never disconnected, CSS injected into all ha-form elements cross-card
+- [x] H2 (HIGH): _getDrinksOfSubstance() no cache — full O(n) entity scan on every call incl. _relevantStateChanged() on every HA state change while inventory pane active
+- [x] M1 (MEDIUM): Mutating @state _activePane inside render() — violates Lit "don't update reactive props in render" contract
+- [x] M2 (MEDIUM): 30s _tick does not propagate to panel components — countdowns stay stale inside panels
+- [x] M3 (MEDIUM): Global CSS injection affects all ha-form elements (cross-card pollution)
+- [x] M4 (MEDIUM): History re-fetch on every state change while on graphs pane — 2 recorder DB queries per state change
+- [x] L1 (LOW): Unused svg import in ax-dose-logger-card.ts
+- [x] L2 (LOW): Dead localize keys (pane.caffeine, caffeine.placeholder, config.graph_options)
+- [x] L3 (LOW): Dead type re-exports from main card module (no consumers)
+- [x] L4 (LOW): _predictLowToken should not be @state() (race-guard token has no rendering impact)
+- [x] L5 (LOW): Duplicate _getTimeframeHours() in container + graphs-panel
+- [x] L6 (LOW): _pendingTracking Set not cleared on disconnect/connect
+- [x] L7 (LOW): _computeEntities() double iteration (low impact since cached)
+
+### H1 Implementation — MutationObserver Leak + Global CSS Injection
+- [x] ax-dose-logger-editor.ts: installEditorGridAlignment() doc-comment updated (reflects getConfigForm() call site + auto-cleanup)
+- [x] ax-dose-logger-editor.ts: processForms() now returns ha-form count (was void)
+- [x] ax-dose-logger-editor.ts: observer callback auto-disconnects + nulls _formStyleObserver when processForms() returns 0 (editor dialog closed)
+- [x] ax-dose-logger-editor.ts: new uninstallEditorGridAlignment() export — explicit cleanup hook (defense-in-depth)
+- [x] ax-dose-logger-card.ts: removed installEditorGridAlignment() call from connectedCallback()
+- [x] ax-dose-logger-card.ts: added installEditorGridAlignment() call in static getConfigForm() before return buildEditorForm()
+
+### H2 Implementation — _getDrinksOfSubstance() Cache
+- [x] ax-dose-logger-card.ts: added _drinksCache field near _resolvedEntities cache
+- [x] ax-dose-logger-card.ts: cache-hit check at top of _getDrinksOfSubstance() (substance + entitiesRef match returns cached drinks)
+- [x] ax-dose-logger-card.ts: cache result stored after scan
+- [x] ax-dose-logger-card.ts: _invalidateEntityCache() now also clears _drinksCache
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.8s)
+- [x] No projectstructure.md change (no files added/renamed/deleted — only edits to existing files + new plan docs)
+- [x] activeContext.md updated (new Current Status, prior archived)
+- [x] progress.md updated (this section)
+
+## MEDIUM + LOW Audit Findings Fix — Complete
+
+### Planning
+- [x] Plan M1-M4 + L1-L7 fixes → plans/fix-medium-low-audit-findings-plan.md
+
+### L1 — Unused svg import
+- [x] ax-dose-logger-card.ts: removed `svg` from `import { LitElement, html, svg, css, nothing } from 'lit'`
+
+### L2 — Dead localize keys
+- [x] localize.ts: removed `pane.caffeine`, `caffeine.placeholder` + comment, `config.graph_options` + backward-compat comment
+
+### L3 — Dead type re-exports
+- [x] ax-dose-logger-card.ts: removed the 8-type `export type { ... } from './types.js'` block (all downstream imports from types.js directly)
+
+### L4 — _predictLowToken should not be @state()
+- [x] ax-dose-logger-card.ts: demoted `@state() private _predictLowToken` to `private _predictLowToken` (plain field)
+- [x] ax-dose-logger-card.ts: removed `'_predictLowToken'` from the shouldUpdate whitelist
+
+### L5 — Duplicate _getTimeframeHours()
+- [x] helpers.ts: added exported `getTimeframeHours(timeframe)` function
+- [x] ax-dose-logger-card.ts: imported `getTimeframeHours as getTimeframeHoursHelper`; `_getTimeframeHours()` body replaced with delegate
+- [x] graphs-panel.ts: imported `getTimeframeHours` from helpers; `_getTimeframeHours()` body replaced with delegate
+
+### L6 — _pendingTracking not cleared on disconnect
+- [x] ax-dose-logger-card.ts: added `this._pendingTracking.clear()` to connectedCallback() (after dialog resets)
+
+### L7 — _computeEntities() double iteration (DEFERRED)
+- [x] Decision: deferred — merging the two loops risks a regression (suffix-based vs attribute-based logic); result is cached so perf impact is minimal
+
+### M1 — Mutating @state inside render()
+- [x] ax-dose-logger-card.ts: new `willUpdate(changedProps)` method with the auto-fallback logic (tracking→daily, master/medicine pane mismatch)
+- [x] ax-dose-logger-card.ts: removed the 3 mutation lines + comments from render()
+
+### M2 — 30s _tick doesn't propagate to panels
+- [x] ax-dose-logger-card.ts: added `.tick=${this._tick}` to daily/stats/drinks/inventory panel bindings in render()
+- [x] daily-panel.ts: added `@property({ attribute: false }) tick: number = 0`
+- [x] stats-panel.ts: added `@property({ attribute: false }) tick: number = 0`
+- [x] drinks-panel.ts: added `@property({ attribute: false }) tick: number = 0`
+- [x] inventory-panel.ts: added `@property({ attribute: false }) tick: number = 0`
+
+### M3 — Global CSS injection (cross-card pollution)
+- [x] No code change — largely resolved by H1 (observer only runs while editor is open); other ha-form elements behind the modal dialog are not user-visible. Documented as accepted.
+
+### M4 — History re-fetch on every state change while on graphs pane
+- [x] ax-dose-logger-card.ts: added `_graphsRefetchTimer` field + `GRAPHS_REFETCH_DEBOUNCE_MS = 500` static
+- [x] ax-dose-logger-card.ts: updated() hass branch now debounces 3 fetches via setTimeout(500ms) + re-resolves entities inside timeout
+- [x] ax-dose-logger-card.ts: disconnectedCallback() clears the debounce timer
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.1s)
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+- [x] activeContext.md updated (new Current Status, H1/H2 status archived)
+- [x] progress.md updated (this section)
+
+## Master Stats Box Removal + Inventory 2-Line "Est. days left"
+- [x] Step 1: Context grounding (read frontend memory banks, stats-panel, inventory-panel, types, _computeEntities, _getDrinksOfSubstance)
+- [x] Step 2: Architecture plan (../Home-Assistant-Pill-Logger/plans/master-days-left-and-inventory-2line-plan.md)
+- [x] Step 3: Remove master totalDoses mapping in _computeEntities (dose_count + pk_model block)
+- [x] Step 4: Remove master days_left role mapping in _computeEntities (masterRole === 'days_left' block)
+- [x] Step 5: Add daysLeftEntityId to DrinkInfo type + JSDoc
+- [x] Step 6: Resolve daysLeftEntityId in _getDrinksOfSubstance (sensor branch: role === 'days_left')
+- [x] Step 7: Add daysLeftEntityId to _relevantStateChanged inventory watch list
+- [x] Step 8: Restructure inventory-panel col-1 to 2-line layout (name+stock | Est. days left+value) with icon staying in exact current position (left, vertically centered via align-items:center); add .stat-text/.stat-line/.stat-sublabel/.stat-subvalue CSS
+- [x] Step 9: Reuse stats.days_left_est localize key for 2nd line label (no new strings)
+- [x] Step 10: Update frontend README (Inventory col-1 description + Stats Drinks section rows)
+- [x] Step 11: Verification — yarn run build exit 0 (3.3s, no warnings)
+- [x] Step 12: Update memory-bank files (activeContext.md, progress.md)
+
+**Key decisions:**
+1. **Icon position preserved exactly** — stays at the left (after padding + gap), vertically centered against the 2-line text block via align-items:center. Does NOT move to box center.
+2. **Plain number, no unit suffix** — days-left value shown as a plain number (e.g. 12), not 12 d. The label conveys the unit.
+3. **Reuse stats.days_left_est localize key** — no new translation strings.
+4. **Master totalDoses removal is master-only** — medicine devices keep suffix-based _total_doses mapping.
+5. **Granular-drink daysLeft mapping preserved** — classifier completeness; daysLeftEntityId on DrinkInfo is the per-drink variant for the Inventory panel.
+6. **_relevantStateChanged watch list** — daysLeftEntityId added so days-left state changes trigger inventory re-render without waiting for the 30s tick.
+
+## Inventory Panel Refinement — Font Parity + "left" Suffix + Stats Formatting
+- [x] Step 1: Change 2nd-line "Est. days left" label + value font sizes to match the 1st line (label 15px, value 18px)
+- [x] Step 2: Add "left" suffix to the device-name line (new inventory.left localize key) so it reads "device-name left"
+- [x] Step 3: Reformat Inventory to match Stats page box sizing + spacing (2-col grid gap 8px, padding 10px 8px, border-radius 10px, primary-tinted 0.05 bg, 16px icon in .stat-pill-header row)
+- [x] Step 4: Update frontend README Inventory section
+- [x] Step 5: Verification — yarn run build exit 0 (3s, no warnings)
+- [x] Step 6: Update memory-bank files (activeContext.md, progress.md)
+
+**Key decisions:**
+1. **2nd-line font parity** — label 15px + value 18px (was 13px/16px), matching the 1st-line device name + stock so both lines are equally prominent.
+2. **"left" suffix** — new `inventory.left` localize key ("left") appended to the drink name → "Coffee left 12". Conveys that the number is the remaining stock.
+3. **Stats visual language** — .stat-pill + .avg-cell now mirror .stat-cell (padding 10px 8px, border-radius 10px, bg rgba 0.05, 8px grid gap, 16px icon at opacity 0.7 in a .stat-pill-header row). Icon stays in its exact current position (left, vertically centered via align-items:center on the header row).
+4. **.stat-pill restructured** — was a row flex (icon direct child); now a column flex with a .stat-pill-header wrapper holding icon + 2-line .stat-text, matching the Stats .stat-cell internal structure.
+
+## Inventory Panel Refinement 2 — Day Average Font Parity + Line Spacing + Icon 50% Bigger
+- [x] Step 1: Increase .avg-label 13px→15px + .avg-value 16px→18px (match inventory box 15px/18px)
+- [x] Step 2: Confirm line spacing parity (.stat-text gap 4px == .avg-cell gap 4px — already identical; perceived difference was the font-size mismatch fixed in step 1)
+- [x] Step 3: Make icon 50% bigger (.stat-pill-header ha-icon --mdc-icon-size 16px→24px)
+- [x] Step 4: Verification — yarn run build exit 0 (3s, no warnings)
+- [x] Step 5: Update memory-bank files (activeContext.md, progress.md)
+
+## Inventory Panel Refinement 3 — Inter-line Gap 4px→3px
+- [x] Step 1: Decrease .stat-text gap 4px→3px (col-1 between the two .stat-line rows)
+- [x] Step 2: Decrease .avg-cell gap 4px→3px (col-2 between the two .avg-line rows)
+- [x] Step 3: Verification — yarn run build exit 0 (2.8s, no warnings)
+- [x] Step 4: Update memory-bank files (activeContext.md, progress.md)
+
+## Inventory Panel Refinement 4 — Inter-line Gap 3px→2px + line-height 1.1
+- [x] Step 1: Decrease .stat-text + .avg-cell gap 3px→2px
+- [x] Step 2: Add line-height: 1.1 to .stat-text + .avg-cell (root cause: default ~1.2 line-height dwarfed the 1px gap change)
+- [x] Step 3: Verification — yarn run build exit 0 (3.1s, no warnings)
+- [x] Step 4: Update memory-bank files (activeContext.md, progress.md)

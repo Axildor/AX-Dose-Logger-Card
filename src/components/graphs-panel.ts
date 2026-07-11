@@ -12,7 +12,7 @@ import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CardController, ResolvedEntities, DayBucket, AxDoseLoggerHass, MetricEntity } from '../types.js';
 import { localize } from '../localize.js';
-import { bridgeGaps } from '../helpers.js';
+import { bridgeGaps, getTimeframeHours } from '../helpers.js';
 
 @customElement('ax-dose-graphs-panel')
 export class AxDoseGraphsPanel extends LitElement {
@@ -73,14 +73,9 @@ export class AxDoseGraphsPanel extends LitElement {
   }
 
   private _getTimeframeHours(): number {
-    switch (this.activeTimeframe) {
-      case '12h': return 12;
-      case '24h': return 24;
-      case '7d': return 168;
-      case '14d': return 336;
-      case '30d': return 720;
-      default: return 48;
-    }
+    // Delegates to the shared helper (same mapping as the container's
+    // _getTimeframeHours) so the timeframe→hours logic lives in one place.
+    return getTimeframeHours(this.activeTimeframe);
   }
 
   render() {
@@ -772,6 +767,9 @@ export class AxDoseGraphsPanel extends LitElement {
   }
 
   static styles = css`
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .pane-graphs {
       display: flex;
       flex-direction: column;
@@ -814,7 +812,7 @@ export class AxDoseGraphsPanel extends LitElement {
 
     .nav-title {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       color: var(--secondary-text-color, #666);
       min-width: 100px;
       text-align: center;
@@ -849,7 +847,7 @@ export class AxDoseGraphsPanel extends LitElement {
     .timeframe-chip {
       padding: 4px 10px;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       border-radius: 4px;
       cursor: pointer;
       color: var(--secondary-text-color);
@@ -867,7 +865,7 @@ export class AxDoseGraphsPanel extends LitElement {
     .timeframe-chip.active {
       color: var(--primary-color);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
     }
 
     .bar-graph-wrapper {
@@ -938,7 +936,7 @@ export class AxDoseGraphsPanel extends LitElement {
 
     .avg-value {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color, #222);
     }
 
@@ -978,7 +976,7 @@ export class AxDoseGraphsPanel extends LitElement {
     .eff-view-tab {
       padding: 5px 16px;
       font-size: calc(13px + var(--pill-text-offset, 0px));
-      font-weight: 500;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
       border-radius: 999px;
       cursor: pointer;
       color: var(--secondary-text-color);
@@ -995,7 +993,7 @@ export class AxDoseGraphsPanel extends LitElement {
     .eff-view-tab.active {
       color: var(--primary-color);
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
     }
 
     .eff-tracker-row {

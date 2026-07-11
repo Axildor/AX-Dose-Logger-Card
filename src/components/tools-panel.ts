@@ -210,6 +210,9 @@ export class AxDoseToolsPanel extends LitElement {
   }
 
   static styles = css`
+    :host {
+      font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+    }
     .tools-panel {
       display: flex;
       flex-direction: column;
@@ -225,7 +228,7 @@ export class AxDoseToolsPanel extends LitElement {
 
     .tools-section-header {
       font-size: calc(16px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--secondary-text-color, #666);
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -300,7 +303,7 @@ export class AxDoseToolsPanel extends LitElement {
       align-items: center;
       gap: 8px;
       font-size: calc(15px + var(--pill-text-offset, 0px));
-      font-weight: 600;
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
       color: var(--primary-text-color);
     }
     .drink-tool-name ha-icon {
