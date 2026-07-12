@@ -2977,3 +2977,65 @@ Three related frontend changes to the Master Tracker (Caffeine / Alcohol) Stats 
 - [x] Step 2: Add line-height: 1.1 to .stat-text + .avg-cell (root cause: default ~1.2 line-height dwarfed the 1px gap change)
 - [x] Step 3: Verification — yarn run build exit 0 (3.1s, no warnings)
 - [x] Step 4: Update memory-bank files (activeContext.md, progress.md)
+
+## Sleep Disruption Popup — README Link + Live Summary + Wider Box (2026-07-11)
+
+### Goal
+Three improvements to the card-internal Sleep Disruption popup dialog (Drinks panel → Disruption box tap on a Master Tracker card): (1) add a clickable link to the integration README's per-substance Sleep Disruption Bands section (was a static italic "See README" line); (2) show the live Disruption band + ETA Low (HH:MM) at the top of the dialog body so they're visible at a glance; (3) make the dialog a bit wider.
+
+### Checklist
+- [x] Step 1: Context grounding — read frontend memory-bank (activeContext, progress), `_renderSleepDisruptionDialog` in `ax-dose-logger-card.ts`, localize strings, backend README anchors, HA Frontend `ha-dialog` width presets via Context7
+- [x] Step 2: Architecture plan — `plans/sleep-disruption-popup-readme-link-plan.md` (3-part design, key decisions, Mermaid before/after)
+- [x] Step 3: User approval — plan approved, proceed to Code mode
+- [x] Step 4: `src/localize.ts` — replaced the trailing `*See README for full biological breakdown.*` italic line with a Markdown link `[See README for full biological breakdown.](https://github.com/Axildor/AX-Dose-Logger#caffeine--sleep-disruption-bands)` in `dialog.sleep_disruption.caffeine` + the `#alcohol--sleep-disruption-bands` anchor in `.alcohol`; added 3 new keys: `dialog.sleep_disruption.disruption_label` ("Disruption"), `.eta_low_label` ("ETA Low"), `.not_applicable` ("—")
+- [x] Step 5: `src/ax-dose-logger-card.ts` `_renderSleepDisruptionDialog` — `width="small"` → `width="medium"` (580px); added live summary read (`this._resolveEntities()` + `this._getState(entities.sleepDisruption)` + `this._getState(entities.estimatedLowTime)`; Disruption title-cased, ETA Low formatted via `toLocaleTimeString({ hour: '2-digit', minute: '2-digit', hour12: false })`); rendered new `.disruption-summary` block (2 `.disruption-summary-row` rows) above `<ha-markdown>`
+- [x] Step 6: `src/ax-dose-logger-card.ts` CSS — added `.disruption-summary` (primary-tinted `rgba(rgb-primary, 0.06)` surface, `border-radius: 10px`, `padding: 10px 12px`, `margin-bottom: 12px`) + `.disruption-summary-row` (space-between baseline) + `.disruption-summary-label` (13px uppercase secondary) + `.disruption-summary-value` (16px weight-600 primary) after `.dialog-body--center`
+- [x] Step 7: Verification — `yarn run build` clean (exit 0, 2.1s, no warnings); README anchors verified via `grep -nE "^#### (Caffeine|Alcohol) — Sleep Disruption Bands" README.md` (backend repo lines 290 + 301)
+- [x] Step 8: Update memory-bank — activeContext.md (new Current Status + archive previous), progress.md (this section)
+
+### Key decisions
+1. **`width="medium"` (580px), not `large`** — `medium` is the HA default preset; `large` (1024px) is for entity-picker grids / multi-column forms. A 4-row band table + summary fits `medium` comfortably. HA Frontend docs explicitly discourage custom sizing.
+2. **Live state read at render time, no new fetch** — the popup renders inside the card's `render()`, which re-runs on hass state changes via `shouldUpdate` + `_relevantStateChanged`. Reading `this._getState(entities.sleepDisruption)` / `this._getState(entities.estimatedLowTime)` at render time gives fresh values on every coordinator push (backend pushes on every dose + 1-min decay tick). Mirrors the Log Drink popup pattern.
+3. **Title-case the Disruption band for display** — sensor state is `None`/`Low`/`Moderate`/`High` (already title-case), but the Disruption box title-cases the first letter for display; the popup follows the same convention. `unknown`/`unavailable` → `-`.
+4. **ETA Low format mirrors the Stats panel + Log Drink popup** — `toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: false })` → 24-hour `HH:MM`. Same format as `stats-panel.ts` + the Log Drink popup `formatLow`. `—` when unknown/in-Low/unparseable.
+5. **Markdown link in the localize string** — `ha-markdown` renders standard Markdown links, so replacing the trailing italic line with `[See README...](url)` makes it clickable with zero template changes. The link lives in the localize string alongside the band text.
+6. **Link to the backend README, not the card README** — the band-by-band biological breakdown lives in the integration README (`#caffeine--sleep-disruption-bands` / `#alcohol--sleep-disruption-bands`); the card README documents installation/config. URL = integration's GitHub repo (`manifest.json` → `documentation`: `https://github.com/Axildor/AX-Dose-Logger`). GitHub anchor algorithm confirmed for em-dash headings.
+7. **Summary box above the Markdown, not inside it** — styled `.disruption-summary` div keeps the live values visually distinct from the static band-description text + lets us style them with the card's primary-tinted surface + bold values.
+8. **No `types.ts` change** — `ResolvedEntities` already has `sleepDisruption` + `estimatedLowTime`. No new `CardController` method needed.
+9. **No backend change** — the backend sensors are correct; the popup just wasn't surfacing the live state. Pure frontend rendering change. No `projectstructure.md` change (no files added/renamed/deleted).
+
+## Sleep Disruption Popup — Refinement (all 3 modes + 3-value summary) (2026-07-11)
+
+### Goal
+Two refinements to the Sleep Disruption popup following user feedback: (a) the popup should be the default tap behavior for ALL three `disruption_mode` options (disruption / low_timestamp / low_hours_until), not just the `disruption` mode; (b) the summary at the top should show all three Sleep Disruption-family values (Sleep Disruption / Low - Timestamp / Low - Hours Until), not just Disruption + ETA Low.
+
+### Checklist
+- [x] Step 1: `src/components/drinks-panel.ts` — `disruptionTapFallback`: dropped the `disruptionMode === 'disruption'` gate; now opens `c.showSleepDisruptionDialog(substance)` whenever `substance` is resolved (regardless of mode); falls back to `c.openMoreInfo(disruptionDisplayEntity)` only when no substance. `disruptionClickable` guard: `(disruptionMode === 'disruption' && !!substance)` → `!!substance`.
+- [x] Step 2: `src/ax-dose-logger-card.ts` `_renderSleepDisruptionDialog` — replaced the 2-row summary (Disruption + ETA Low) with a 3-row summary: Sleep Disruption (band, title-cased) / Low - Timestamp (HH:MM) / Low - Hours Until (numeric, no unit suffix). Added 3rd entity read `this._getState(entities.lowHoursUntil)` with `parseFloat` + `String(num)` formatting (mirrors `stats-panel.ts:125`). HTML template: 3 `.disruption-summary-row` rows.
+- [x] Step 3: `src/localize.ts` — `dialog.sleep_disruption.disruption_label` "Disruption" → "Sleep Disruption"; removed `dialog.sleep_disruption.eta_low_label`; added `dialog.sleep_disruption.low_timestamp_label` ("Low - Timestamp") + `dialog.sleep_disruption.low_hours_until_label` ("Low - Hours Until").
+- [x] Step 4: Verification — `yarn run build` clean (exit 0, 1.8s, no warnings)
+- [x] Step 5: Update memory-bank — activeContext.md (refinement note appended to the Current Status), progress.md (this section)
+
+### Key decisions
+1. **Popup useful in all 3 modes** — since the popup now shows all three values in its summary, opening it from any mode gives the user the full picture (the band + both countdown forms). The mode only controls what the *box* displays; the *popup* is the comprehensive view.
+2. **3-row summary mirrors the Stats panel** — the formatting (Disruption title-cased; Low - Timestamp HH:MM via `toLocaleTimeString`; Low - Hours Until bare numeric via `String(parseFloat(v))`) is byte-identical to the Stats panel rows, so the popup summary reads as a compact version of the Stats panel's three rows.
+3. **Labels match the sensor names** — "Sleep Disruption" / "Low - Timestamp" / "Low - Hours Until" match the Stats panel labels (`stats.sleep_disruption` / `stats.low_timestamp` / `stats.low_hours_until`) so users see consistent naming across surfaces.
+
+
+## Inventory Panel Label — "Name Unit Left" (2026-07-11)
+
+### Goal
+Rework the Master Tracker Inventory panel's col-1 first-line label from `Name left` (e.g. "Coffee left") to `Name Unit Left` (e.g. "Tea Bags Left") so the drink's configured unit-of-measurement is surfaced in the label and the "Left" suffix is capitalized.
+
+### Checklist
+- [x] Step 1: `src/localize.ts` — `inventory.left` value `'left'` → `'Left'` (capitalize L)
+- [x] Step 2: `src/components/inventory-panel.ts` `_renderRow` — added `stockUnit` (reads `unit_of_measurement` from the stock entity via `c.getAttr`), `unitSegment` (guarded string interpolation with leading space only when a unit exists), `leftLabel` (composed `${d.name}${unitSegment} ${localize('inventory.left')}`); bound `<span class="stat-label">` to `${leftLabel}`
+- [x] Step 3: `README.md` — Inventory section col-1 description updated (example "Coffee left 12" → "Tea Bags Left 12"; description `name + "left"` → `name + unit + "Left"`)
+- [x] Step 4: Verification — `yarn run build` clean (exit 0, 1.9s, no warnings)
+- [x] Step 5: Update memory-bank — activeContext.md (new Current Status + archive previous), progress.md (this section)
+
+### Key decisions
+1. **Read the unit live from the stock entity** — `unit_of_measurement` is already on the `DrinkStockNumber` entity (backend `_attr_native_unit_of_measurement`). Reading it at render time via `c.getAttr(d.stockEntityId, 'unit_of_measurement')` keeps it in sync with options-flow reconfiguration without a `DrinkInfo` type change or controller rescan. Mirrors `daily-panel.ts:181` + `drinks-panel.ts:80`.
+2. **Graceful fallback to `Name Left`** — `typeof stockUnit === 'string' && stockUnit` guard prevents rendering `undefined`/`null`/empty as a literal and avoids a stray double-space when the unit is absent.
+3. **Capitalize "Left"** — title-cased label ("Tea Bags Left") matches the medicine "Pills Left" convention.
+4. **No `DrinkInfo` type change / no backend change / no `projectstructure.md` change** — the unit is read from the already-resolved `stockEntityId`; the backend already exposes it. Change is localized to the panel + one localize value.

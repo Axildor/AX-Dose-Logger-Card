@@ -62,7 +62,16 @@ export class AxDoseStatsPanel extends LitElement {
     if (e.lastDose) rows.push({ label: localize(this._lang, 'stats.last_dose'), value: c.computeTimeSinceLastDose(e), icon: 'mdi:clock-outline', entityId: e.lastDose });
     const strengthUnit = c.getStrengthUnit(e);
     if (e.strength) rows.push({ label: localize(this._lang, 'stats.strength'), value: c.formatInteger(c.getState(e.strength)) + ' ' + strengthUnit, icon: 'mdi:scale', entityId: e.strength });
-    if (e.amountInBody) rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: c.formatInteger(c.getState(e.amountInBody)) + ' ' + strengthUnit, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
+    if (e.amountInBody) {
+      // When elimination is disabled (half_life = 0) the backend emits
+      // `unknown` (N/A) instead of a meaningless accumulating value —
+      // render a bare dash rather than "unknown mg".
+      const aibRaw = c.getState(e.amountInBody);
+      const aibDisplay = (aibRaw === 'unknown' || aibRaw === 'unavailable' || !aibRaw)
+        ? '-'
+        : c.formatInteger(aibRaw) + ' ' + strengthUnit;
+      rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: aibDisplay, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
+    }
     if (e.steadyState) {
       const ss = c.getState(e.steadyState);
       const display = (ss === '0.0' || ss === '0') ? localize(this._lang, 'stats.steady_state_reached') : localize(this._lang, 'stats.steady_state_days', { days: ss });

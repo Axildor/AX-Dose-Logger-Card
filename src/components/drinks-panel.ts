@@ -144,16 +144,19 @@ export class AxDoseDrinksPanel extends LitElement {
     const dHasCustomTap = !!cfg?.disruption_tap_action;
     const dHasHold = !!cfg?.disruption_hold_action;
     const dHasDblClick = !!cfg?.disruption_double_tap_action;
-    // Tap fallback: Sleep Disruption popup when mode='disruption' + substance;
-    // else more-info on the display entity (matches the Low-modes' default).
+    // Tap fallback: the Sleep Disruption popup opens for ALL three disruption
+    // modes (disruption / low_timestamp / low_hours_until) as long as a
+    // substance is resolved — the popup now shows all three values in its
+    // summary, so it's useful regardless of which mode the box is in.  Falls
+    // back to more-info on the display entity only when no substance is set.
     const disruptionTapFallback = () => {
-      if (disruptionMode === 'disruption' && substance) {
+      if (substance) {
         c.showSleepDisruptionDialog(substance);
       } else if (disruptionDisplayEntity) {
         c.openMoreInfo(disruptionDisplayEntity);
       }
     };
-    const disruptionClickable = dHasCustomTap || dHasHold || dHasDblClick || !!disruptionDisplayEntity || (disruptionMode === 'disruption' && !!substance);
+    const disruptionClickable = dHasCustomTap || dHasHold || dHasDblClick || !!disruptionDisplayEntity || !!substance;
 
     // ── Custom chips (Drinks panel) — parallel to the Daily panel chips ──
     const drinkChipEntities = c.getDrinkChipEntities();

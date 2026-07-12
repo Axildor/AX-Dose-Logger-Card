@@ -160,7 +160,7 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 ### 📦 Inventory
 
 - Two-column grid (same box sizing + 8px spacing as the Stats pane), one row per granular drink of the substance:
-  - **Left:** clickable refill box with two lines — the drink's name + "left" + current stock on the first line (e.g. "Coffee left 12"), and "Est. days left" + the per-drink inventory burn rate on the second line. Both lines use the same font size. Tapping opens the refill dialog targeted at that drink's add-stock entity.
+  - **Left:** clickable refill box with two lines — the drink's name + unit + "Left" + current stock on the first line (e.g. "Tea Bags Left 12"), and "Est. days left" + the per-drink inventory burn rate on the second line. Both lines use the same font size. Tapping opens the refill dialog targeted at that drink's add-stock entity.
   - **Right:** the drink's 7-day average plus a trailing average (both labeled "Day Average"). Clicking the averages box opens the granular drink's device-info popup.
 
 ### 📈 Stats (Drinks)

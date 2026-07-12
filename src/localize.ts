@@ -97,7 +97,7 @@ const translations: Record<string, Record<string, string>> = {
     // ── Inventory pane (Master Tracker) ──
     'inventory.empty': 'No drinks of this category configured.',
     'inventory.avg_7_day': '7-Day Average',
-    'inventory.left': 'left',
+    'inventory.left': 'Left',
 
     // ── Tracking pane ──
     'pane.tracking': 'Tracking',
@@ -151,6 +151,10 @@ const translations: Record<string, Record<string, string>> = {
     // ── Sleep Disruption dialog (Master Tracker) ──
     'dialog.sleep_disruption.title': 'Sleep Disruption',
     'dialog.sleep_disruption.close': 'Close',
+    'dialog.sleep_disruption.disruption_label': 'Sleep Disruption',
+    'dialog.sleep_disruption.low_timestamp_label': 'Low - Timestamp',
+    'dialog.sleep_disruption.low_hours_until_label': 'Low - Hours Until',
+    'dialog.sleep_disruption.not_applicable': '—',
     'dialog.sleep_disruption.caffeine': [
       '### Caffeine Sleep Disruption',
       '',
@@ -160,7 +164,7 @@ const translations: Record<string, Record<string, string>> = {
       '* **High (61+ mg):** Severe disruption. Increased tossing and turning, frequent micro-awakenings, and delayed sleep onset.',
       '* **Note on "Immunity":** Even if you easily fall asleep with caffeine in your system, it still chemically blocks your deep, restorative sleep phases. You are unconscious, but not resting.',
       '',
-      '*See README for full biological breakdown.*',
+      '[See README for full biological breakdown.](https://github.com/Axildor/AX-Dose-Logger#caffeine--sleep-disruption-bands)',
     ].join('\n'),
     'dialog.sleep_disruption.alcohol': [
       '### Alcohol Sleep Disruption',
@@ -171,7 +175,7 @@ const translations: Record<string, Record<string, string>> = {
       '* **High (31+ g):** Severe stress. Spiked heart rate for hours, frequent waking, and stressful REM rebound (vivid dreams).',
       '* **Note on "The Nightcap":** Using alcohol to fall asleep faster is a biological trap. You trade falling asleep quickly for destroying the restorative quality of the second half of your night.',
       '',
-      '*See README for full biological breakdown.*',
+      '[See README for full biological breakdown.](https://github.com/Axildor/AX-Dose-Logger#alcohol--sleep-disruption-bands)',
     ].join('\n'),
 
     // ── Config form labels ──

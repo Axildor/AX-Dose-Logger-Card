@@ -59,6 +59,12 @@ export class AxDoseInventoryPanel extends LitElement {
     const c = this.controller;
     // Column 1 — refill box (2 lines: drink name + stock | Est. days left + value).
     const stockState = d.stockEntityId ? c.getState(d.stockEntityId) : '';
+    // Unit of measurement from the drink's stock entity (e.g. "Bags", "Cups").
+    // Composes the label as "Name Unit Left" (e.g. "Tea Bags Left"); falls
+    // back to "Name Left" when the unit is absent.
+    const stockUnit = d.stockEntityId ? c.getAttr(d.stockEntityId, 'unit_of_measurement') : '';
+    const unitSegment = (typeof stockUnit === 'string' && stockUnit) ? ` ${stockUnit}` : '';
+    const leftLabel = `${d.name}${unitSegment} ${localize(this._lang, 'inventory.left')}`;
     const stockNum = parseInt(stockState, 10);
     const stockDisplay = isNaN(stockNum) ? '-' : c.formatInteger(String(stockNum));
     const canRefill = !!d.addStockEntityId;
@@ -97,7 +103,7 @@ export class AxDoseInventoryPanel extends LitElement {
             <ha-icon icon="${substanceIcon}"></ha-icon>
             <div class="stat-text">
               <div class="stat-line">
-                <span class="stat-label">${d.name} ${localize(this._lang, 'inventory.left')}</span>
+                <span class="stat-label">${leftLabel}</span>
                 <span class="stat-value">${stockDisplay}</span>
               </div>
               <div class="stat-line">

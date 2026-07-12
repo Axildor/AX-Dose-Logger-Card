@@ -1667,10 +1667,49 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     const mdKey = substance === 'alcohol'
       ? 'dialog.sleep_disruption.alcohol'
       : 'dialog.sleep_disruption.caffeine';
+
+    // Live summary — show ALL three Sleep Disruption-family values at the
+    // top of the dialog so the user can see them at a glance regardless of
+    // which disruption_mode the box is in:
+    //   1. Sleep Disruption (band: None/Low/Moderate/High)
+    //   2. Low - Timestamp (HH:MM, 24-hour)
+    //   3. Low - Hours Until (numeric, no unit suffix)
+    // Mirrors the Log Drink popup pattern (reads resolved state at render
+    // time; the card re-renders on every hass state change via shouldUpdate
+    // + _relevantStateChanged, and the backend pushes on every
+    // dose/undo/reset + 1-min decay tick, so the values stay fresh with no
+    // extra fetch/polling).  Formatting mirrors the Stats panel rows.
+    const entities = this._resolveEntities();
+    const dash = localize(this._lang, 'dialog.sleep_disruption.not_applicable');
+    let disruptionDisplay = dash;
+    const rawDisruption = this._getState(entities.sleepDisruption);
+    if (rawDisruption && rawDisruption !== 'unknown' && rawDisruption !== 'unavailable') {
+      disruptionDisplay = rawDisruption.charAt(0).toUpperCase() + rawDisruption.slice(1);
+    }
+    let lowTimestampDisplay = dash;
+    const rawLowTs = this._getState(entities.estimatedLowTime);
+    if (rawLowTs && rawLowTs !== 'unknown' && rawLowTs !== 'unavailable' && rawLowTs !== 'None') {
+      const dt = new Date(rawLowTs);
+      if (!isNaN(dt.getTime())) {
+        lowTimestampDisplay = dt.toLocaleTimeString(
+          this._lang,
+          { hour: '2-digit', minute: '2-digit', hour12: false },
+        );
+      }
+    }
+    let lowHoursDisplay = dash;
+    const rawLowHours = this._getState(entities.lowHoursUntil);
+    if (rawLowHours && rawLowHours !== 'unknown' && rawLowHours !== 'unavailable' && rawLowHours !== 'None') {
+      const num = parseFloat(rawLowHours);
+      if (!isNaN(num)) {
+        lowHoursDisplay = String(num);
+      }
+    }
+
     return html`
       <ha-dialog
         open
-        width="small"
+        width="medium"
         @closed=${close}
       >
         <div slot="header" class="dialog-header">
@@ -1678,6 +1717,20 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           ${localize(this._lang, 'dialog.sleep_disruption.title')}
         </div>
         <div class="dialog-body">
+          <div class="disruption-summary">
+            <div class="disruption-summary-row">
+              <span class="disruption-summary-label">${localize(this._lang, 'dialog.sleep_disruption.disruption_label')}</span>
+              <span class="disruption-summary-value">${disruptionDisplay}</span>
+            </div>
+            <div class="disruption-summary-row">
+              <span class="disruption-summary-label">${localize(this._lang, 'dialog.sleep_disruption.low_timestamp_label')}</span>
+              <span class="disruption-summary-value">${lowTimestampDisplay}</span>
+            </div>
+            <div class="disruption-summary-row">
+              <span class="disruption-summary-label">${localize(this._lang, 'dialog.sleep_disruption.low_hours_until_label')}</span>
+              <span class="disruption-summary-value">${lowHoursDisplay}</span>
+            </div>
+          </div>
           <ha-markdown .content=${localize(this._lang, mdKey)}></ha-markdown>
         </div>
         <div class="custom-action-bar">
@@ -2363,6 +2416,39 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     .dialog-body--center {
       display: flex;
       justify-content: center;
+    }
+
+    /* Sleep Disruption popup — live Disruption + ETA Low summary box
+       above the band-description markdown.  Mirrors the card's
+       primary-tinted surface (rgba primary 0.06) used by .stat-pill /
+       .avg-cell so the summary reads as a card-native stat box. */
+    .disruption-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      border-radius: 10px;
+    }
+
+    .disruption-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .disruption-summary-label {
+      font-size: calc(13px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #727272);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .disruption-summary-value {
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
+      color: var(--primary-text-color, #222);
     }
 
     /* Dialog header (slot="header" for HA 2026.3+ Material 3 compatibility).

@@ -398,7 +398,7 @@ const translations = {
         // ── Inventory pane (Master Tracker) ──
         'inventory.empty': 'No drinks of this category configured.',
         'inventory.avg_7_day': '7-Day Average',
-        'inventory.left': 'left',
+        'inventory.left': 'Left',
         // ── Tracking pane ──
         'pane.tracking': 'Tracking',
         'tracking.today_label': "Today's {metric}",
@@ -447,6 +447,10 @@ const translations = {
         // ── Sleep Disruption dialog (Master Tracker) ──
         'dialog.sleep_disruption.title': 'Sleep Disruption',
         'dialog.sleep_disruption.close': 'Close',
+        'dialog.sleep_disruption.disruption_label': 'Sleep Disruption',
+        'dialog.sleep_disruption.low_timestamp_label': 'Low - Timestamp',
+        'dialog.sleep_disruption.low_hours_until_label': 'Low - Hours Until',
+        'dialog.sleep_disruption.not_applicable': '—',
         'dialog.sleep_disruption.caffeine': [
             '### Caffeine Sleep Disruption',
             '',
@@ -456,7 +460,7 @@ const translations = {
             '* **High (61+ mg):** Severe disruption. Increased tossing and turning, frequent micro-awakenings, and delayed sleep onset.',
             '* **Note on "Immunity":** Even if you easily fall asleep with caffeine in your system, it still chemically blocks your deep, restorative sleep phases. You are unconscious, but not resting.',
             '',
-            '*See README for full biological breakdown.*',
+            '[See README for full biological breakdown.](https://github.com/Axildor/AX-Dose-Logger#caffeine--sleep-disruption-bands)',
         ].join('\n'),
         'dialog.sleep_disruption.alcohol': [
             '### Alcohol Sleep Disruption',
@@ -467,7 +471,7 @@ const translations = {
             '* **High (31+ g):** Severe stress. Spiked heart rate for hours, frequent waking, and stressful REM rebound (vivid dreams).',
             '* **Note on "The Nightcap":** Using alcohol to fall asleep faster is a biological trap. You trade falling asleep quickly for destroying the restorative quality of the second half of your night.',
             '',
-            '*See README for full biological breakdown.*',
+            '[See README for full biological breakdown.](https://github.com/Axildor/AX-Dose-Logger#alcohol--sleep-disruption-bands)',
         ].join('\n'),
         // ── Config form labels ──
         'config.device_id': 'Device',
@@ -1902,8 +1906,16 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
         const strengthUnit = c.getStrengthUnit(e);
         if (e.strength)
             rows.push({ label: localize(this._lang, 'stats.strength'), value: c.formatInteger(c.getState(e.strength)) + ' ' + strengthUnit, icon: 'mdi:scale', entityId: e.strength });
-        if (e.amountInBody)
-            rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: c.formatInteger(c.getState(e.amountInBody)) + ' ' + strengthUnit, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
+        if (e.amountInBody) {
+            // When elimination is disabled (half_life = 0) the backend emits
+            // `unknown` (N/A) instead of a meaningless accumulating value —
+            // render a bare dash rather than "unknown mg".
+            const aibRaw = c.getState(e.amountInBody);
+            const aibDisplay = (aibRaw === 'unknown' || aibRaw === 'unavailable' || !aibRaw)
+                ? '-'
+                : c.formatInteger(aibRaw) + ' ' + strengthUnit;
+            rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: aibDisplay, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
+        }
         if (e.steadyState) {
             const ss = c.getState(e.steadyState);
             const display = (ss === '0.0' || ss === '0') ? localize(this._lang, 'stats.steady_state_reached') : localize(this._lang, 'stats.steady_state_days', { days: ss });
@@ -4173,17 +4185,20 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
         const dHasCustomTap = !!cfg?.disruption_tap_action;
         const dHasHold = !!cfg?.disruption_hold_action;
         const dHasDblClick = !!cfg?.disruption_double_tap_action;
-        // Tap fallback: Sleep Disruption popup when mode='disruption' + substance;
-        // else more-info on the display entity (matches the Low-modes' default).
+        // Tap fallback: the Sleep Disruption popup opens for ALL three disruption
+        // modes (disruption / low_timestamp / low_hours_until) as long as a
+        // substance is resolved — the popup now shows all three values in its
+        // summary, so it's useful regardless of which mode the box is in.  Falls
+        // back to more-info on the display entity only when no substance is set.
         const disruptionTapFallback = () => {
-            if (disruptionMode === 'disruption' && substance) {
+            if (substance) {
                 c.showSleepDisruptionDialog(substance);
             }
             else if (disruptionDisplayEntity) {
                 c.openMoreInfo(disruptionDisplayEntity);
             }
         };
-        const disruptionClickable = dHasCustomTap || dHasHold || dHasDblClick || !!disruptionDisplayEntity || (disruptionMode === 'disruption' && !!substance);
+        const disruptionClickable = dHasCustomTap || dHasHold || dHasDblClick || !!disruptionDisplayEntity || !!substance;
         // ── Custom chips (Drinks panel) — parallel to the Daily panel chips ──
         const drinkChipEntities = c.getDrinkChipEntities();
         return b `
@@ -4562,6 +4577,12 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
         const c = this.controller;
         // Column 1 — refill box (2 lines: drink name + stock | Est. days left + value).
         const stockState = d.stockEntityId ? c.getState(d.stockEntityId) : '';
+        // Unit of measurement from the drink's stock entity (e.g. "Bags", "Cups").
+        // Composes the label as "Name Unit Left" (e.g. "Tea Bags Left"); falls
+        // back to "Name Left" when the unit is absent.
+        const stockUnit = d.stockEntityId ? c.getAttr(d.stockEntityId, 'unit_of_measurement') : '';
+        const unitSegment = (typeof stockUnit === 'string' && stockUnit) ? ` ${stockUnit}` : '';
+        const leftLabel = `${d.name}${unitSegment} ${localize(this._lang, 'inventory.left')}`;
         const stockNum = parseInt(stockState, 10);
         const stockDisplay = isNaN(stockNum) ? '-' : c.formatInteger(String(stockNum));
         const canRefill = !!d.addStockEntityId;
@@ -4599,7 +4620,7 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
             <ha-icon icon="${substanceIcon}"></ha-icon>
             <div class="stat-text">
               <div class="stat-line">
-                <span class="stat-label">${d.name} ${localize(this._lang, 'inventory.left')}</span>
+                <span class="stat-label">${leftLabel}</span>
                 <span class="stat-value">${stockDisplay}</span>
               </div>
               <div class="stat-line">
@@ -6359,10 +6380,44 @@ class AxDoseLoggerCard extends i {
         const mdKey = substance === 'alcohol'
             ? 'dialog.sleep_disruption.alcohol'
             : 'dialog.sleep_disruption.caffeine';
+        // Live summary — show ALL three Sleep Disruption-family values at the
+        // top of the dialog so the user can see them at a glance regardless of
+        // which disruption_mode the box is in:
+        //   1. Sleep Disruption (band: None/Low/Moderate/High)
+        //   2. Low - Timestamp (HH:MM, 24-hour)
+        //   3. Low - Hours Until (numeric, no unit suffix)
+        // Mirrors the Log Drink popup pattern (reads resolved state at render
+        // time; the card re-renders on every hass state change via shouldUpdate
+        // + _relevantStateChanged, and the backend pushes on every
+        // dose/undo/reset + 1-min decay tick, so the values stay fresh with no
+        // extra fetch/polling).  Formatting mirrors the Stats panel rows.
+        const entities = this._resolveEntities();
+        const dash = localize(this._lang, 'dialog.sleep_disruption.not_applicable');
+        let disruptionDisplay = dash;
+        const rawDisruption = this._getState(entities.sleepDisruption);
+        if (rawDisruption && rawDisruption !== 'unknown' && rawDisruption !== 'unavailable') {
+            disruptionDisplay = rawDisruption.charAt(0).toUpperCase() + rawDisruption.slice(1);
+        }
+        let lowTimestampDisplay = dash;
+        const rawLowTs = this._getState(entities.estimatedLowTime);
+        if (rawLowTs && rawLowTs !== 'unknown' && rawLowTs !== 'unavailable' && rawLowTs !== 'None') {
+            const dt = new Date(rawLowTs);
+            if (!isNaN(dt.getTime())) {
+                lowTimestampDisplay = dt.toLocaleTimeString(this._lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+        }
+        let lowHoursDisplay = dash;
+        const rawLowHours = this._getState(entities.lowHoursUntil);
+        if (rawLowHours && rawLowHours !== 'unknown' && rawLowHours !== 'unavailable' && rawLowHours !== 'None') {
+            const num = parseFloat(rawLowHours);
+            if (!isNaN(num)) {
+                lowHoursDisplay = String(num);
+            }
+        }
         return b `
       <ha-dialog
         open
-        width="small"
+        width="medium"
         @closed=${close}
       >
         <div slot="header" class="dialog-header">
@@ -6370,6 +6425,20 @@ class AxDoseLoggerCard extends i {
           ${localize(this._lang, 'dialog.sleep_disruption.title')}
         </div>
         <div class="dialog-body">
+          <div class="disruption-summary">
+            <div class="disruption-summary-row">
+              <span class="disruption-summary-label">${localize(this._lang, 'dialog.sleep_disruption.disruption_label')}</span>
+              <span class="disruption-summary-value">${disruptionDisplay}</span>
+            </div>
+            <div class="disruption-summary-row">
+              <span class="disruption-summary-label">${localize(this._lang, 'dialog.sleep_disruption.low_timestamp_label')}</span>
+              <span class="disruption-summary-value">${lowTimestampDisplay}</span>
+            </div>
+            <div class="disruption-summary-row">
+              <span class="disruption-summary-label">${localize(this._lang, 'dialog.sleep_disruption.low_hours_until_label')}</span>
+              <span class="disruption-summary-value">${lowHoursDisplay}</span>
+            </div>
+          </div>
           <ha-markdown .content=${localize(this._lang, mdKey)}></ha-markdown>
         </div>
         <div class="custom-action-bar">
@@ -7037,6 +7106,39 @@ AxDoseLoggerCard.styles = i$3 `
     .dialog-body--center {
       display: flex;
       justify-content: center;
+    }
+
+    /* Sleep Disruption popup — live Disruption + ETA Low summary box
+       above the band-description markdown.  Mirrors the card's
+       primary-tinted surface (rgba primary 0.06) used by .stat-pill /
+       .avg-cell so the summary reads as a card-native stat box. */
+    .disruption-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      border-radius: 10px;
+    }
+
+    .disruption-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .disruption-summary-label {
+      font-size: calc(13px + var(--pill-text-offset, 0px));
+      color: var(--secondary-text-color, #727272);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .disruption-summary-value {
+      font-size: calc(16px + var(--pill-text-offset, 0px));
+      font-weight: calc(600 * var(--pill-font-weight-boost, 1));
+      color: var(--primary-text-color, #222);
     }
 
     /* Dialog header (slot="header" for HA 2026.3+ Material 3 compatibility).
