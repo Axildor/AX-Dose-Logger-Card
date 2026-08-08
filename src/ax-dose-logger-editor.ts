@@ -243,9 +243,13 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             type: 'expandable',
             name: 'safe_to_take_box',
-            title: 'Safe to Take Box',
+            title: 'Top Box',
             flatten: true,
             schema: [
+              {
+                name: 'safe_to_take_show_amount_in_body',
+                selector: { boolean: {} },
+              },
               {
                 name: 'safe_to_take_entity',
                 selector: {
@@ -292,7 +296,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             type: 'expandable',
             name: 'pills_left_box',
-            title: 'Pills Left Box',
+            title: 'Bottom Box',
             flatten: true,
             schema: [
               {
@@ -345,7 +349,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             type: 'expandable',
             name: 'chips',
-            title: 'Custom Chips',
+            title: 'Custom Boxes',
             flatten: true,
             schema: [
               // ── Layer 3: each chip gets its own collapsable menu with the
@@ -377,7 +381,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'chip_1_icon',
@@ -426,7 +430,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'chip_2_icon',
@@ -475,7 +479,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'chip_3_icon',
@@ -524,7 +528,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'chip_4_icon',
@@ -555,12 +559,12 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
         ],
       },
       // ── Drinks Panel (Master Tracker) — mirrors the Daily Panel ──
-      // Same three-box override structure: In Body Box (entity swap + icon/
-      // label + actions), Disruption Box (Time to Low 3-option select +
-      // entity swap + icon/label + actions), and Custom Chips (4× entity +
-      // label pairs). The Disruption Box uses a single 3-option select
+      // Same three-box override structure: Top Box (In Body — entity swap +
+      // icon/label + actions), Bottom Box (Disruption — Time to Low 3-option
+      // select + entity swap + icon/label + actions), and Custom Boxes (4×
+      // entity + label pairs). The Bottom Box uses a single 3-option select
       // ('disruption' / 'low_timestamp' / 'low_hours_until') instead of the
-      // Pills Left Box boolean toggle — the cleanest expression of three
+      // Daily Bottom Box boolean toggle — the cleanest expression of three
       // mutually-exclusive display modes (user-confirmed Option A).
       {
         type: 'expandable',
@@ -585,7 +589,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             type: 'expandable',
             name: 'in_body_box',
-            title: 'In Body Box',
+            title: 'Top Box',
             flatten: true,
             schema: [
               {
@@ -634,7 +638,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             type: 'expandable',
             name: 'disruption_box',
-            title: 'Disruption Box',
+            title: 'Bottom Box',
             flatten: true,
             schema: [
               {
@@ -695,7 +699,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             type: 'expandable',
             name: 'drink_chips',
-            title: 'Custom Chips',
+            title: 'Custom Boxes',
             flatten: true,
             schema: [
               // ── Layer 3: each drink chip gets its own collapsable menu with
@@ -724,7 +728,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'drink_chip_1_icon',
@@ -773,7 +777,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'drink_chip_2_icon',
@@ -822,7 +826,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'drink_chip_3_icon',
@@ -871,7 +875,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   {
                     type: 'grid',
                     name: '',
-                    column_min_width: '200px',
+                    column_min_width: '180px',
                     schema: [
                       {
                         name: 'drink_chip_4_icon',
@@ -984,35 +988,33 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       if (schema.type === 'grid' || !schema.name) {
         return '';
       }
-      // Chip entity + icon + label fields: suppress the external label so the
-      // nested expandable header "Chip N" (the only visible identifier) conveys
-      // identity.  The entity picker's "Chip N (optional)" external label is
-      // redundant now that each chip lives inside its own "Chip N" collapsable
-      // menu — returning '' (not undefined) prevents ha-form from falling back
-      // to the schema field name.  The icon field is self-explanatory (icon
-      // picker UI) and the label field is paired in a grid alongside it, so
-      // both are also suppressed.  The tap/hold/double_tap action fields are
-      // NOT suppressed (they keep their "Tap Action" / "Hold Action" /
-      // "Double Tap Action" labels so the user can distinguish the three action
-      // rows inside the expandable).
+      // Custom Box entity picker: label as "Settings" rather than the
+      // localized "Box N (optional)" — the nested expandable header "Box N"
+      // already conveys identity, so the entity picker gets a neutral
+      // "Settings" label that groups the entity + icon/label overrides below
+      // it.  Returning a non-empty string is required: ha-form treats an
+      // empty-string (or undefined) computeLabel return as "no label" and
+      // falls back to humanizing the schema field name (chip_1 → "Chip 1"),
+      // which is the stale text we are replacing.  "Settings" is non-empty
+      // so it overrides the humanize fallback cleanly.  The icon/label
+      // override fields are NOT touched here: they render their "Box N Icon"
+      // / "Box N Label" labels (paired in a grid) so the user can tell the
+      // icon-override picker apart from the label-override picker.  The
+      // tap/hold/double_tap action fields likewise keep their labels.
       if (
-        schema.name === 'chip_1' || schema.name === 'chip_1_label' || schema.name === 'chip_1_icon' ||
-        schema.name === 'chip_2' || schema.name === 'chip_2_label' || schema.name === 'chip_2_icon' ||
-        schema.name === 'chip_3' || schema.name === 'chip_3_label' || schema.name === 'chip_3_icon' ||
-        schema.name === 'chip_4' || schema.name === 'chip_4_label' || schema.name === 'chip_4_icon'
+        schema.name === 'chip_1' || schema.name === 'chip_2' ||
+        schema.name === 'chip_3' || schema.name === 'chip_4'
       ) {
-        return '';
+        return localize(lang, 'config.box_settings');
       }
-      // Drink chip entity + icon + label fields: same label-suppression
-      // rationale as the Daily-panel chips above (the nested "Chip N"
-      // expandable header conveys identity).
+      // Drink Custom Box entity picker: same "Settings" label as the
+      // Daily-panel Custom Boxes above (the nested "Box N" expandable header
+      // conveys identity).  Icon/label override fields render.
       if (
-        schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' || schema.name === 'drink_chip_1_icon' ||
-        schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' || schema.name === 'drink_chip_2_icon' ||
-        schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' || schema.name === 'drink_chip_3_icon' ||
-        schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label' || schema.name === 'drink_chip_4_icon'
+        schema.name === 'drink_chip_1' || schema.name === 'drink_chip_2' ||
+        schema.name === 'drink_chip_3' || schema.name === 'drink_chip_4'
       ) {
-        return '';
+        return localize(lang, 'config.box_settings');
       }
       return localize(lang, 'config.' + schema.name);
     },

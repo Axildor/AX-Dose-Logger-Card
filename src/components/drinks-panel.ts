@@ -317,6 +317,13 @@ export class AxDoseDrinksPanel extends LitElement {
       position: relative;
       overflow: hidden;
       flex: 1;
+      /* Reserve the full two-line-sub-text button height permanently (mirrors
+         daily-panel.ts .take-pill-btn). justify-content: center distributes
+         the reserved height as symmetric top/bottom padding so the
+         icon→label→sub gap stays the fixed 2px (uniform) and only the outer
+         padding changes. min-height in em (relative to 16px base font) scales
+         with --pill-text-offset. ≈ 128px = 8em. */
+      min-height: 8em;
     }
 
     .log-drink-btn:active {
@@ -367,6 +374,7 @@ export class AxDoseDrinksPanel extends LitElement {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
+      flex: 1;
     }
 
     .stat-pill.clickable {

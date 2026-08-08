@@ -1288,12 +1288,26 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     return name;
   }
 
-  // Resolve the entity to display in the Safe to Take box. If the user
-  // configured a replacement (safe_to_take_entity), use it; otherwise fall
-  // back to the auto-resolved pills_safe_to_take sensor. The Take Pill
-  // button's LIMIT REACHED logic is decoupled and always uses the real
-  // pillsSafeToTake sensor (see isLimitReached below).
+  // Resolve the entity to display in the top (Safe to Take / Amount in Body)
+  // box. Priority (mirrors _getPillsLeftBoxEntity — built-in mode-swap wins
+  // over an arbitrary entity swap so the two overrides are mutually
+  // unambiguous):
+  //   1. safe_to_take_show_amount_in_body === true → amountInBody sensor
+  //      (the toggle is a first-class built-in swap; wins over a configured
+  //      safe_to_take_entity). Falls back to pillsSafeToTake when amountInBody
+  //      is structurally absent (e.g. a device without a PK model) so the box
+  //      is never empty — distinct from a state-quality dynamic default, which
+  //      we reject (the panel's displayIsUnknown branch shows N/A when the
+  //      sensor exists but reads unknown, which is expected for an opt-in).
+  //   2. safe_to_take_entity configured → the user's chosen entity.
+  //   3. default → the auto-resolved pills_safe_to_take sensor.
+  // The Take Pill button's LIMIT REACHED logic is decoupled and always uses
+  // the real pillsSafeToTake sensor (see isLimitReached in daily-panel.ts),
+  // so swapping the box display is purely cosmetic.
   private _getSafeBoxEntity(entities: ResolvedEntities): string | undefined {
+    if (this.config?.safe_to_take_show_amount_in_body === true) {
+      return entities.amountInBody || entities.pillsSafeToTake;
+    }
     return this.config?.safe_to_take_entity || entities.pillsSafeToTake;
   }
 

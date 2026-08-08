@@ -4,7 +4,7 @@ A custom Lovelace dashboard card for the [AX Dose Logger](https://github.com/Axi
 
 [![Buy me a tea](https://img.shields.io/badge/Buy_me_a_tea-☕-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/axildor)
 
-<!-- SCREENSHOT: Card showing the Daily tab — medication name, Take Pill button with next-dose countdown, pills safe to take, last dose, inventory count, custom chips -->
+<!-- SCREENSHOT: Card showing the Daily tab — medication name, Take Pill button with next-dose countdown, pills safe to take, last dose, inventory count, custom boxes -->
 
 ---
 
@@ -78,9 +78,9 @@ This card requires the **AX Dose Logger** integration to be installed and config
 
 1. Edit your dashboard → Add Card → Search for "AX Dose Logger"
 2. Select your medication or Master Tracker device from the dropdown
-3. Configure color scheme, custom chips, graph options, and per-box overrides as desired
+3. Configure color scheme, custom boxes, graph options, and per-box overrides as desired
 
-The visual editor is organized into expandable sections: **Daily Tab** (Take Pill button, Safe to Take Box, Pills Left Box, Custom Chips with per-chip collapsable menus), **Drinks Tab** (Log Drink button, In Body Box, Disruption Box, Custom Chips with per-chip collapsable menus), and **Graphs Tab** (Amount in Body toggle + default timeframe, day-average/adherence boxes). See [Configuration Options](#configuration-options-not-needed-for-reference-only) for the full reference table.
+The visual editor is organized into expandable sections: **Daily Tab** (Take Pill button, Top Box, Bottom Box, Custom Boxes with per-box collapsable menus), **Drinks Tab** (Log Drink button, Top Box, Bottom Box, Custom Boxes with per-box collapsable menus), and **Graphs Tab** (Amount in Body toggle + default timeframe, day-average/adherence boxes). See [Configuration Options](#configuration-options-not-needed-for-reference-only) for the full reference table.
 
 ---
 
@@ -102,11 +102,11 @@ The card adapts its tabs to the selected device type:
 - Pills safe to take indicator
 - Last dose timestamp
 - Inventory count (double-tap to refill)
-- Custom chips for any related entities — each chip has its own collapsable menu in the visual editor with entity, icon, label, and tap/hold/double-tap actions. Tapping a chip defaults to more-info on its entity
+- Custom boxes for any related entities — each box has its own collapsable menu in the visual editor with entity, icon, label, and tap/hold/double-tap actions. Tapping a box defaults to more-info on its entity
 
-The **Safe to Take Box** and **Pills Left Box** are each fully overridable via the visual editor's Daily Tab expandable:
-- **Safe to Take Box** — swap in any HA entity, custom icon/label, and tap/hold/double-tap actions. The Take Pill button's safety logic always uses the real sensor regardless of this setting.
-- **Pills Left Box** — a "Days left instead of Pills left" toggle swaps the box to the backend Days Left sensor (keeps the Refill dialog as the default tap), plus entity swap, custom icon/label, and tap/hold/double-tap actions.
+The **Top Box** and **Bottom Box** are each fully overridable via the visual editor's Daily Tab expandable (the names refer to physical position so they stay truthful regardless of which sensor the box renders):
+- **Top Box** — a "Amount in body instead of Safe to take" toggle swaps the box to the Amount in Body sensor (default is Safe to Take; the Take Pill button's safety logic always uses the real Safe to Take sensor regardless of this setting), plus entity swap, custom icon/label, and tap/hold/double-tap actions.
+- **Bottom Box** — a "Days left instead of Pills left" toggle swaps the box to the backend Days Left sensor (keeps the Refill dialog as the default tap), plus entity swap, custom icon/label, and tap/hold/double-tap actions.
 
 ### 📊 Graphs
 
@@ -157,8 +157,8 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
   - **Sleep Disruption** (default) — shows the band state (None / Low / Moderate / High). Tapping opens the substance-specific Sleep Disruption popup.
   - **Low - Timestamp** — shows the Low - Timestamp sensor formatted as `HH:MM` (24-hour). Tapping opens more-info.
   - **Low - Hours Until** — shows the Low - Hours Until countdown sensor formatted as `X h`. Tapping opens more-info.
-- The **In Body Box** and **Disruption Box** are each fully overridable via the visual editor's Drinks Tab expandable (entity swap, custom icon/label, tap/hold/double-tap actions).
-- Up to 4 **custom chips** (separate from the Daily tab's chips) can be added. Each chip has its own collapsable menu in the visual editor with entity, icon, label, and tap/hold/double-tap actions. Tapping a chip defaults to more-info on its entity.
+- The Drinks tab's **Top Box** and **Bottom Box** are each fully overridable via the visual editor's Drinks Tab expandable (entity swap, custom icon/label, tap/hold/double-tap actions). The Top Box defaults to the In Body sensor; the Bottom Box defaults to the Sleep Disruption sensor (with a Time to Low selector to switch to the Low - Timestamp / Low - Hours Until sensor).
+- Up to 4 **custom boxes** (separate from the Daily tab's boxes) can be added. Each box has its own collapsable menu in the visual editor with entity, icon, label, and tap/hold/double-tap actions. Tapping a box defaults to more-info on its entity.
 
 ### 📊 Graph
 
@@ -199,41 +199,42 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 | `bold_text` | boolean | `false` | When on, all card text becomes 50% bolder for better readability. Independent of Large Text. Off by default |
 | `take_pill_icon` | string | `mdi:pill` | Icon shown on the Take Pill button when the limit has not been reached. The limit-reached state always uses `mdi:alert` |
 | `take_pill_label` | string | `Take Pill` | Text shown on the Take Pill button when the limit has not been reached. Change to match the medicine form, e.g. `Inject Dose`, `Apply Cream` |
-| `safe_to_take_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the Safe to Take box. Leave empty to use the built-in Pills Safe to Take sensor. The Take Pill button safety logic always uses the real sensor regardless of this setting |
-| `safe_to_take_label` | string | `Safe to take` | Custom label for the Safe to Take stat box |
-| `safe_to_take_icon` | icon | `mdi:shield-check` | Icon shown on the Safe to Take stat box |
-| `safe_to_take_tap_action` | action | `more-info` | Action to perform when the Safe to Take box is tapped. Defaults to more-info on the displayed entity |
-| `safe_to_take_hold_action` | action | _(none)_ | Action to perform when the Safe to Take box is long-pressed |
-| `safe_to_take_double_tap_action` | action | _(none)_ | Action to perform when the Safe to Take box is double-tapped |
-| `pills_left_label` | string | `Pills left` | Label for the remaining-amount stat in the Daily tab. Change to match the form/unit, e.g. `Amount Left (ml)`, `Doses Left` |
-| `pills_left_icon` | icon | `mdi:pill` | Icon shown on the remaining-amount stat box in the Daily tab |
+| `safe_to_take_show_amount_in_body` | boolean | `false` | Show the Amount in Body sensor instead of Safe to take. The Take Pill limit check still uses the real Safe to Take sensor. Overrides `safe_to_take_entity` when on |
+| `safe_to_take_entity` | entity | _(empty)_ | Override Entity for the Top Box (Safe to Take). Any Home Assistant entity to display. Leave empty to use the built-in Safe to Take sensor (or Amount in Body when the toggle is on). The Take Pill button safety logic always uses the real Safe to Take sensor regardless of this setting |
+| `safe_to_take_label` | string | `Safe to take` / `Amount in Body` | Override Label for the Top Box (Safe to Take). Defaults depend on the toggle |
+| `safe_to_take_icon` | icon | `mdi:shield-check` / `mdi:chart-bell-curve` | Override Icon for the Top Box (Safe to Take). Defaults depend on the toggle |
+| `safe_to_take_tap_action` | action | `more-info` | Action to perform when the Top Box (Safe to Take) is tapped. Defaults to more-info on the displayed entity |
+| `safe_to_take_hold_action` | action | _(none)_ | Action to perform when the Top Box (Safe to Take) is long-pressed |
+| `safe_to_take_double_tap_action` | action | _(none)_ | Action to perform when the Top Box (Safe to Take) is double-tapped |
+| `pills_left_label` | string | `Pills left` | Override Label for the Bottom Box (Pills Left). Change to match the form/unit, e.g. `Amount Left (ml)`, `Doses Left` |
+| `pills_left_icon` | icon | `mdi:pill` | Override Icon for the Bottom Box (Pills Left) |
 | `pills_left_show_days_left` | boolean | `false` | Show the Days left sensor instead of Pills left. Keeps the Refill dialog as the default tap |
-| `pills_left_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the Pills Left box. Leave empty to use the built-in sensor. Tapping still opens the Refill dialog by default |
-| `pills_left_tap_action` | action | `refill` | Action when the Pills Left box is tapped. Defaults to the Refill dialog; a custom action overrides it |
-| `pills_left_hold_action` | action | _(none)_ | Action when the Pills Left box is long-pressed |
-| `pills_left_double_tap_action` | action | _(none)_ | Action when the Pills Left box is double-tapped |
+| `pills_left_entity` | entity | _(empty)_ | Override Entity for the Bottom Box (Pills Left). Any Home Assistant entity to display. Leave empty to use the built-in Pills Left number entity (or Days left when the toggle is on). Overridden by the Days Left toggle. Tapping still opens the Refill dialog by default |
+| `pills_left_tap_action` | action | `refill` | Action when the Bottom Box (Pills Left) is tapped. Defaults to the Refill dialog; a custom action overrides it |
+| `pills_left_hold_action` | action | _(none)_ | Action when the Bottom Box (Pills Left) is long-pressed |
+| `pills_left_double_tap_action` | action | _(none)_ | Action when the Bottom Box (Pills Left) is double-tapped |
 | `log_drink_icon` | icon | `mdi:coffee` / `mdi:glass-mug-variant` | Icon for the Log Drink button on the Drinks tab (Master Tracker cards). Substance-aware default |
 | `log_drink_label` | string | `Log Drink` | Label for the Log Drink button |
-| `in_body_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the In Body box. Leave empty to use the built-in sensor |
-| `in_body_icon` | icon | `mdi:chart-bell-curve` | Icon for the In Body box |
-| `in_body_label` | string | `In Body` | Label for the In Body box |
-| `in_body_tap_action` | action | `more-info` | Action when the In Body box is tapped |
-| `in_body_hold_action` | action | _(none)_ | Action when the In Body box is long-pressed |
-| `in_body_double_tap_action` | action | _(none)_ | Action when the In Body box is double-tapped |
-| `disruption_mode` | select | `disruption` | Display mode for the Disruption box. `disruption` = Sleep Disruption state (None/Low/Moderate/High); `low_timestamp` = Low - Timestamp (HH:MM); `low_hours_until` = Low - Hours Until countdown (X h). Overrides `disruption_entity` when set to a Low mode |
-| `disruption_entity` | entity | _(empty)_ | Any Home Assistant entity to display in the Disruption box. Leave empty to use the built-in sensor. Overridden by the `disruption_mode` Low modes |
-| `disruption_icon` | icon | `mdi:sleep` / `mdi:clock-outline` / `mdi:timer-sand` | Icon for the Disruption box. Defaults to the mode-specific icon |
-| `disruption_label` | string | `Disruption` / `Low - Timestamp` / `Low - Hours Until` | Label for the Disruption box. Defaults to the mode-specific label |
-| `disruption_tap_action` | action | `popup` / `more-info` | Action when the Disruption box is tapped. Defaults to the Sleep Disruption popup (`disruption` mode) or more-info (Low modes) |
-| `disruption_hold_action` | action | _(none)_ | Action when the Disruption box is long-pressed |
-| `disruption_double_tap_action` | action | _(none)_ | Action when the Disruption box is double-tapped |
-| `drink_chip_1`–`drink_chip_4` | entity | _(empty)_ | Custom chips shown on the Drinks tab (Master Tracker cards). Up to 4 entities, each in its own collapsable menu |
-| `drink_chip_1_label`–`drink_chip_4_label` | string | _(empty)_ | Optional label for each Drinks-tab chip. Leave empty to use the entity's friendly name |
-| `drink_chip_1_icon`–`drink_chip_4_icon` | icon | _(entity default)_ | Optional icon for each Drinks-tab chip. Leave empty for the entity's default icon |
-| `drink_chip_1_show_icon`–`drink_chip_4_show_icon` | boolean | `false` | Show an icon on each Drinks-tab chip. Off by default (clean label-over-value tile matching the Graph tab Day Avg Boxes). When on, the chip box grows taller to fit the icon above the label — useful to make chips larger for a button-like layout |
-| `drink_chip_1_tap_action`–`drink_chip_4_tap_action` | action | more-info | Tap action for each Drinks-tab chip. Defaults to more-info on the entity |
-| `drink_chip_1_hold_action`–`drink_chip_4_hold_action` | action | _(none)_ | Hold (long-press) action for each Drinks-tab chip |
-| `drink_chip_1_double_tap_action`–`drink_chip_4_double_tap_action` | action | _(none)_ | Double-tap action for each Drinks-tab chip |
+| `in_body_entity` | entity | _(empty)_ | Override Entity for the Top Box (In Body). Any Home Assistant entity to display. Leave empty to use the built-in In Body sensor |
+| `in_body_icon` | icon | `mdi:chart-bell-curve` | Override Icon for the Top Box (In Body) |
+| `in_body_label` | string | `In Body` | Override Label for the Top Box (In Body) |
+| `in_body_tap_action` | action | `more-info` | Action when the Top Box (In Body) is tapped |
+| `in_body_hold_action` | action | _(none)_ | Action when the Top Box (In Body) is long-pressed |
+| `in_body_double_tap_action` | action | _(none)_ | Action when the Top Box (In Body) is double-tapped |
+| `disruption_mode` | select | `disruption` | Display mode for the Bottom Box (Disruption). `disruption` = Sleep Disruption state (None/Low/Moderate/High); `low_timestamp` = Low - Timestamp (HH:MM); `low_hours_until` = Low - Hours Until countdown (X h). Overrides `disruption_entity` when set to a Low mode |
+| `disruption_entity` | entity | _(empty)_ | Override Entity for the Bottom Box (Disruption). Any Home Assistant entity to display. Leave empty to use the built-in sensor. Overridden by the `disruption_mode` Low modes |
+| `disruption_icon` | icon | `mdi:sleep` / `mdi:clock-outline` / `mdi:timer-sand` | Override Icon for the Bottom Box (Disruption). Defaults to the mode-specific icon |
+| `disruption_label` | string | `Disruption` / `Low - Timestamp` / `Low - Hours Until` | Override Label for the Bottom Box (Disruption). Defaults to the mode-specific label |
+| `disruption_tap_action` | action | `popup` / `more-info` | Action when the Bottom Box (Disruption) is tapped. Defaults to the Sleep Disruption popup (`disruption` mode) or more-info (Low modes) |
+| `disruption_hold_action` | action | _(none)_ | Action when the Bottom Box (Disruption) is long-pressed |
+| `disruption_double_tap_action` | action | _(none)_ | Action when the Bottom Box (Disruption) is double-tapped |
+| `drink_chip_1`–`drink_chip_4` | entity | _(empty)_ | Custom boxes shown on the Drinks tab (Master Tracker cards). Up to 4 entities, each in its own collapsable menu |
+| `drink_chip_1_label`–`drink_chip_4_label` | string | _(empty)_ | Optional label for each Drinks-tab box. Leave empty to use the entity's friendly name |
+| `drink_chip_1_icon`–`drink_chip_4_icon` | icon | _(entity default)_ | Optional icon for each Drinks-tab box. Leave empty for the entity's default icon |
+| `drink_chip_1_show_icon`–`drink_chip_4_show_icon` | boolean | `false` | Show an icon on each Drinks-tab box. Off by default (clean label-over-value tile matching the Graph tab Day Avg Boxes). When on, the box grows taller to fit the icon above the label — useful to make boxes larger for a button-like layout |
+| `drink_chip_1_tap_action`–`drink_chip_4_tap_action` | action | more-info | Tap action for each Drinks-tab box. Defaults to more-info on the entity |
+| `drink_chip_1_hold_action`–`drink_chip_4_hold_action` | action | _(none)_ | Hold (long-press) action for each Drinks-tab box |
+| `drink_chip_1_double_tap_action`–`drink_chip_4_double_tap_action` | action | _(none)_ | Double-tap action for each Drinks-tab box |
 | `stats_3_columns` | boolean | `false` | Use 3-column layout for the stats tab |
 | `show_amount_in_body` | boolean | `true` | Show the "Amount in Body" line graph in the Graphs tab. When on (and the device has a usable Amount in Body state), it is the default graph shown when navigating to the Graphs tab |
 | `amount_in_body_default_timeframe` | string | `48h` | Default timescale for the Amount in Body graph on card load. Options: `12h`, `24h`, `48h`, `7d`, `14d`, `30d`. Useful for medications where a shorter window (e.g. 12h) is more informative |
@@ -241,13 +242,13 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 | `show_adherence_boxes` | boolean | `true` | Show adherence percentage boxes in the Stats tab |
 | `hide_nav_bar` | boolean | `false` | Hide the bottom navigation bar (Daily/Graphs/Stats/Tools). Useful for dashboards that only need the Daily tab |
 | `confirm_tool_actions` | boolean | `true` | Show a confirmation popup before running any Tools tab action. Turn off to fire actions immediately without a popup. Configured under the Settings Tab expandable in the visual editor |
-| `chip_1`–`chip_4` | string | — | Entity IDs for custom chips in the Daily tab. Each chip has its own collapsable menu in the visual editor |
-| `chip_1_label`–`chip_4_label` | string | — | Custom labels for the corresponding chips |
-| `chip_1_icon`–`chip_4_icon` | icon | _(entity default)_ | Optional icon for each chip. Leave empty for the entity's default icon |
-| `chip_1_show_icon`–`chip_4_show_icon` | boolean | `false` | Show an icon on each chip. Off by default (clean label-over-value tile matching the Graph tab Day Avg Boxes). When on, the chip box grows taller to fit the icon above the label — useful to make chips larger for a button-like layout |
-| `chip_1_tap_action`–`chip_4_tap_action` | action | more-info | Tap action for each chip. Defaults to more-info on the entity |
-| `chip_1_hold_action`–`chip_4_hold_action` | action | _(none)_ | Hold (long-press) action for each chip |
-| `chip_1_double_tap_action`–`chip_4_double_tap_action` | action | _(none)_ | Double-tap action for each chip |
+| `chip_1`–`chip_4` | string | — | Entity IDs for custom boxes in the Daily tab. Each box has its own collapsable menu in the visual editor |
+| `chip_1_label`–`chip_4_label` | string | — | Custom labels for the corresponding boxes |
+| `chip_1_icon`–`chip_4_icon` | icon | _(entity default)_ | Optional icon for each box. Leave empty for the entity's default icon |
+| `chip_1_show_icon`–`chip_4_show_icon` | boolean | `false` | Show an icon on each box. Off by default (clean label-over-value tile matching the Graph tab Day Avg Boxes). When on, the box grows taller to fit the icon above the label — useful to make boxes larger for a button-like layout |
+| `chip_1_tap_action`–`chip_4_tap_action` | action | more-info | Tap action for each box. Defaults to more-info on the entity |
+| `chip_1_hold_action`–`chip_4_hold_action` | action | _(none)_ | Hold (long-press) action for each box |
+| `chip_1_double_tap_action`–`chip_4_double_tap_action` | action | _(none)_ | Double-tap action for each box |
 
 ---
 

@@ -75,6 +75,12 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   safe_to_take_entity?: string;
   safe_to_take_label?: string;
   safe_to_take_icon?: string;
+  /** When true, the Daily tab's top stat-pill box shows the Amount in Body
+   *  sensor instead of the Safe to Take sensor. Default OFF (Safe to Take).
+   *  Mirrors pills_left_show_days_left. Configured via the "Top Box" expandable
+   *  in the visual editor. The Take Pill button's LIMIT REACHED logic always
+   *  reads the real pillsSafeToTake sensor, so this swap is purely cosmetic. */
+  safe_to_take_show_amount_in_body?: boolean;
   safe_to_take_tap_action?: ActionConfig;
   safe_to_take_hold_action?: ActionConfig;
   safe_to_take_double_tap_action?: ActionConfig;

@@ -91,11 +91,19 @@ export class AxDoseDailyPanel extends LitElement {
       : localize(this._lang, 'daily.pills_left');
     const pillsLeftDefaultIcon = pillsLeftShowDays ? 'mdi:calendar-month' : 'mdi:pill';
 
-    // Display entity for the Safe to Take box (may differ from the real sensor).
+    // Display entity for the top box (Safe to Take / Amount in Body). May
+    // differ from the real pillsSafeToTake sensor (toggle on → amountInBody).
+    const topShowAmountInBody = c.config?.safe_to_take_show_amount_in_body === true;
     const displayEntity = c.getSafeBoxEntity(e);
     const displayState = c.getState(displayEntity);
     const displayIsUnknown = displayState === 'unknown' || displayState === 'unavailable' || displayState === undefined;
     const isSwapped = !!(c.config?.safe_to_take_entity && c.config.safe_to_take_entity !== e.pillsSafeToTake);
+    // Default label/icon switch to the Amount in Body variants when the
+    // toggle is on (mirrors the pillsLeftDefaultLabel/Icon pattern below).
+    const topDefaultLabel = topShowAmountInBody
+      ? localize(this._lang, 'stats.amount_in_body')
+      : localize(this._lang, 'daily.safe_to_take');
+    const topDefaultIcon = topShowAmountInBody ? 'mdi:chart-bell-curve' : 'mdi:shield-check';
 
     // Action config for the Safe to Take box. When the user configured custom
     // tap/hold/double-tap actions, handleAction fires them. When no tap_action
@@ -143,22 +151,31 @@ export class AxDoseDailyPanel extends LitElement {
             <div class="stat-pill ${safeBoxClickable ? 'clickable' : ''}"
                  role="button"
                  tabindex=${safeBoxClickable ? '0' : nothing}
-                 aria-label=${localize(this._lang, 'daily.safe_to_take')}
+                 aria-label=${c.config?.safe_to_take_label || topDefaultLabel}
                  @click=${safeBoxClickable ? (ev: MouseEvent) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity) : null}
                  @keydown=${safeBoxClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleSafeBoxAction(null, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleSafeBoxAction(null, 'hold', safeBoxActionConfig, displayEntity); } : null}
                  @dblclick=${hasDblClick ? () => c.handleSafeBoxAction(null, 'double_tap', safeBoxActionConfig, displayEntity) : null}>
-              <ha-icon icon="${c.config?.safe_to_take_icon || 'mdi:shield-check'}"></ha-icon>
-              <span class="stat-label">${c.config?.safe_to_take_label || localize(this._lang, 'daily.safe_to_take')}</span>
+              <ha-icon icon="${c.config?.safe_to_take_icon || topDefaultIcon}"></ha-icon>
+              <span class="stat-label">${c.config?.safe_to_take_label || topDefaultLabel}</span>
               <span class="stat-value">${displayIsUnknown
                 ? localize(this._lang, 'daily.na')
-                : (isSwapped
-                  ? (displayState
-                    ? (isNaN(parseFloat(displayState))
-                      ? displayState.charAt(0).toUpperCase() + displayState.slice(1)
-                      : c.formatInteger(displayState) + (c.getAttr(displayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(displayEntity, 'unit_of_measurement') : ''))
-                    : '')
-                  : c.formatInteger(safeState))}</span>
+                : (topShowAmountInBody && !isSwapped
+                  ? (() => {
+                      // Toggle ON default → Amount in Body value formatted
+                      // Math.round(num) + strength unit, mirroring the Drinks
+                      // panel In Body box (drinks-panel.ts:81).
+                      const aibNum = parseFloat(displayState);
+                      const unit = c.getStrengthUnit(e);
+                      return isNaN(aibNum) ? displayState : `${Math.round(aibNum)}${unit ? ' ' + unit : ''}`;
+                    })()
+                  : (isSwapped
+                    ? (displayState
+                      ? (isNaN(parseFloat(displayState))
+                        ? displayState.charAt(0).toUpperCase() + displayState.slice(1)
+                        : c.formatInteger(displayState) + (c.getAttr(displayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(displayEntity, 'unit_of_measurement') : ''))
+                      : '')
+                    : c.formatInteger(safeState)))}</span>
             </div>
             <div class="stat-pill ${pillsLeftClickable ? 'clickable' : ''}"
                  role="button"
@@ -293,6 +310,19 @@ export class AxDoseDailyPanel extends LitElement {
       position: relative;
       overflow: hidden;
       flex: 1;
+      /* Reserve the full two-line-sub-text button height permanently. The
+         button's justify-content: center distributes the reserved height as
+         symmetric top/bottom padding around the icon + take-label + sub-text
+         block, so the icon→label→sub gap stays the fixed 2px (uniform) while
+         only the button's top/bottom breathing room grows to fit the reserved
+         two lines. This keeps the internal spacing visually consistent between
+         the one-line and two-line configurations; only the outer padding
+         changes. min-height is expressed in em units (relative to the button's
+         inherited 16px base font) so it scales with --pill-text-offset:
+           icon 28px + icon margin-bottom 2px + take-label 18px (line ~1.2)
+           + gap 2px + two sub lines (16px × 1.5 × 2) + gap 2px + padding 24px
+         ≈ 28+2+22+2+48+2+24 = 128px ≈ 8em. */
+      min-height: 8em;
     }
 
     .take-pill-btn:active {
@@ -345,6 +375,7 @@ export class AxDoseDailyPanel extends LitElement {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
+      flex: 1;
     }
 
     .stat-pill ha-icon {

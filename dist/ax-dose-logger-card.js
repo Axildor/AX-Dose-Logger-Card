@@ -340,6 +340,7 @@ const translations = {
         'graphs.effectiveness_title': 'Effectiveness',
         'graphs.effectiveness_avg': 'Avg',
         'graphs.effectiveness_individual': 'Individual',
+        'graphs.current': 'Current',
         'graphs.loading_history': 'Loading history...',
         'graphs.timeframe_12h': '12H',
         'graphs.timeframe_24h': '24H',
@@ -483,18 +484,19 @@ const translations = {
         'config.default_view': 'Default View',
         'config.take_pill_icon': 'Take Pill Icon',
         'config.take_pill_label': 'Take Pill Label',
-        'config.safe_to_take_box': 'Safe to Take Box',
-        'config.safe_to_take_entity': 'Safe to Take Entity',
-        'config.safe_to_take_label': 'Safe to Take Label',
-        'config.safe_to_take_icon': 'Safe to Take Icon',
+        'config.safe_to_take_box': 'Top Box',
+        'config.safe_to_take_entity': 'Override Entity',
+        'config.safe_to_take_label': 'Override Label',
+        'config.safe_to_take_icon': 'Override Icon',
+        'config.safe_to_take_show_amount_in_body': 'Amount in body instead of Safe to take',
         'config.safe_to_take_tap_action': 'Tap Action',
         'config.safe_to_take_hold_action': 'Hold Action',
         'config.safe_to_take_double_tap_action': 'Double Tap Action',
-        'config.pills_left_label': 'Pills Left Label',
-        'config.pills_left_icon': 'Pills Left Icon',
-        'config.pills_left_box': 'Pills Left Box',
+        'config.pills_left_label': 'Override Label',
+        'config.pills_left_icon': 'Override Icon',
+        'config.pills_left_box': 'Bottom Box',
         'config.pills_left_show_days_left': 'Days left instead of Pills left',
-        'config.pills_left_entity': 'Pills Left Entity',
+        'config.pills_left_entity': 'Override Entity',
         'config.pills_left_tap_action': 'Tap Action',
         'config.pills_left_hold_action': 'Hold Action',
         'config.pills_left_double_tap_action': 'Double Tap Action',
@@ -502,50 +504,50 @@ const translations = {
         'config.drinks_panel': 'Drinks Tab',
         'config.log_drink_icon': 'Log Drink Icon',
         'config.log_drink_label': 'Log Drink Label',
-        'config.in_body_box': 'In Body Box',
-        'config.in_body_entity': 'In Body Entity',
-        'config.in_body_label': 'In Body Label',
-        'config.in_body_icon': 'In Body Icon',
+        'config.in_body_box': 'Top Box',
+        'config.in_body_entity': 'Override Entity',
+        'config.in_body_label': 'Override Label',
+        'config.in_body_icon': 'Override Icon',
         'config.in_body_tap_action': 'Tap Action',
         'config.in_body_hold_action': 'Hold Action',
         'config.in_body_double_tap_action': 'Double Tap Action',
-        'config.disruption_box': 'Disruption Box',
+        'config.disruption_box': 'Bottom Box',
         'config.disruption_mode': 'Time to Low',
-        'config.disruption_entity': 'Disruption Entity',
-        'config.disruption_label': 'Disruption Label',
-        'config.disruption_icon': 'Disruption Icon',
+        'config.disruption_entity': 'Override Entity',
+        'config.disruption_label': 'Override Label',
+        'config.disruption_icon': 'Override Icon',
         'config.disruption_tap_action': 'Tap Action',
         'config.disruption_hold_action': 'Hold Action',
         'config.disruption_double_tap_action': 'Double Tap Action',
         'config.disruption_mode_disruption': 'Sleep Disruption',
         'config.disruption_mode_low_timestamp': 'Low - Timestamp',
         'config.disruption_mode_low_hours_until': 'Low - Hours Until',
-        'config.drink_chips': 'Custom Chips',
-        // Drink chip field labels (the box titles reuse config.chip_N_box above)
-        'config.drink_chip_1': 'Chip 1 (optional)',
-        'config.drink_chip_1_label': 'Chip 1 Label',
-        'config.drink_chip_1_icon': 'Chip 1 Icon',
+        'config.drink_chips': 'Custom Boxes',
+        // Drink box field labels (the box titles reuse config.chip_N_box above)
+        'config.drink_chip_1': 'Box 1 (optional)',
+        'config.drink_chip_1_label': 'Box 1 Label',
+        'config.drink_chip_1_icon': 'Box 1 Icon',
         'config.drink_chip_1_show_icon': 'Show Icon',
         'config.drink_chip_1_tap_action': 'Tap Action',
         'config.drink_chip_1_hold_action': 'Hold Action',
         'config.drink_chip_1_double_tap_action': 'Double Tap Action',
-        'config.drink_chip_2': 'Chip 2 (optional)',
-        'config.drink_chip_2_label': 'Chip 2 Label',
-        'config.drink_chip_2_icon': 'Chip 2 Icon',
+        'config.drink_chip_2': 'Box 2 (optional)',
+        'config.drink_chip_2_label': 'Box 2 Label',
+        'config.drink_chip_2_icon': 'Box 2 Icon',
         'config.drink_chip_2_show_icon': 'Show Icon',
         'config.drink_chip_2_tap_action': 'Tap Action',
         'config.drink_chip_2_hold_action': 'Hold Action',
         'config.drink_chip_2_double_tap_action': 'Double Tap Action',
-        'config.drink_chip_3': 'Chip 3 (optional)',
-        'config.drink_chip_3_label': 'Chip 3 Label',
-        'config.drink_chip_3_icon': 'Chip 3 Icon',
+        'config.drink_chip_3': 'Box 3 (optional)',
+        'config.drink_chip_3_label': 'Box 3 Label',
+        'config.drink_chip_3_icon': 'Box 3 Icon',
         'config.drink_chip_3_show_icon': 'Show Icon',
         'config.drink_chip_3_tap_action': 'Tap Action',
         'config.drink_chip_3_hold_action': 'Hold Action',
         'config.drink_chip_3_double_tap_action': 'Double Tap Action',
-        'config.drink_chip_4': 'Chip 4 (optional)',
-        'config.drink_chip_4_label': 'Chip 4 Label',
-        'config.drink_chip_4_icon': 'Chip 4 Icon',
+        'config.drink_chip_4': 'Box 4 (optional)',
+        'config.drink_chip_4_label': 'Box 4 Label',
+        'config.drink_chip_4_icon': 'Box 4 Icon',
         'config.drink_chip_4_show_icon': 'Show Icon',
         'config.drink_chip_4_tap_action': 'Tap Action',
         'config.drink_chip_4_hold_action': 'Hold Action',
@@ -558,38 +560,41 @@ const translations = {
         'config.settings_panel': 'Settings Tab',
         'config.confirm_tool_actions': 'Confirm Tool Actions',
         'config.helper.confirm_tool_actions': 'Show a confirmation popup before running any Tools tab action. On by default.',
-        'config.chips': 'Custom Chips',
-        // Chip box expandable titles (layer 3 — nested collapsable menus)
-        'config.chip_1_box': 'Chip 1',
-        'config.chip_2_box': 'Chip 2',
-        'config.chip_3_box': 'Chip 3',
-        'config.chip_4_box': 'Chip 4',
-        // Chip field labels (entity + icon + label are label-suppressed in
+        'config.chips': 'Custom Boxes',
+        // Custom Box entity picker neutral label (the "Box N" expandable header
+        // already conveys identity; this groups the entity + overrides below it).
+        'config.box_settings': 'Settings',
+        // Box expandable titles (layer 3 — nested collapsable menus)
+        'config.chip_1_box': 'Box 1',
+        'config.chip_2_box': 'Box 2',
+        'config.chip_3_box': 'Box 3',
+        'config.chip_4_box': 'Box 4',
+        // Box field labels (entity + icon + label are label-suppressed in
         // computeLabel; the action fields keep their visible labels below)
-        'config.chip_1': 'Chip 1 (optional)',
-        'config.chip_1_label': 'Chip 1 Label',
-        'config.chip_1_icon': 'Chip 1 Icon',
+        'config.chip_1': 'Box 1 (optional)',
+        'config.chip_1_label': 'Box 1 Label',
+        'config.chip_1_icon': 'Box 1 Icon',
         'config.chip_1_show_icon': 'Show Icon',
         'config.chip_1_tap_action': 'Tap Action',
         'config.chip_1_hold_action': 'Hold Action',
         'config.chip_1_double_tap_action': 'Double Tap Action',
-        'config.chip_2': 'Chip 2 (optional)',
-        'config.chip_2_label': 'Chip 2 Label',
-        'config.chip_2_icon': 'Chip 2 Icon',
+        'config.chip_2': 'Box 2 (optional)',
+        'config.chip_2_label': 'Box 2 Label',
+        'config.chip_2_icon': 'Box 2 Icon',
         'config.chip_2_show_icon': 'Show Icon',
         'config.chip_2_tap_action': 'Tap Action',
         'config.chip_2_hold_action': 'Hold Action',
         'config.chip_2_double_tap_action': 'Double Tap Action',
-        'config.chip_3': 'Chip 3 (optional)',
-        'config.chip_3_label': 'Chip 3 Label',
-        'config.chip_3_icon': 'Chip 3 Icon',
+        'config.chip_3': 'Box 3 (optional)',
+        'config.chip_3_label': 'Box 3 Label',
+        'config.chip_3_icon': 'Box 3 Icon',
         'config.chip_3_show_icon': 'Show Icon',
         'config.chip_3_tap_action': 'Tap Action',
         'config.chip_3_hold_action': 'Hold Action',
         'config.chip_3_double_tap_action': 'Double Tap Action',
-        'config.chip_4': 'Chip 4 (optional)',
-        'config.chip_4_label': 'Chip 4 Label',
-        'config.chip_4_icon': 'Chip 4 Icon',
+        'config.chip_4': 'Box 4 (optional)',
+        'config.chip_4_label': 'Box 4 Label',
+        'config.chip_4_icon': 'Box 4 Icon',
         'config.chip_4_show_icon': 'Show Icon',
         'config.chip_4_tap_action': 'Tap Action',
         'config.chip_4_hold_action': 'Hold Action',
@@ -607,10 +612,11 @@ const translations = {
         'config.helper.big_text': 'Enlarges all card text for easier reading.',
         'config.helper.take_pill_icon': 'Icon for the Take Pill button. Defaults to mdi:pill.',
         'config.helper.take_pill_label': 'Button text. Defaults to "Take Pill". E.g. "Inject Dose", "Apply Cream".',
-        'config.helper.safe_to_take_box': 'Replace the box with any entity. Leave empty for the default sensor.',
-        'config.helper.safe_to_take_entity': 'Any entity to show here. Leave empty for default.',
-        'config.helper.safe_to_take_label': 'Custom label. Defaults to "Safe to take".',
-        'config.helper.safe_to_take_icon': 'Icon on the Safe to Take box. Defaults to mdi:shield-check.',
+        'config.helper.safe_to_take_box': 'Replace the box with any entity, or switch to the Amount in Body sensor. Leave empty for the default Safe to Take sensor.',
+        'config.helper.safe_to_take_entity': 'Any entity to show here. Leave empty for default. Overridden by the Amount in body toggle.',
+        'config.helper.safe_to_take_label': 'Custom label. Defaults to "Safe to take" or "Amount in Body" depending on the toggle.',
+        'config.helper.safe_to_take_icon': 'Icon on the box. Defaults to mdi:shield-check or mdi:chart-bell-curve depending on the toggle.',
+        'config.helper.safe_to_take_show_amount_in_body': 'Show the Amount in Body sensor instead of Safe to take. The Take Pill limit check still uses the real Safe to Take sensor.',
         'config.helper.safe_to_take_tap_action': 'Defaults to more-info.',
         'config.helper.safe_to_take_hold_action': 'Long-press action.',
         'config.helper.safe_to_take_double_tap_action': 'Double-tap action.',
@@ -618,7 +624,7 @@ const translations = {
         'config.helper.pills_left_icon': 'Icon on the Pills Left box. Defaults to mdi:pill.',
         'config.helper.pills_left_box': 'Replace the box with any entity, or switch to the Days left sensor. Leave empty for the default sensor.',
         'config.helper.pills_left_show_days_left': 'Show the Days left sensor instead of Pills left. Keeps the Refill dialog as the default tap.',
-        'config.helper.pills_left_entity': 'Any entity to show here. Leave empty for default.',
+        'config.helper.pills_left_entity': 'Any entity to show here. Leave empty for default. Overridden by the Days Left toggle.',
         'config.helper.pills_left_tap_action': 'Defaults to the Refill dialog. A custom action overrides it.',
         'config.helper.pills_left_hold_action': 'Long-press action.',
         'config.helper.pills_left_double_tap_action': 'Double-tap action.',
@@ -629,7 +635,7 @@ const translations = {
         'config.helper.in_body_box': 'Replace the box with any entity. Leave empty for the default sensor.',
         'config.helper.in_body_entity': 'Any entity to show here. Leave empty for default.',
         'config.helper.in_body_label': 'Custom label. Defaults to "In Body".',
-        'config.helper.in_body_icon': 'Icon on the In Body box. Defaults to mdi:chart-bell-curve.',
+        'config.helper.in_body_icon': 'Icon on the box. Defaults to mdi:chart-bell-curve.',
         'config.helper.in_body_tap_action': 'Defaults to more-info.',
         'config.helper.in_body_hold_action': 'Long-press action.',
         'config.helper.in_body_double_tap_action': 'Double-tap action.',
@@ -641,16 +647,16 @@ const translations = {
         'config.helper.disruption_tap_action': 'Defaults to the Sleep Disruption popup (Sleep Disruption mode) or more-info (Low modes).',
         'config.helper.disruption_hold_action': 'Long-press action.',
         'config.helper.disruption_double_tap_action': 'Double-tap action.',
-        'config.helper.drink_chips': 'Show as a chip on the Drinks tab.',
-        'config.helper.drink_chip': 'Show as a chip on the Drinks tab.',
+        'config.helper.drink_chips': 'Show as a box on the Drinks tab.',
+        'config.helper.drink_chip': 'Show as a box on the Drinks tab.',
         'config.helper.drink_chip_label': "Leave empty to use the entity's name.",
         'config.helper.color_scheme': 'Accent color for the card.',
         'config.helper.name': 'Leave empty to use the device name.',
         'config.helper.chip_label': "Leave empty to use the entity's name.",
-        'config.helper.chip': 'Show as a chip on the Daily tab.',
-        // Chip override helpers (icon + actions)
-        'config.helper.chip_icon': "Override the chip icon. Leave empty for the entity's default icon.",
-        'config.helper.chip_show_icon': 'Display an icon on this chip. Off by default. When on, the chip box grows taller to fit the icon above the label — useful to make chips larger for a button-like layout.',
+        'config.helper.chip': 'Show as a box on the Daily tab.',
+        // Box override helpers (icon + actions)
+        'config.helper.chip_icon': "Override the box icon. Leave empty for the entity's default icon.",
+        'config.helper.chip_show_icon': 'Display an icon on this box. Off by default. When on, the box grows taller to fit the icon above the label — useful to make boxes larger for a button-like layout.',
         'config.helper.chip_tap_action': 'Defaults to more-info on the entity.',
         'config.helper.chip_hold_action': 'Long-press action.',
         'config.helper.chip_double_tap_action': 'Double-tap action.',
@@ -1057,9 +1063,13 @@ function buildEditorForm() {
                     {
                         type: 'expandable',
                         name: 'safe_to_take_box',
-                        title: 'Safe to Take Box',
+                        title: 'Top Box',
                         flatten: true,
                         schema: [
+                            {
+                                name: 'safe_to_take_show_amount_in_body',
+                                selector: { boolean: {} },
+                            },
                             {
                                 name: 'safe_to_take_entity',
                                 selector: {
@@ -1106,7 +1116,7 @@ function buildEditorForm() {
                     {
                         type: 'expandable',
                         name: 'pills_left_box',
-                        title: 'Pills Left Box',
+                        title: 'Bottom Box',
                         flatten: true,
                         schema: [
                             {
@@ -1159,7 +1169,7 @@ function buildEditorForm() {
                     {
                         type: 'expandable',
                         name: 'chips',
-                        title: 'Custom Chips',
+                        title: 'Custom Boxes',
                         flatten: true,
                         schema: [
                             // ── Layer 3: each chip gets its own collapsable menu with the
@@ -1191,7 +1201,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'chip_1_icon',
@@ -1240,7 +1250,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'chip_2_icon',
@@ -1289,7 +1299,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'chip_3_icon',
@@ -1338,7 +1348,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'chip_4_icon',
@@ -1369,12 +1379,12 @@ function buildEditorForm() {
                 ],
             },
             // ── Drinks Panel (Master Tracker) — mirrors the Daily Panel ──
-            // Same three-box override structure: In Body Box (entity swap + icon/
-            // label + actions), Disruption Box (Time to Low 3-option select +
-            // entity swap + icon/label + actions), and Custom Chips (4× entity +
-            // label pairs). The Disruption Box uses a single 3-option select
+            // Same three-box override structure: Top Box (In Body — entity swap +
+            // icon/label + actions), Bottom Box (Disruption — Time to Low 3-option
+            // select + entity swap + icon/label + actions), and Custom Boxes (4×
+            // entity + label pairs). The Bottom Box uses a single 3-option select
             // ('disruption' / 'low_timestamp' / 'low_hours_until') instead of the
-            // Pills Left Box boolean toggle — the cleanest expression of three
+            // Daily Bottom Box boolean toggle — the cleanest expression of three
             // mutually-exclusive display modes (user-confirmed Option A).
             {
                 type: 'expandable',
@@ -1399,7 +1409,7 @@ function buildEditorForm() {
                     {
                         type: 'expandable',
                         name: 'in_body_box',
-                        title: 'In Body Box',
+                        title: 'Top Box',
                         flatten: true,
                         schema: [
                             {
@@ -1448,7 +1458,7 @@ function buildEditorForm() {
                     {
                         type: 'expandable',
                         name: 'disruption_box',
-                        title: 'Disruption Box',
+                        title: 'Bottom Box',
                         flatten: true,
                         schema: [
                             {
@@ -1509,7 +1519,7 @@ function buildEditorForm() {
                     {
                         type: 'expandable',
                         name: 'drink_chips',
-                        title: 'Custom Chips',
+                        title: 'Custom Boxes',
                         flatten: true,
                         schema: [
                             // ── Layer 3: each drink chip gets its own collapsable menu with
@@ -1538,7 +1548,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'drink_chip_1_icon',
@@ -1587,7 +1597,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'drink_chip_2_icon',
@@ -1636,7 +1646,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'drink_chip_3_icon',
@@ -1685,7 +1695,7 @@ function buildEditorForm() {
                                     {
                                         type: 'grid',
                                         name: '',
-                                        column_min_width: '200px',
+                                        column_min_width: '180px',
                                         schema: [
                                             {
                                                 name: 'drink_chip_4_icon',
@@ -1798,31 +1808,29 @@ function buildEditorForm() {
             if (schema.type === 'grid' || !schema.name) {
                 return '';
             }
-            // Chip entity + icon + label fields: suppress the external label so the
-            // nested expandable header "Chip N" (the only visible identifier) conveys
-            // identity.  The entity picker's "Chip N (optional)" external label is
-            // redundant now that each chip lives inside its own "Chip N" collapsable
-            // menu — returning '' (not undefined) prevents ha-form from falling back
-            // to the schema field name.  The icon field is self-explanatory (icon
-            // picker UI) and the label field is paired in a grid alongside it, so
-            // both are also suppressed.  The tap/hold/double_tap action fields are
-            // NOT suppressed (they keep their "Tap Action" / "Hold Action" /
-            // "Double Tap Action" labels so the user can distinguish the three action
-            // rows inside the expandable).
-            if (schema.name === 'chip_1' || schema.name === 'chip_1_label' || schema.name === 'chip_1_icon' ||
-                schema.name === 'chip_2' || schema.name === 'chip_2_label' || schema.name === 'chip_2_icon' ||
-                schema.name === 'chip_3' || schema.name === 'chip_3_label' || schema.name === 'chip_3_icon' ||
-                schema.name === 'chip_4' || schema.name === 'chip_4_label' || schema.name === 'chip_4_icon') {
-                return '';
+            // Custom Box entity picker: label as "Settings" rather than the
+            // localized "Box N (optional)" — the nested expandable header "Box N"
+            // already conveys identity, so the entity picker gets a neutral
+            // "Settings" label that groups the entity + icon/label overrides below
+            // it.  Returning a non-empty string is required: ha-form treats an
+            // empty-string (or undefined) computeLabel return as "no label" and
+            // falls back to humanizing the schema field name (chip_1 → "Chip 1"),
+            // which is the stale text we are replacing.  "Settings" is non-empty
+            // so it overrides the humanize fallback cleanly.  The icon/label
+            // override fields are NOT touched here: they render their "Box N Icon"
+            // / "Box N Label" labels (paired in a grid) so the user can tell the
+            // icon-override picker apart from the label-override picker.  The
+            // tap/hold/double_tap action fields likewise keep their labels.
+            if (schema.name === 'chip_1' || schema.name === 'chip_2' ||
+                schema.name === 'chip_3' || schema.name === 'chip_4') {
+                return localize(lang, 'config.box_settings');
             }
-            // Drink chip entity + icon + label fields: same label-suppression
-            // rationale as the Daily-panel chips above (the nested "Chip N"
-            // expandable header conveys identity).
-            if (schema.name === 'drink_chip_1' || schema.name === 'drink_chip_1_label' || schema.name === 'drink_chip_1_icon' ||
-                schema.name === 'drink_chip_2' || schema.name === 'drink_chip_2_label' || schema.name === 'drink_chip_2_icon' ||
-                schema.name === 'drink_chip_3' || schema.name === 'drink_chip_3_label' || schema.name === 'drink_chip_3_icon' ||
-                schema.name === 'drink_chip_4' || schema.name === 'drink_chip_4_label' || schema.name === 'drink_chip_4_icon') {
-                return '';
+            // Drink Custom Box entity picker: same "Settings" label as the
+            // Daily-panel Custom Boxes above (the nested "Box N" expandable header
+            // conveys identity).  Icon/label override fields render.
+            if (schema.name === 'drink_chip_1' || schema.name === 'drink_chip_2' ||
+                schema.name === 'drink_chip_3' || schema.name === 'drink_chip_4') {
+                return localize(lang, 'config.box_settings');
             }
             return localize(lang, 'config.' + schema.name);
         },
@@ -2690,11 +2698,19 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
             ? localize(this._lang, e.daysLeftEst ? 'stats.days_left_est' : 'stats.days_left')
             : localize(this._lang, 'daily.pills_left');
         const pillsLeftDefaultIcon = pillsLeftShowDays ? 'mdi:calendar-month' : 'mdi:pill';
-        // Display entity for the Safe to Take box (may differ from the real sensor).
+        // Display entity for the top box (Safe to Take / Amount in Body). May
+        // differ from the real pillsSafeToTake sensor (toggle on → amountInBody).
+        const topShowAmountInBody = c.config?.safe_to_take_show_amount_in_body === true;
         const displayEntity = c.getSafeBoxEntity(e);
         const displayState = c.getState(displayEntity);
         const displayIsUnknown = displayState === 'unknown' || displayState === 'unavailable' || displayState === undefined;
         const isSwapped = !!(c.config?.safe_to_take_entity && c.config.safe_to_take_entity !== e.pillsSafeToTake);
+        // Default label/icon switch to the Amount in Body variants when the
+        // toggle is on (mirrors the pillsLeftDefaultLabel/Icon pattern below).
+        const topDefaultLabel = topShowAmountInBody
+            ? localize(this._lang, 'stats.amount_in_body')
+            : localize(this._lang, 'daily.safe_to_take');
+        const topDefaultIcon = topShowAmountInBody ? 'mdi:chart-bell-curve' : 'mdi:shield-check';
         // Action config for the Safe to Take box. When the user configured custom
         // tap/hold/double-tap actions, handleAction fires them. When no tap_action
         // is configured, the click falls back to more-info on the display entity
@@ -2740,22 +2756,31 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
             <div class="stat-pill ${safeBoxClickable ? 'clickable' : ''}"
                  role="button"
                  tabindex=${safeBoxClickable ? '0' : A}
-                 aria-label=${localize(this._lang, 'daily.safe_to_take')}
+                 aria-label=${c.config?.safe_to_take_label || topDefaultLabel}
                  @click=${safeBoxClickable ? (ev) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity) : null}
                  @keydown=${safeBoxClickable ? (ev) => c.onKeyActivate(ev, () => c.handleSafeBoxAction(null, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @contextmenu=${hasHold ? (ev) => { ev.preventDefault(); c.handleSafeBoxAction(null, 'hold', safeBoxActionConfig, displayEntity); } : null}
                  @dblclick=${hasDblClick ? () => c.handleSafeBoxAction(null, 'double_tap', safeBoxActionConfig, displayEntity) : null}>
-              <ha-icon icon="${c.config?.safe_to_take_icon || 'mdi:shield-check'}"></ha-icon>
-              <span class="stat-label">${c.config?.safe_to_take_label || localize(this._lang, 'daily.safe_to_take')}</span>
+              <ha-icon icon="${c.config?.safe_to_take_icon || topDefaultIcon}"></ha-icon>
+              <span class="stat-label">${c.config?.safe_to_take_label || topDefaultLabel}</span>
               <span class="stat-value">${displayIsUnknown
             ? localize(this._lang, 'daily.na')
-            : (isSwapped
-                ? (displayState
-                    ? (isNaN(parseFloat(displayState))
-                        ? displayState.charAt(0).toUpperCase() + displayState.slice(1)
-                        : c.formatInteger(displayState) + (c.getAttr(displayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(displayEntity, 'unit_of_measurement') : ''))
-                    : '')
-                : c.formatInteger(safeState))}</span>
+            : (topShowAmountInBody && !isSwapped
+                ? (() => {
+                    // Toggle ON default → Amount in Body value formatted
+                    // Math.round(num) + strength unit, mirroring the Drinks
+                    // panel In Body box (drinks-panel.ts:81).
+                    const aibNum = parseFloat(displayState);
+                    const unit = c.getStrengthUnit(e);
+                    return isNaN(aibNum) ? displayState : `${Math.round(aibNum)}${unit ? ' ' + unit : ''}`;
+                })()
+                : (isSwapped
+                    ? (displayState
+                        ? (isNaN(parseFloat(displayState))
+                            ? displayState.charAt(0).toUpperCase() + displayState.slice(1)
+                            : c.formatInteger(displayState) + (c.getAttr(displayEntity, 'unit_of_measurement') ? ' ' + c.getAttr(displayEntity, 'unit_of_measurement') : ''))
+                        : '')
+                    : c.formatInteger(safeState)))}</span>
             </div>
             <div class="stat-pill ${pillsLeftClickable ? 'clickable' : ''}"
                  role="button"
@@ -2891,6 +2916,19 @@ AxDoseDailyPanel.styles = i$3 `
       position: relative;
       overflow: hidden;
       flex: 1;
+      /* Reserve the full two-line-sub-text button height permanently. The
+         button's justify-content: center distributes the reserved height as
+         symmetric top/bottom padding around the icon + take-label + sub-text
+         block, so the icon→label→sub gap stays the fixed 2px (uniform) while
+         only the button's top/bottom breathing room grows to fit the reserved
+         two lines. This keeps the internal spacing visually consistent between
+         the one-line and two-line configurations; only the outer padding
+         changes. min-height is expressed in em units (relative to the button's
+         inherited 16px base font) so it scales with --pill-text-offset:
+           icon 28px + icon margin-bottom 2px + take-label 18px (line ~1.2)
+           + gap 2px + two sub lines (16px × 1.5 × 2) + gap 2px + padding 24px
+         ≈ 28+2+22+2+48+2+24 = 128px ≈ 8em. */
+      min-height: 8em;
     }
 
     .take-pill-btn:active {
@@ -2943,6 +2981,7 @@ AxDoseDailyPanel.styles = i$3 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
+      flex: 1;
     }
 
     .stat-pill ha-icon {
@@ -3199,10 +3238,13 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
       `;
         }
         const w$1 = 320;
-        const h = 180;
+        // h bumped 180 -> 188 so chartH (h - padTop - padBottom = 188-36-8 = 144)
+        // matches the line/effectiveness graphs, AND padTop=36 clears the top-left
+        // timeframe chips from the top Y-axis label/gridline.
+        const h = 188;
         const padLeft = 32;
         const padRight = 8;
-        const padTop = 28;
+        const padTop = 36;
         const padBottom = 8;
         const chartW = w$1 - padLeft - padRight;
         const chartH = h - padTop - padBottom;
@@ -3221,7 +3263,7 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
         <div class="timeframe-chips">
           ${this._renderBarTimeframeChips()}
         </div>
-        <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
+        <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/188">
           ${[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
             const y = padTop + chartH * (1 - fraction);
             return w `
@@ -3295,12 +3337,14 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
         const amountInBody = c.getState(entities.amountInBody);
         const rawHistory = this.amountHistory;
         const w$1 = 320;
-        // h bumped 180 -> 200 so chartH (h - padTop - padBottom) matches the bar
-        // graph's 144 (180-28-8), giving all three graphs an equally-tall Y axis.
-        const h = 200;
+        // h bumped 200 -> 208 and padTop 28 -> 36 so chartH (h - padTop - padBottom
+        // = 208-36-28 = 144) still matches the bar/effectiveness graphs' 144, AND
+        // padTop=36 clears the top-left timeframe chips from the top Y-axis
+        // label/gridline.
+        const h = 208;
         const padLeft = 36;
         const padRight = 8;
-        const padTop = 28;
+        const padTop = 36;
         const padBottom = 28;
         const chartW = w$1 - padLeft - padRight;
         const chartH = h - padTop - padBottom;
@@ -3334,12 +3378,16 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
             const y = padTop + chartH * (1 - p.value / maxAmount);
             return `${x},${y}`;
         }).join(' ');
-        // Compute Y position for the current-amount dashed line
+        // Compute Y position for the current-amount dashed line. The matching
+        // "Current" value label is rendered as an HTML chip in the top-right of
+        // .line-graph-wrapper (see the return template) instead of an SVG <text>
+        // here, so it can't overlap the polyline and matches the timeframe chips'
+        // styling on the opposite side.
         const currentAmountNum = parseFloat(amountInBody);
-        const currentY = (amountInBody && amountInBody !== 'unavailable' && !isNaN(currentAmountNum))
+        const hasCurrent = amountInBody && amountInBody !== 'unavailable' && !isNaN(currentAmountNum);
+        const currentY = hasCurrent
             ? Math.max(padTop, Math.min(padTop + chartH, padTop + chartH * (1 - currentAmountNum / maxAmount)))
             : padTop;
-        const currentLabelY = Math.max(padTop + 8, currentY - 5);
         // Dynamic time indicators based on timeframe.
         // Tick marks (visual only) and text labels are built separately so they
         // can have different densities — e.g. 12H shows hourly tick marks but text
@@ -3411,6 +3459,11 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
         <div class="timeframe-chips">
           ${this._renderTimeframeChips()}
         </div>
+        ${hasCurrent ? b `
+          <div class="current-label">
+            ${localize(this._lang, 'graphs.current')}: ${Math.round(currentAmountNum)} ${c.getStrengthUnit(entities)}
+          </div>
+        ` : A}
         <svg viewBox="0 0 ${w$1} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w$1}/${h}">
           <!-- Y-axis grid lines and labels -->
           ${[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
@@ -3429,13 +3482,12 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
                     fill="none" stroke="var(--primary-color)" stroke-width="1.5"
                     stroke-linejoin="round" opacity="0.8"/>
 
-          <!-- Current amount dashed line -->
-          ${amountInBody && amountInBody !== 'unavailable' ? w `
+          <!-- Current amount dashed line (label rendered as an HTML chip in
+               the top-right of .line-graph-wrapper so it can't overlap the
+               polyline) -->
+          ${hasCurrent ? w `
             <line x1="${padLeft}" y1="${currentY}" x2="${w$1 - padRight}" y2="${currentY}"
                   stroke="var(--primary-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
-            <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(12px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
-              Current: ${Math.round(parseFloat(amountInBody))} ${c.getStrengthUnit(entities)}
-            </text>
           ` : A}
 
           <!-- X-axis baseline -->
@@ -3554,15 +3606,15 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i 
             dayLabels.push({ key, label });
         }
         const w$1 = 320;
-        // h bumped 180 -> 196 so chartH (h - padTop - padBottom = 196-28-24 = 144)
-        // matches the bar graph's 144, giving all three graphs an equally-tall
-        // Y axis.
-        const h = 196;
+        // h bumped 196 -> 204 and padTop 28 -> 36 so chartH (h - padTop - padBottom
+        // = 204-36-24 = 144) still matches the bar/line graphs' 144, AND padTop=36
+        // clears the top-left timeframe chips from the top Y-axis label/gridline.
+        const h = 204;
         const padLeft = 28;
         const padRight = 8;
-        // padTop matches the bar/line graphs (28) so the absolutely-positioned
-        // timeframe chips (top: 4px) don't overlap the chart area.
-        const padTop = 28;
+        // padTop matches the bar/line graphs (36) so the absolutely-positioned
+        // timeframe chips (top: 4px, now on the left) don't overlap the chart area.
+        const padTop = 36;
         // padBottom makes room for the in-SVG date tick marks + labels (like the
         // Amount-in-Body line graph), not a separate .bar-labels div.
         const padBottom = 24;
@@ -3867,9 +3919,31 @@ AxDoseGraphsPanel.styles = i$3 `
     .timeframe-chips {
       position: absolute;
       top: 4px;
-      right: 4px;
+      left: 24px;
       display: flex;
       gap: 2px;
+      z-index: 1;
+    }
+
+    /* "Current" amount chip for the Amount-in-Body line graph. Sits in the
+       top-right of .line-graph-wrapper, mirroring the left-side timeframe
+       chips' pill styling (same font-size, padding, border-radius, background
+       opacity, and text color) so the two read as a matched pair. Renders only
+       when amountInBody is a parseable number (see _renderLineGraph). */
+    .current-label {
+      position: absolute;
+      top: 4px;
+      right: 10px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
+      border-radius: 4px;
+      color: var(--secondary-text-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+      border: none;
+      font-family: inherit;
+      line-height: 1.4;
+      white-space: nowrap;
       z-index: 1;
     }
 
@@ -3885,6 +3959,12 @@ AxDoseGraphsPanel.styles = i$3 `
       font-family: inherit;
       transition: color 0.2s, background 0.2s;
       line-height: 1.4;
+      /* Fixed min-width + centered text so 2-char labels (e.g. "7D") render
+         the same width as 3-char labels (e.g. "12H", "48H", "14D"). box-sizing
+         keeps the padding inside the min-width so the visible pill is uniform. */
+      min-width: 41px;
+      box-sizing: border-box;
+      text-align: center;
     }
 
     .timeframe-chip:hover {
@@ -4414,6 +4494,13 @@ AxDoseDrinksPanel.styles = i$3 `
       position: relative;
       overflow: hidden;
       flex: 1;
+      /* Reserve the full two-line-sub-text button height permanently (mirrors
+         daily-panel.ts .take-pill-btn). justify-content: center distributes
+         the reserved height as symmetric top/bottom padding so the
+         icon→label→sub gap stays the fixed 2px (uniform) and only the outer
+         padding changes. min-height in em (relative to 16px base font) scales
+         with --pill-text-offset. ≈ 128px = 8em. */
+      min-height: 8em;
     }
 
     .log-drink-btn:active {
@@ -4464,6 +4551,7 @@ AxDoseDrinksPanel.styles = i$3 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
+      flex: 1;
     }
 
     .stat-pill.clickable {
@@ -6108,12 +6196,26 @@ class AxDoseLoggerCard extends i {
         }
         return name;
     }
-    // Resolve the entity to display in the Safe to Take box. If the user
-    // configured a replacement (safe_to_take_entity), use it; otherwise fall
-    // back to the auto-resolved pills_safe_to_take sensor. The Take Pill
-    // button's LIMIT REACHED logic is decoupled and always uses the real
-    // pillsSafeToTake sensor (see isLimitReached below).
+    // Resolve the entity to display in the top (Safe to Take / Amount in Body)
+    // box. Priority (mirrors _getPillsLeftBoxEntity — built-in mode-swap wins
+    // over an arbitrary entity swap so the two overrides are mutually
+    // unambiguous):
+    //   1. safe_to_take_show_amount_in_body === true → amountInBody sensor
+    //      (the toggle is a first-class built-in swap; wins over a configured
+    //      safe_to_take_entity). Falls back to pillsSafeToTake when amountInBody
+    //      is structurally absent (e.g. a device without a PK model) so the box
+    //      is never empty — distinct from a state-quality dynamic default, which
+    //      we reject (the panel's displayIsUnknown branch shows N/A when the
+    //      sensor exists but reads unknown, which is expected for an opt-in).
+    //   2. safe_to_take_entity configured → the user's chosen entity.
+    //   3. default → the auto-resolved pills_safe_to_take sensor.
+    // The Take Pill button's LIMIT REACHED logic is decoupled and always uses
+    // the real pillsSafeToTake sensor (see isLimitReached in daily-panel.ts),
+    // so swapping the box display is purely cosmetic.
     _getSafeBoxEntity(entities) {
+        if (this.config?.safe_to_take_show_amount_in_body === true) {
+            return entities.amountInBody || entities.pillsSafeToTake;
+        }
         return this.config?.safe_to_take_entity || entities.pillsSafeToTake;
     }
     // Fire the configured tap/hold/double-tap action for the Safe to Take box.

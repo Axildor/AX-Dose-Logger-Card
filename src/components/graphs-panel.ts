@@ -169,10 +169,13 @@ export class AxDoseGraphsPanel extends LitElement {
     }
 
     const w = 320;
-    const h = 180;
+    // h bumped 180 -> 188 so chartH (h - padTop - padBottom = 188-36-8 = 144)
+    // matches the line/effectiveness graphs, AND padTop=36 clears the top-left
+    // timeframe chips from the top Y-axis label/gridline.
+    const h = 188;
     const padLeft = 32;
     const padRight = 8;
-    const padTop = 28;
+    const padTop = 36;
     const padBottom = 8;
     const chartW = w - padLeft - padRight;
     const chartH = h - padTop - padBottom;
@@ -190,7 +193,7 @@ export class AxDoseGraphsPanel extends LitElement {
         <div class="timeframe-chips">
           ${this._renderBarTimeframeChips()}
         </div>
-        <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/180">
+        <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: 320/188">
           ${[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
             const y = padTop + chartH * (1 - fraction);
             return svg`
@@ -268,12 +271,14 @@ export class AxDoseGraphsPanel extends LitElement {
     const rawHistory = this.amountHistory;
 
     const w = 320;
-    // h bumped 180 -> 200 so chartH (h - padTop - padBottom) matches the bar
-    // graph's 144 (180-28-8), giving all three graphs an equally-tall Y axis.
-    const h = 200;
+    // h bumped 200 -> 208 and padTop 28 -> 36 so chartH (h - padTop - padBottom
+    // = 208-36-28 = 144) still matches the bar/effectiveness graphs' 144, AND
+    // padTop=36 clears the top-left timeframe chips from the top Y-axis
+    // label/gridline.
+    const h = 208;
     const padLeft = 36;
     const padRight = 8;
-    const padTop = 28;
+    const padTop = 36;
     const padBottom = 28;
     const chartW = w - padLeft - padRight;
     const chartH = h - padTop - padBottom;
@@ -313,12 +318,16 @@ export class AxDoseGraphsPanel extends LitElement {
       return `${x},${y}`;
     }).join(' ');
 
-    // Compute Y position for the current-amount dashed line
+    // Compute Y position for the current-amount dashed line. The matching
+    // "Current" value label is rendered as an HTML chip in the top-right of
+    // .line-graph-wrapper (see the return template) instead of an SVG <text>
+    // here, so it can't overlap the polyline and matches the timeframe chips'
+    // styling on the opposite side.
     const currentAmountNum = parseFloat(amountInBody);
-    const currentY = (amountInBody && amountInBody !== 'unavailable' && !isNaN(currentAmountNum))
+    const hasCurrent = amountInBody && amountInBody !== 'unavailable' && !isNaN(currentAmountNum);
+    const currentY = hasCurrent
       ? Math.max(padTop, Math.min(padTop + chartH, padTop + chartH * (1 - currentAmountNum / maxAmount)))
       : padTop;
-    const currentLabelY = Math.max(padTop + 8, currentY - 5);
 
     // Dynamic time indicators based on timeframe.
     // Tick marks (visual only) and text labels are built separately so they
@@ -382,6 +391,11 @@ export class AxDoseGraphsPanel extends LitElement {
         <div class="timeframe-chips">
           ${this._renderTimeframeChips()}
         </div>
+        ${hasCurrent ? html`
+          <div class="current-label">
+            ${localize(this._lang, 'graphs.current')}: ${Math.round(currentAmountNum)} ${c.getStrengthUnit(entities)}
+          </div>
+        ` : nothing}
         <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w}/${h}">
           <!-- Y-axis grid lines and labels -->
           ${[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
@@ -400,13 +414,12 @@ export class AxDoseGraphsPanel extends LitElement {
                     fill="none" stroke="var(--primary-color)" stroke-width="1.5"
                     stroke-linejoin="round" opacity="0.8"/>
 
-          <!-- Current amount dashed line -->
-          ${amountInBody && amountInBody !== 'unavailable' ? svg`
+          <!-- Current amount dashed line (label rendered as an HTML chip in
+               the top-right of .line-graph-wrapper so it can't overlap the
+               polyline) -->
+          ${hasCurrent ? svg`
             <line x1="${padLeft}" y1="${currentY}" x2="${w - padRight}" y2="${currentY}"
                   stroke="var(--primary-color)" stroke-width="1" stroke-dasharray="4,3" opacity="0.6"/>
-            <text x="${padLeft}" y="${currentLabelY}" style="font-size: calc(12px + var(--pill-text-offset, 0px))" fill="var(--primary-color)">
-              Current: ${Math.round(parseFloat(amountInBody))} ${c.getStrengthUnit(entities)}
-            </text>
           ` : nothing}
 
           <!-- X-axis baseline -->
@@ -532,15 +545,15 @@ export class AxDoseGraphsPanel extends LitElement {
     }
 
     const w = 320;
-    // h bumped 180 -> 196 so chartH (h - padTop - padBottom = 196-28-24 = 144)
-    // matches the bar graph's 144, giving all three graphs an equally-tall
-    // Y axis.
-    const h = 196;
+    // h bumped 196 -> 204 and padTop 28 -> 36 so chartH (h - padTop - padBottom
+    // = 204-36-24 = 144) still matches the bar/line graphs' 144, AND padTop=36
+    // clears the top-left timeframe chips from the top Y-axis label/gridline.
+    const h = 204;
     const padLeft = 28;
     const padRight = 8;
-    // padTop matches the bar/line graphs (28) so the absolutely-positioned
-    // timeframe chips (top: 4px) don't overlap the chart area.
-    const padTop = 28;
+    // padTop matches the bar/line graphs (36) so the absolutely-positioned
+    // timeframe chips (top: 4px, now on the left) don't overlap the chart area.
+    const padTop = 36;
     // padBottom makes room for the in-SVG date tick marks + labels (like the
     // Amount-in-Body line graph), not a separate .bar-labels div.
     const padBottom = 24;
@@ -838,9 +851,31 @@ export class AxDoseGraphsPanel extends LitElement {
     .timeframe-chips {
       position: absolute;
       top: 4px;
-      right: 4px;
+      left: 24px;
       display: flex;
       gap: 2px;
+      z-index: 1;
+    }
+
+    /* "Current" amount chip for the Amount-in-Body line graph. Sits in the
+       top-right of .line-graph-wrapper, mirroring the left-side timeframe
+       chips' pill styling (same font-size, padding, border-radius, background
+       opacity, and text color) so the two read as a matched pair. Renders only
+       when amountInBody is a parseable number (see _renderLineGraph). */
+    .current-label {
+      position: absolute;
+      top: 4px;
+      right: 10px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
+      border-radius: 4px;
+      color: var(--secondary-text-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+      border: none;
+      font-family: inherit;
+      line-height: 1.4;
+      white-space: nowrap;
       z-index: 1;
     }
 
@@ -856,6 +891,12 @@ export class AxDoseGraphsPanel extends LitElement {
       font-family: inherit;
       transition: color 0.2s, background 0.2s;
       line-height: 1.4;
+      /* Fixed min-width + centered text so 2-char labels (e.g. "7D") render
+         the same width as 3-char labels (e.g. "12H", "48H", "14D"). box-sizing
+         keeps the padding inside the min-width so the visible pill is uniform. */
+      min-width: 41px;
+      box-sizing: border-box;
+      text-align: center;
     }
 
     .timeframe-chip:hover {

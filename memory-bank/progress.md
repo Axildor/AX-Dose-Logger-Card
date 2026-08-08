@@ -1,242 +1,6 @@
 # Progress — Pill Logger Card (Frontend)
 
-> ℹ️ **Older history (lines 2-2635 of the pre-truncation file) is archived in [`memory-bank/old/progress-archive.md`](memory-bank/old/progress-archive.md:1).** The sections below are the 16 most recent feature completions; read the archive only if you need older context.
-
-## Stat-Pill + Chip Fixed Height for UI Consistency (2026-07-11)
-
-### Planning
-- [x] Read memory-bank/activeContext.md for current context
-- [x] Read daily-panel.ts + drinks-panel.ts CSS (.stat-pill / .stat-label / .stat-value / .chip / .chip-name / .chip-value)
-- [x] Confirm user intent: all .stat-pill boxes same height regardless of 2-line wrapping; also apply to chips
-- [x] Write architecture plan to plans/stat-pill-fixed-height-plan.md (stat-pill + chip line-height math)
-
-### Implementation
-- [x] daily-panel.ts: .stat-pill → overflow:hidden; .stat-label → line-height 0.9; .stat-value → line-height 1.5 + white-space nowrap
-- [x] daily-panel.ts: .chip → overflow:hidden; .chip-name → remove nowrap/ellipsis, add line-height 0.75 + text-align center + word-break break-word; .chip-value → line-height 1.5 + white-space nowrap
-- [x] drinks-panel.ts: same 6 CSS changes (stat-pill + chip blocks identical between panels)
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.4s)
-- [x] No backend / coordinator / store / config-flow / editor / types / localize / README changes
-- [x] No projectstructure.md change (no files added/renamed/deleted)
-
-## Stat-Pill + Chip Equal-Spacing Two-Line Fix — Revision (2026-07-11)
-
-### Planning
-- [x] User feedback: first pass (line-height 0.9 / 0.75) squeezed two lines too tightly — needs more space + equal spacing above/between/below
-- [x] Derive equal-spacing formula: line-height L + min-height (3L-1)em + flex column centering → all three gaps = (L-1) × font-size
-- [x] Choose line-height 1.2 (3px gaps for 15px label, 2.4px for 12px chip-name); min-height 2.6em
-- [x] Write revision plan to plans/stat-pill-equal-spacing-plan.md
-- [x] User confirmed: implement the equal-spacing formula
-
-### Implementation
-- [x] daily-panel.ts: .stat-label → line-height 1.2 + min-height 2.6em + display flex column + justify-content center
-- [x] daily-panel.ts: .chip-name → same (line-height 1.2 + min-height 2.6em + flex column centering), keep text-align/word-break/max-width
-- [x] drinks-panel.ts: same .stat-label change
-- [x] drinks-panel.ts: same .chip-name change
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.8s)
-- [x] No backend / coordinator / store / config-flow / editor / types / localize / README changes
-- [x] No projectstructure.md change (no files added/renamed/deleted)
-
-## Stat-Pill + Chip Box Padding Reduction (2026-07-11)
-
-### Planning
-- [x] User feedback: boxes too big with excess headroom above/below text; between-line spacing is fine
-- [x] Identify source of headroom: box vertical padding (.stat-pill 12px, .chip 8px) + label flex centering
-- [x] Decision: reduce vertical padding only; keep equal-spacing formula (line-height 1.2 + min-height 2.6em) unchanged
-
-### Implementation
-- [x] daily-panel.ts: .stat-pill padding 12px 14px → 6px 14px (vertical halved, horizontal unchanged)
-- [x] daily-panel.ts: .chip padding 8px 6px → 4px 6px (vertical halved, horizontal unchanged)
-- [x] drinks-panel.ts: same 2 padding reductions
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.9s)
-- [x] No backend / coordinator / store / config-flow / editor / types / localize / README changes
-- [x] No projectstructure.md change (no files added/renamed/deleted)
-
-
-## Chip Rework — Day-Avg-Box Format + Per-Chip Icon Toggle + Timestamp Bug Fix (2026-07-11)
-
-### Planning
-- [x] User feedback: lose the icons by default; format chips like the Graph panel Day Avg Boxes; match the box height of the stat-pill boxes to the right of the Take Pill / Log Drink button; add a per-chip "Show Icon" toggle in the card settings (box grows when icon on)
-- [x] Bug report: sensor.caffeine_tracker_low_timestamp as a chip shows "2026" (year) instead of a formatted time — root cause: formatInteger parseFloat extracts the year from ISO datetime strings
-- [x] Architect plan created: plans/chip-rework-format-and-icon-toggle-plan.md
-- [x] User-confirmed icon layout: icon on top (column layout) — icon above label/value, box grows taller
-
-### Implementation
-- [x] types.ts: added chip_N_show_icon / drink_chip_N_show_icon (8 boolean fields) to AxDoseLoggerCardConfig; added showIcon?: boolean to ChipConfig interface
-- [x] ax-dose-logger-card.ts: _getChipEntities() + _getDrinkChipEntities() read *_show_icon config and populate showIcon on each ChipConfig
-- [x] daily-panel.ts: chip render gates <ha-icon> on chip.showIcon (icon above label/value); device-class-aware value (timestamp -> HH:MM via new Date + toLocaleTimeString, else formatInteger + unit); .with-icon class added; CSS reworked (.chip primary-tinted bg, padding 6px 4px, justify-content center, min-height ~51px matching stat-pill; .chip.with-icon min-height auto; .chip-name uppercase + letter-spacing 0.3px, removed min-height 2.6em)
-- [x] drinks-panel.ts: same chip render + CSS changes verbatim (parity)
-- [x] ax-dose-logger-editor.ts: added { name: 'chip_N_show_icon' / 'drink_chip_N_show_icon', selector: { boolean: {} } } toggle at the top of each chip_N_box / drink_chip_N_box expandable schema, with label + helper from localize
-- [x] localize.ts: added 8 label keys config.chip_N_show_icon / config.drink_chip_N_show_icon ("Show Icon") + 1 helper key config.helper.chip_show_icon
-- [x] README.md: added 2 Configuration Options rows (chip_N_show_icon + drink_chip_N_show_icon) documenting default-off + box-grows-when-on semantics
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.9s)
-- [x] No backend / coordinator / store / config-flow changes (timestamp bug was purely frontend rendering)
-- [x] No projectstructure.md change (no files added/renamed/deleted/repurposed — only edits to existing files)
-
-
-## Chip Refinement — Height Fix + Icon Spacing + Button-Use Note (2026-07-11)
-
-### Problem
-- Chips were too tall: `.chip` had `min-height: 51px` applied as content-box (Shadow DOM defaults to content-box, not HA's global border-box), so actual height was 51px + 12px padding = 63px, ~12px taller than the stat-pill (~51px).
-- Icon sat too close to the label when toggled on (`.chip` gap was 2px).
-
-### Fix
-- [x] daily-panel.ts + drinks-panel.ts: removed `min-height` + `justify-content: center` from `.chip` (natural column height ~52px already matches stat-pill); removed `.chip.with-icon { min-height: auto }`; added `.chip.with-icon { gap: 6px }` for icon breathing room
-- [x] README.md: updated `chip_N_show_icon` + `drink_chip_N_show_icon` row descriptions to note the icon toggle makes chips taller — useful for a button-like layout
-- [x] localize.ts: updated `config.helper.chip_show_icon` helper text to mention the button-like use
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.4s)
-- [x] No backend / coordinator / store / config-flow / types / editor changes
-- [x] No projectstructure.md change (no files added/renamed/deleted)
-
-
-## Chip Icon Spacing + Color Scheme Refinement (2026-07-11)
-
-### Fix
-- [x] daily-panel.ts + drinks-panel.ts: .chip.with-icon gap 6px -> 10px (more breathing room between icon and label)
-- [x] daily-panel.ts + drinks-panel.ts: .chip-icon color var(--secondary-text-color) -> var(--primary-color) + opacity 0.7 (matches the stat-pill icon color scheme)
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.1s)
-
-
-## Chip Icon Gap-Isolation + Size Match Refinement (2026-07-11)
-
-### Problem
-- .chip.with-icon { gap: 10px } changed the gap for ALL flex children, so the label-to-value spacing also jumped to 10px (was 2px) when the icon was toggled on — user wanted label-to-value to stay the same in both modes.
-- Chip icon was 18px; stat-pill icons are 20px — not the same size.
-
-### Fix
-- [x] daily-panel.ts + drinks-panel.ts: reverted .chip.with-icon gap override (gap stays 2px in both modes); moved the icon breathing room to .chip-icon { margin-bottom: 8px } so only the icon-to-label gap grows, not label-to-value
-- [x] daily-panel.ts + drinks-panel.ts: .chip-icon --mdc-icon-size 18px -> 20px + width/height 20px (matches the .stat-pill ha-icon size)
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.6s)
-
-
-## Default View Override + Bold Text + Editor Reorder (2026-07-11)
-
-### Planning
-- [x] Read activeContext.md + projectstructure.md for current editor schema + CSS architecture context
-- [x] Inspect editor schema (ax-dose-logger-editor.ts lines 112-160) — identified 2 existing grid rows: big_text|hide_nav_bar, color_scheme|name
-- [x] Inspect connectedCallback pane reset (ax-dose-logger-card.ts line 1930) — hardcoded 'daily'
-- [x] Inspect --pill-text-offset CSS custom property pattern (injected on <ha-card>, consumed via calc() in all panels)
-- [x] Architect mode: design plan with 3-row editor reorder, default_view select dropdown, bold_text CSS custom property (--pill-font-weight-boost), friendly-name dropdown labels reusing pane.* localize keys
-
-### Implementation
-- [x] types.ts: add default_view?: string + bold_text?: boolean to AxDoseLoggerCardConfig
-- [x] ax-dose-logger-editor.ts: reorder 2 grid rows → 3 grid rows (Row1: color_scheme|name, Row2: default_view|hide_nav_bar, Row3: big_text|bold_text); add default_view select dropdown with 7 pane options using pane.* localize keys for labels
-- [x] localize.ts: add config.bold_text + config.default_view labels, config.helper.bold_text + config.helper.default_view helpers
-- [x] ax-dose-logger-card.ts connectedCallback: replace hardcoded 'daily' with validated config.default_view (whitelist of 7 pane IDs, fallback 'daily')
-- [x] ax-dose-logger-card.ts: inject --pill-font-weight-boost CSS custom property on both <ha-card> inline styles (100 when bold_text === true, 0 otherwise)
-- [x] daily-panel.ts: wrap 4 font-weight declarations in calc(N + var(--pill-font-weight-boost, 0))
-- [x] drinks-panel.ts: wrap 4 font-weight declarations (parity with daily-panel)
-- [x] stats-panel.ts: wrap 1 font-weight declaration
-- [x] inventory-panel.ts: wrap 2 font-weight declarations
-- [x] tools-panel.ts: wrap 2 font-weight declarations
-- [x] tracking-panel.ts: wrap 3 font-weight declarations
-- [x] graphs-panel.ts: wrap 6 font-weight declarations
-- [x] ax-dose-logger-card.ts: wrap 6 font-weight declarations (pane selector + dialog CSS + placeholder inline style)
-- [x] Verified zero remaining bare font-weight:N declarations across all src/*.ts files
-- [x] README.md: add default_view + bold_text config option rows
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.9s)
-- [x] No backend / coordinator / store / config-flow changes
-- [x] No projectstructure.md change (no files added/renamed/deleted — only edits to existing files)
-
-
-## Bold Text Revision: 50% Multiplicative + Catch-All + Helper Text Trim (2026-07-11)
-
-### Problem
-- First-pass bold_text used a flat +100 additive boost (calc(N + var(..., 0)) with value 0/100) — user feedback: "hardly a difference and some text did not change"
-- Elements without an explicit font-weight declaration (inherited text, labels, spans) never received the boost at all
-- Helper text for default_view was too verbose ("Pane shown when the card loads." + "for this device.")
-
-### Fix
-- [x] Switched --pill-font-weight-boost from additive (0/100) to multiplicative (1/1.5) — formula changed from calc(N + var(..., 0)) to calc(N * var(..., 1)) across all 28 font-weight declarations in all 8 source files
-- [x] Added :host { font-weight: calc(400 * var(--pill-font-weight-boost, 1)); } catch-all rule to all 7 panel components + the card's own :host — so inherited text without explicit font-weight also gets boosted (400 → 600 when on)
-- [x] Trimmed config.helper.default_view from "Pane shown when the card loads. Falls back to Daily if invalid for this device." to "Falls back to Daily if invalid."
-- [x] Updated README bold_text description to "50% bolder"
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3s)
-- [x] grep confirmed zero remaining triple-paren issues from sed
-- [x] No projectstructure.md change
-
-
-## Bold Text Refinements: Title Exclusion + Nav Inactive Buttons + Helper Trim (2026-07-11)
-
-### User Feedback
-- Remove ", especially in light mode." from the Bold Text helper description
-- Don't apply bold to the title (device name at the top)
-- Bold effect only appearing on the active nav button — should apply to inactive panel names too
-
-### Fix
-- [x] localize.ts: config.helper.bold_text trimmed "Makes all card text bolder for better readability, especially in light mode." → "Makes all card text bolder for better readability."
-- [x] daily-panel.ts: .med-name font-weight reverted from calc(600 * var(...)) → fixed 600 (title excluded from bold)
-- [x] drinks-panel.ts: .drinks-title font-weight reverted from calc(600 * var(...)) → fixed 600 (title excluded from bold, parity with daily-panel)
-- [x] ax-dose-logger-card.ts: .pane-btn base rule gained explicit font-weight: calc(400 * var(--pill-font-weight-boost, 1)) — so inactive nav buttons now get the 50% boost (400→600 when on); the .pane-btn.active rule's calc(500 * var(...)) still overrides for active buttons (500→750)
-- [x] README.md: bold_text description trimmed ", especially in light mode."
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.9s)
-- [x] No projectstructure.md change
-
-## Card Integration Audit + HIGH Findings Fix — Complete
-
-### Planning
-- [x] Read memory-bank context (activeContext, progress, projectstructure)
-- [x] Read main card source (ax-dose-logger-card.ts — 2439 lines)
-- [x] Read editor module (ax-dose-logger-editor.ts — 1021 lines)
-- [x] Read types, helpers, localize
-- [x] Read panel components (daily, graphs, drinks, stats)
-- [x] Search for redundant/dead references, unused imports, HA best-practice violations, memory leak patterns
-- [x] Compile audit findings into structured report → plans/card-integration-audit.md
-- [x] Write fix plan for H1 + H2 → plans/fix-high-audit-findings-plan.md
-
-### Audit Findings (documented in plans/card-integration-audit.md)
-- [x] H1 (HIGH): installEditorGridAlignment() MutationObserver leak + global CSS injection — observer on document.body never disconnected, CSS injected into all ha-form elements cross-card
-- [x] H2 (HIGH): _getDrinksOfSubstance() no cache — full O(n) entity scan on every call incl. _relevantStateChanged() on every HA state change while inventory pane active
-- [x] M1 (MEDIUM): Mutating @state _activePane inside render() — violates Lit "don't update reactive props in render" contract
-- [x] M2 (MEDIUM): 30s _tick does not propagate to panel components — countdowns stay stale inside panels
-- [x] M3 (MEDIUM): Global CSS injection affects all ha-form elements (cross-card pollution)
-- [x] M4 (MEDIUM): History re-fetch on every state change while on graphs pane — 2 recorder DB queries per state change
-- [x] L1 (LOW): Unused svg import in ax-dose-logger-card.ts
-- [x] L2 (LOW): Dead localize keys (pane.caffeine, caffeine.placeholder, config.graph_options)
-- [x] L3 (LOW): Dead type re-exports from main card module (no consumers)
-- [x] L4 (LOW): _predictLowToken should not be @state() (race-guard token has no rendering impact)
-- [x] L5 (LOW): Duplicate _getTimeframeHours() in container + graphs-panel
-- [x] L6 (LOW): _pendingTracking Set not cleared on disconnect/connect
-- [x] L7 (LOW): _computeEntities() double iteration (low impact since cached)
-
-### H1 Implementation — MutationObserver Leak + Global CSS Injection
-- [x] ax-dose-logger-editor.ts: installEditorGridAlignment() doc-comment updated (reflects getConfigForm() call site + auto-cleanup)
-- [x] ax-dose-logger-editor.ts: processForms() now returns ha-form count (was void)
-- [x] ax-dose-logger-editor.ts: observer callback auto-disconnects + nulls _formStyleObserver when processForms() returns 0 (editor dialog closed)
-- [x] ax-dose-logger-editor.ts: new uninstallEditorGridAlignment() export — explicit cleanup hook (defense-in-depth)
-- [x] ax-dose-logger-card.ts: removed installEditorGridAlignment() call from connectedCallback()
-- [x] ax-dose-logger-card.ts: added installEditorGridAlignment() call in static getConfigForm() before return buildEditorForm()
-
-### H2 Implementation — _getDrinksOfSubstance() Cache
-- [x] ax-dose-logger-card.ts: added _drinksCache field near _resolvedEntities cache
-- [x] ax-dose-logger-card.ts: cache-hit check at top of _getDrinksOfSubstance() (substance + entitiesRef match returns cached drinks)
-- [x] ax-dose-logger-card.ts: cache result stored after scan
-- [x] ax-dose-logger-card.ts: _invalidateEntityCache() now also clears _drinksCache
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 2.8s)
-- [x] No projectstructure.md change (no files added/renamed/deleted — only edits to existing files + new plan docs)
-- [x] activeContext.md updated (new Current Status, prior archived)
-- [x] progress.md updated (this section)
+> ℹ️ **Older history (lines 2-2635 of the pre-truncation file) is archived in [`memory-bank/old/progress-archive.md`](memory-bank/old/progress-archive.md:1).** The sections below are the ~16 most recent feature completions; read the archive only if you need older context.
 
 ## MEDIUM + LOW Audit Findings Fix — Complete
 
@@ -512,3 +276,222 @@ Rework the Master Tracker Inventory panel's col-1 first-line label from `Name le
 3. **Negative-false runtime tests stay** — `!== false` is correct for default-ON fields; the bug was purely on the editor-rendering side.
 4. **`getStubConfig` left as-is** — its `show_amount_in_body: true` covers only freshly-added cards; the schema `default` covers both new + existing cards uniformly, so the stub value is redundant but harmless; left as-is to avoid touching runtime config.
 5. **Full audit table documented** in plans/sync-editor-toggle-defaults-plan.md (17 toggles × runtime read × editor default × sync status).
+## Daily/Drinks Button Two-Line Height Lock (2026-08-08)
+
+### Planning
+- [x] Read frontend memory-bank/activeContext.md + projectstructure.md for context
+- [x] Read daily-panel.ts (.take-sub / .take-pill-btn / .stat-pill / .stats-column CSS + render template) — confirmed root cause: `.take-sub-segment` spans are `white-space: nowrap` but the literal ` • ` separators between them are NOT, so when the combined "Last: … • Next: …" width exceeds the button the line breaks between segments → button grows ~16-19px taller; `.daily-main` is `display:flex` with default `align-items: stretch`, so the taller button drives the row height; `.stats-column`'s two `.stat-pill` boxes have no `flex:1`, so they keep their intrinsic content height and the slack pools at the bottom of the column → bottom-of-bottom-box ↔ button-bottom misaligns
+- [x] Confirm fix direction with user (3-option question): user chose to increase BOTH the button and the boxes with the same ratio so top/bottom borders stay aligned — NOT a button-only fix
+- [x] Confirm permanent-vs-reactive with user: user chose PERMANENT two-line height (reserve space always, card never resizes on dose-string changes)
+- [x] Confirm Drinks-pane parity with user: user approved applying the same two changes to drinks-panel.ts for visual consistency + future-proofing (its button only has one sub-text segment today, so wrapping is rare but the reserved height keeps the two panes consistent)
+- [x] Write architecture plan to plans/button-two-line-height-lock-plan.md (root cause, two coordinated CSS changes, scope, steps, risk notes)
+
+### Implementation
+- [x] daily-panel.ts: `.take-sub` CSS — added `min-height: 3em;` (reserve two lines of sub-text height permanently; 3em = 2 × 16px × 1.5 line-height = 48px; the button's existing `justify-content: center` keeps the icon + take-label centered above the reserved block whether it fills one line or two)
+- [x] daily-panel.ts: `.stat-pill` CSS — added `flex: 1;` (the two boxes split the column's now-taller stretched height evenly; their existing `align-items: center` keeps icon/label/value centered inside each taller box, so the top border of the top box and the bottom border of the bottom box both stay flush with the button top/bottom at all times — preserving the button↔boxes ratio)
+- [x] drinks-panel.ts: `.take-sub` CSS — added `min-height: 3em;` (same change, for visual parity; the Drinks pane clones Daily's `.take-sub` / `.stat-pill` CSS verbatim per its header comment)
+- [x] drinks-panel.ts: `.stat-pill` CSS — added `flex: 1;` (same change, for visual parity)
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.2s)
+- [x] Dist read confirms all 4 new CSS rules present: Daily `.take-sub` `min-height: 3em` (line 2933), Daily `.stat-pill` `flex: 1` (line 2948), Drinks `.take-sub` `min-height: 3em` (line 4496), Drinks `.stat-pill` `flex: 1` (line 4512)
+- [x] No backend / coordinator / store / config-flow / editor / types / localize changes (frontend CSS-only layout-stability fix)
+- [x] No README change (no end-user-facing behavior change — the card is the same size it was on single-line content, just stable when content wraps)
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+### Key decisions
+1. **Permanent two-line height, not reactive** — the user explicitly chose to reserve space for two sub-text lines at all times so the card never resizes when dose strings change length. A reactive grow-on-wrap approach would make the card height change on every dose update (jarring). The permanent reservation makes the card a constant size — the most stable/consistent UX.
+2. **`min-height` on `.take-sub`, not `.take-pill-btn`** — scoping the reserved height to the sub-text block keeps the button's other children (icon, `.take-label`) at their existing gaps; the button's `justify-content: center` distributes the reserved height around all children. Reserving on the button itself would change the gap math between the icon/label/sub.
+3. **`flex: 1` on `.stat-pill` preserves the ratio** — the user's core constraint was that the button↔boxes ratio (top-of-top-box ↔ button-top, bottom-of-bottom-box ↔ button-bottom) must stay aligned at all times. Growing only the button would break the symmetry (the boxes would float in a taller column). `flex: 1` makes the two boxes share the column's stretched height equally so their outer borders reach the row edges — matching the button — while `align-items: center` keeps their content centered (no internal shift).
+4. **`3em` sizing** — `.take-sub` is `font-size: calc(16px + offset)` with inherited line-height ~1.5; `3em` = 2 lines × 16px × 1.5 = 48px, guaranteeing both wrapped lines fit with consistent leading whether the browser wraps or not. `em` (not `px`) keeps it correct if the text-offset CSS var is set.
+5. **Drinks-pane parity** — the Drinks pane's "Log Drink" button currently renders only one sub-text segment ("Last: …"), so wrapping is rare there today. Applying the same two changes keeps the two panes visually consistent (same button + box heights) and future-proofs the Drinks button if a second segment is ever added. The user explicitly approved the parity scope.
+6. **No README change** — this is a pure layout-stability fix with no end-user-facing behavior change (the card is the same size it was on single-line content, just stable when content wraps). Internal CSS-only; not a config/feature change worth documenting.
+### Follow-on refinement — uniform internal spacing via button min-height (same day)
+- [x] User feedback on the initial flex-centering approach (inner span + `.take-sub` flex): the gap between the Take Pill/Drink Tea label and the Last/Next/Overdue text became non-uniform — ~2px when two sub-text lines present (content fills the reserved 3em block) but ~14px when one line present (content floated mid-block, adding ~12px internal top space). User asked for only the top/bottom padding to change so internal spacing stays visually consistent across the one-line and two-line configurations.
+- [x] Reverted the inner-span template change in both daily-panel.ts (line 135) and drinks-panel.ts (line 182) — `.take-sub` content back to its original form (segments + bullets, no `.take-sub-inner` wrapper).
+- [x] Reverted the `.take-sub` CSS in both files — removed `min-height: 3em`, `display: flex`, `align-items: center`, `align-self: stretch`; removed the `.take-sub-inner` rule block. `.take-sub` back to its original 3 lines (font-size, font-weight, opacity).
+- [x] Added `min-height: 8em` to `.take-pill-btn` (daily-panel.ts line 281) and `.log-drink-btn` (drinks-panel.ts line 305) — the button's existing `justify-content: center` distributes the reserved height as symmetric top/bottom padding around the icon + take-label + sub-text block, so the icon→label→sub gap stays the fixed 2px (uniform) while only the button's outer breathing room grows to fit the reserved two lines.
+- [x] 8em sizing rationale (expressed in em relative to the button's 16px base font so it scales with --pill-text-offset): icon 28px + margin-bottom 2px + label 18px (line ~1.2 ≈ 22px) + gap 2px + two sub lines (16px × 1.5 × 2 = 48px) + gap 2px + padding 24px ≈ 128px = 8em.
+- [x] `.stat-pill { flex: 1 }` from the prior fix stays — the two right-hand boxes still absorb the now-taller column height proportionally; button↔boxes ratio stays aligned at all times.
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.2s)
+- [x] Dist verified: `min-height: 8em` present on both buttons (Daily line 2907, Drinks line 4479); `.take-sub` reverted to its original 3-line form (lines 2942-2946); no `take-sub-inner` class anywhere; both templates reverted to `<span class="take-sub">` without the inner span (Daily line 2733, Drinks line 4334).
+
+### Key decisions (corrected follow-on)
+1. **Button min-height, not `.take-sub` min-height** — reserving the height on the button (not the sub-text block) lets `justify-content: center` distribute the extra height as symmetric top/bottom padding around ALL the button's children. The icon→label→sub gap stays at the fixed 2px regardless of how many sub-text lines are present, so the internal spacing is visually consistent between the one-line and two-line configs (the user's core ask). Reserving on `.take-sub` instead made the gap variable (the empty reserved line pooled inside the sub-text block, inflating the label→sub gap when one line was present).
+2. **Reverted the inner-span + flex-centering approach** — the prior approach vertically centered the sub-text content inside the reserved 3em block, but that made the label→sub gap non-uniform (~2px two-line, ~14px one-line) because the centered content floated mid-block when one line was present. The button-min-height approach produces uniform gaps by construction.
+3. **8em ≈ 128px in em units** — expressed in em (relative to the button's 16px base font) so the reserved height scales correctly if the card's --pill-text-offset CSS var is set. Sized from the sum of the button's intrinsic content (icon + margin + label + gap + two sub lines + gap + padding).
+4. **`.stat-pill { flex: 1 }` stays** — the prior fix's box-flex rule is still needed so the two right-hand boxes absorb the now-taller column height proportionally; without it the boxes would float in a taller column and the button↔boxes ratio would break again.
+
+## Daily Tab Top Box — Amount in Body Toggle + Submenu Rename (2026-08-08)
+
+### Planning
+- [x] Read frontend memory-bank/activeContext.md + projectstructure.md + progress.md for context
+- [x] Read daily-panel.ts (top box render + Safe to Take resolver call site), types.ts (config fields), ax-dose-logger-card.ts (_getSafeBoxEntity + _getPillsLeftBoxEntity precedent), ax-dose-logger-editor.ts (Top/Bottom Box expandables + pills_left_show_days_left toggle precedent), localize.ts (box strings + helpers), drinks-panel.ts (In Body box value formatting precedent)
+- [x] Confirm with user: original request asked for Amount in Body default with a revert toggle; user reversed to "Safe to Take default, toggle opts into Amount in Body" because a dynamic default based on sensor state quality would mismatch the toggle's promise; confirmed the card cannot cleanly pick its own default without that mismatch (strength-only meds have the amount_in_body sensor entity present but reading `unknown`)
+- [x] Confirm with user: submenus rename to "Top Box" / "Bottom Box" (box-identity-agnostic); toggle lives in the Top Box submenu (mirrors pills_left_show_days_left in the Bottom Box submenu)
+- [x] Write architecture plan to plans/amount-in-body-box-plan.md
+
+### Implementation
+- [x] src/types.ts: added `safe_to_take_show_amount_in_body?: boolean` to AxDoseLoggerCardConfig (with JSDoc noting default-OFF + LIMIT-REACHED safety invariant)
+- [x] src/ax-dose-logger-card.ts: extended `_getSafeBoxEntity` with toggle priority — `safe_to_take_show_amount_in_body === true` → `entities.amountInBody || entities.pillsSafeToTake` (built-in mode-swap wins over safe_to_take_entity; falls back to pillsSafeToTake when amountInBody structurally absent); toggle OFF → unchanged. Updated the doc comment.
+- [x] src/components/daily-panel.ts: added `topShowAmountInBody` flag + `topDefaultLabel`/`topDefaultIcon` (Amount in Body variants when on: stats.amount_in_body + mdi:chart-bell-curve; Safe to Take variants when off: daily.safe_to_take + mdi:shield-check); updated the top box template aria-label/icon/label to use the toggle-aware defaults; added a `topShowAmountInBody && !isSwapped` value branch formatting Amount in Body as `Math.round(num) + ' ' + strengthUnit` (mirrors drinks-panel.ts:81)
+- [x] src/ax-dose-logger-editor.ts: renamed Top Box expandable title 'Safe to Take Box' → 'Top Box'; added `safe_to_take_show_amount_in_body` boolean selector as the FIRST field in its schema (mirrors pills_left_show_days_left being first in Bottom Box); renamed Bottom Box expandable title 'Pills Left Box' → 'Bottom Box'
+- [x] src/localize.ts: renamed `config.safe_to_take_box` 'Safe to Take Box' → 'Top Box' + `config.pills_left_box` 'Pills Left Box' → 'Bottom Box'; added `config.safe_to_take_show_amount_in_body` 'Amount in body instead of Safe to take' + `config.helper.safe_to_take_show_amount_in_body`; updated 4 box helpers (safe_to_take_box, safe_to_take_entity, safe_to_take_label, safe_to_take_icon) to reflect agnostic naming + toggle-dependent defaults
+- [x] README.md: visual editor description "Safe to Take Box, Pills Left Box" → "Top Box, Bottom Box"; box section renamed both bullets + added the toggle description; config options table gained the safe_to_take_show_amount_in_body row + safe_to_take_label/icon defaults now show both toggle variants
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 3.8s)
+- [x] Dist grep confirms: `safe_to_take_show_amount_in_body` (6 occurrences), "Top Box" (2), "Bottom Box" (2), "Amount in body instead of Safe to take" (1)
+- [x] No backend / coordinator / store / config-flow changes (frontend-only)
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+### Key decisions
+1. **Safe to Take stays the default (toggle OFF)** — preserves existing configs with zero migration; strength-only meds keep a populated box; avoids the silent-fallback/toggle-mismatch the user identified. The user explicitly reversed the original "Amount in Body default" direction for this reason.
+2. **No dynamic default based on state quality** — the card does not silently pick a sensor based on whether amountInBody has a usable state. A predictable default + explicit opt-in keeps the editor's promise and the rendered box in sync (user-confirmed principle). Distinct from the resolver-level fallback when the sensor ENTITY is structurally absent (§4).
+3. **Resolver-level fallback when amountInBody entity is absent** — `entities.amountInBody || entities.pillsSafeToTake`. If the sensor entity exists but reads `unknown` (strength-only med), the panel's existing displayIsUnknown branch shows N/A (expected for an opt-in). Keeps the box non-empty on a device whose amountInBody sensor entity failed to resolve.
+4. **Built-in mode-swap wins over entity swap** — mirrors _getPillsLeftBoxEntity + _getDisruptionBoxEntity. When the toggle is ON, a configured safe_to_take_entity is overridden; when OFF, safe_to_take_entity works as before. The two overrides are mutually unambiguous.
+5. **LIMIT REACHED safety read preserved** — the Take Pill button's safeState (daily-panel.ts:40) already reads the real e.pillsSafeToTake sensor directly, NOT the top box's display entity. Swapping the top box is purely cosmetic. No change to this path.
+6. **Submenus renamed to "Top Box" / "Bottom Box"** — box-identity-agnostic so the submenu name never contradicts the rendered sensor. "Top"/"Bottom" reflect physical position, which is stable regardless of sensor. User explicitly requested this rename.
+7. **Toggle field name `safe_to_take_show_amount_in_body`** — keeps the safe_to_take_* config-family prefix and parallels pills_left_show_days_left. The `_show_` infix matches the existing convention.
+8. **Default icon `mdi:chart-bell-curve` for Amount in Body** — mirrors the Drinks panel In Body box default; `mdi:shield-check` stays the Safe to Take default.
+9. **Value formatting mirrors the Drinks In Body box** — `Math.round(num) + ' ' + strengthUnit` (via c.getStrengthUnit(e)); the swapped-entity branch keeps the existing numeric/title-case convention.
+10. **Editor `title` is a literal string, not a localize key** — matches the existing pattern; the localize keys are updated for documentation/parity but are not read by the expandable headers (computeLabel returns '' for expandables).
+
+## Custom "Chips" → "Boxes" Naming Convention Rename (2026-08-08)
+
+### Goal
+Rename the user-facing **"Custom Chips"** feature labels to **"Custom Boxes"** in the card's visual editor (Daily tab + Drinks tab settings) so the editor labels match what actually renders. The `chip_1`..`chip_4` / `drink_chip_1`..`drink_chip_4` custom-chip entities render as box-style tiles (primary-tinted background, uppercase label, column layout — the same visual language as the Graphs-panel Day Avg Boxes), not small pill-style chips; the old "Chip N" / "Custom Chips" labels contradicted the rendered output and violated user expectation. Both tabs renamed together (user-confirmed).
+
+### Planning
+- [x] Read frontend memory-bank (activeContext, progress, projectstructure) for context
+- [x] Search all "chip" usages across src/ + README.md to build a complete change inventory
+- [x] Confirm scope with user: both Daily + Drinks tabs renamed; Graphs-panel timeframe chips + effectiveness tracker chips out of scope (genuinely render as small pill-style buttons, no user-facing config label)
+- [x] Write architecture plan → plans/custom-chips-to-boxes-rename-plan.md (values-only rename parallel to the completed Panel→Tab rename; internal config keys / CSS classes / TS identifiers untouched so existing saved configs keep working with zero migration)
+
+### Implementation
+- [x] src/localize.ts:230 — Drinks-tab chip translation *values* (keys unchanged): `config.drink_chips` `Custom Chips` → `Custom Boxes`; `config.drink_chip_1`..`drink_chip_4` + `_label` + `_icon` `Chip N (optional)`/`Chip N Label`/`Chip N Icon` → `Box N` variants; comment reworded (`Drink chip field labels` → `Drink box field labels`)
+- [x] src/localize.ts:268 — Daily-tab chip translation *values* (keys unchanged): `config.chips` `Custom Chips` → `Custom Boxes`; `config.chip_1_box`..`chip_4_box` `Chip N` → `Box N` (also reused by the `drink_chip_N_box` expandable titles per the existing comment, so Drinks sub-headers update automatically); `config.chip_1`..`chip_4` + `_label` + `_icon` → `Box N` variants; comments reworded (`Chip box expandable titles` → `Box expandable titles`; `Chip field labels` → `Box field labels`)
+- [x] src/localize.ts:353 — 4 helper strings reworded: `config.helper.drink_chips` / `config.helper.drink_chip` `Show as a chip on the Drinks tab` → `Show as a box on the Drinks tab`; `config.helper.chip` `Show as a chip on the Daily tab` → `Show as a box on the Daily tab`; `config.helper.chip_icon` `Override the chip icon` → `Override the box icon`; `config.helper.chip_show_icon` `Display an icon on this chip... the chip box grows taller... make chips larger` → `Display an icon on this box... the box grows taller... make boxes larger`; comment reworded (`Chip override helpers` → `Box override helpers`). Generic action labels (Tap/Hold/Double Tap Action), Show Icon, and chip_label/drink_chip_label helpers left untouched (no "chip" word).
+- [x] src/ax-dose-logger-editor.ts:352 — Daily `chips` expandable `title: 'Custom Chips'` → `'Custom Boxes'`
+- [x] src/ax-dose-logger-editor.ts:702 — Drinks `drink_chips` expandable `title: 'Custom Chips'` → `'Custom Boxes'`
+- [x] src/ax-dose-logger-editor.ts:564 — reworded one stale code comment (`Custom Chips (4× entity +` → `Custom Boxes (4× entity +`) to avoid leaving a stale feature reference next to the renamed feature
+- [x] README.md — screenshot comment (`custom chips` → `custom boxes`); Quick Start step 3; Visual Editor description (`Custom Chips with per-chip collapsable menus` → `Custom Boxes with per-box collapsable menus`, ×2); Daily Features bullet; Drinks Features bullet; full config-options table (14 description cells reworded across the `drink_chip_*` and `chip_*` rows)
+- [x] dist/ax-dose-logger-card.js — rebuilt via yarn run build
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.0s)
+- [x] Dist grep confirms `Custom Boxes` (5 occurrences), `Custom Chips` (0 occurrences), `Box 1`..`Box 4` (all present), `Show as a box on the Daily tab` (1), `Show as a box on the Drinks tab` (1)
+- [x] README grep confirms no remaining user-facing "Custom Chips"/"per-chip"/"each chip"/"Tapping a chip"/"chip box"/"make chips" references (config key names like `chip_1` correctly stay)
+- [x] No backend / coordinator / store / config-flow / types changes (frontend strings-only)
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+
+### Key decisions
+1. **Values-only rename, keys untouched** — exactly mirrors the completed ["Panel/pane → Tab/tab"](plans/unify-category-naming-plan.md) precedent. Internal config keys (`chip_1`, `chips`, `drink_chips`, `chip_1_box`) are persistence identifiers invisible to end users; changing them would force a config migration with no user benefit. The user's goal is editor-UI expectation matching, which is purely a translation-value concern.
+2. **Graphs-panel timeframe chips + effectiveness tracker chips stay "chips"** — those genuinely render as small pill-style buttons and have no user-facing config label, so "chip" is accurate. The user's request is specifically about the "Custom Chips" feature that renders as boxes.
+3. **Internal CSS class names + TS identifiers untouched** — `.chip`, `ChipConfig`, `_getChipEntities()`, `handleChipAction`, etc. are internal API surface; renaming is a broad no-user-benefit refactor with regression risk. Same principle as the Panel→Tab rename leaving `_activePane`, `pane-btn`, `*-panel.ts` untouched.
+4. **`config.chip_N_show_icon` / action labels stay generic** — these values (`Show Icon`, `Tap Action`, `Hold Action`, `Double Tap Action`) contain no "chip" word, so they need no change. Keeps the diff minimal.
+5. **Both tabs renamed together** — user-confirmed. Both Daily and Drinks custom-chip features render identically as boxes; renaming only one would leave a cross-card inconsistency.
+6. **Editor `title` is a literal, not a localize key** — per the established pattern (Top Box key decision #10). The two `title: 'Custom Chips'` literal edits are the user-visible change; the localize `config.chips` / `config.drink_chips` value edits are for consistency/future-proofing.
+7. **One stale code comment reworded** — line 564 of ax-dose-logger-editor.ts was the only remaining "Custom Chips" literal after the user-facing edits; reworded to `Custom Boxes` for consistency. Other internal comments referencing config keys / CSS classes / identifiers left as-is (they reference unchanged internal names).
+8. **No backend change** — the feature is entirely frontend (editor labels + README). Frontend-only, like the Panel→Tab rename.
+
+## Box Override Field Relabel + Drinks Box Rename to Top/Bottom Box (2026-08-08)
+
+### Planning
+- [x] Read memory-bank context (frontend activeContext, progress, projectstructure)
+- [x] Read daily-panel.ts, drinks-panel.ts (rendered box structure)
+- [x] Read ax-dose-logger-editor.ts (Top Box, Bottom Box, Custom Boxes, Drinks In Body Box, Disruption Box expandables + computeLabel/computeHelper)
+- [x] Read localize.ts (current field labels + helpers)
+- [x] Audit for cross-tab inconsistencies: found Drinks In Body Box / Disruption Box headers + icon/label/entity fields use stale product-name prefixes; Custom Boxes icon/label fields are label-suppressed (Box N Icon/Label values never render); Bottom Box entity helper missing the Days Left override note
+- [x] Confirm scope with user: Top/Bottom Box icon/label → Override Icon/Override Label; Drinks boxes → Top Box/Bottom Box; entity-picker fields → Override Entity (all 4 boxes); Custom Boxes un-suppress icon/label; append Days Left note to pills_left_entity helper
+- [x] Write architecture plan → plans/box-icon-label-override-relabel-plan.md
+
+### Implementation
+- [x] src/localize.ts: relabel all 4 box override fields to Override Entity/Override Icon/Override Label (keys unchanged) — Daily Top Box (safe_to_take_*), Daily Bottom Box (pills_left_*), Drinks Top Box (in_body_*), Drinks Bottom Box (disruption_*)
+- [x] src/localize.ts: rename Drinks box headers — config.in_body_box 'In Body Box' → 'Top Box'; config.disruption_box 'Disruption Box' → 'Bottom Box'
+- [x] src/localize.ts: append 'Overridden by the Days Left toggle.' to config.helper.pills_left_entity (mirrors Top Box helper's Amount in body toggle note)
+- [x] src/localize.ts: reword config.helper.in_body_icon 'Icon on the In Body box' → 'Icon on the box' (matches the already-generic disruption_icon/safe_to_take_icon wording)
+- [x] src/ax-dose-logger-editor.ts: change two editor expandable title literals — line 591 'In Body Box' → 'Top Box'; line 640 'Disruption Box' → 'Bottom Box'
+- [x] src/ax-dose-logger-editor.ts: computeLabel — drop _icon/_label clauses from chip + drink_chip suppression blocks so Box N Icon/Box N Label render; keep chip_N/drink_chip_N entity-picker suppressed (Box N (optional) redundant inside Box N expandable); update the two comment blocks
+- [x] src/ax-dose-logger-editor.ts: reword the stale // ── Drinks Panel ── comment block (In Body Box/Disruption Box → Top Box (In Body)/Bottom Box (Disruption)) so the bundled dist carries no stale feature references
+- [x] README.md: line 83 visual editor description — Drinks In Body Box, Disruption Box → Top Box, Bottom Box
+- [x] README.md: line 160 — 'The In Body Box and Disruption Box are each fully overridable...' → 'The Drinks tab's Top Box and Bottom Box are each fully overridable...'
+- [x] README.md: Drinks config-options table rows 218-230 — use Top Box (In Body)/Bottom Box (Disruption) parentheticals + Override Icon/Label/Entity wording; entity rows retain default-sensor semantic
+- [x] README.md: Daily config-options table rows 202-208 — use Top Box (Safe to Take)/Bottom Box (Pills Left) parentheticals + Override Icon/Label/Entity wording; pills_left_entity row now carries the 'Overridden by the Days Left toggle.' note
+- [x] Leave README line 155 (rendered-card label description: In Body on top, Disruption on bottom) as-is — describes rendered default labels, not editor headers
+
+### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.2s)
+- [x] Dist grep confirms new strings present: Override Icon (4), Override Label (4), Override Entity (4), Box 1 Icon (2), Box 4 Icon (2), Overridden by the Days Left toggle (1)
+- [x] Dist grep confirms all stale strings absent: In Body Box (0), Disruption Box (0), Safe to Take Icon/Label/Entity (0), Pills Left Icon/Label/Entity (0), In Body Icon/Label/Entity (0), Disruption Icon/Label/Entity (0)
+- [x] No backend change (frontend-only — editor labels + helper text + README)
+- [x] No config migration (keys unchanged; only translation values + editor title literals + computeLabel suppression block)
+- [x] No projectstructure.md change (no files added/renamed/deleted)
+- [x] activeContext.md updated (new Current Status, prior archived per truncation rule)
+- [x] progress.md updated (this section; oldest section archived to memory-bank/old/progress-archive.md to stay under ~400 lines)
+
+### Follow-on Adjustment — Custom Box Entity-Picker Label Suppression + Icon/Label Same-Line (2026-08-08)
+
+#### Reported by user
+After the box relabel task, under each Custom Box (Daily + Drinks) the entity picker still showed a humanized "Chip N" / "Drinks chip N" label above it, and the Box icon + Box label pickers appeared stacked rather than side-by-side like the Top/Bottom Box.
+
+#### Root cause
+- The entity-picker schema nodes (`chip_1`..`chip_4`, `drink_chip_1`..`drink_chip_4`) had no inline `label` field and relied on `computeLabel` returning `''` to suppress the label. In the user's HA version, ha-form humanizes the schema `name` (`chip_1` → "Chip 1", `drink_chip_1` → "Drinks chip 1") when `computeLabel` returns `''` — so the humanize fallback rendered the stale "Chip N" text.
+- The Custom Box icon+label grids were already structurally identical to the Top Box grid (type:'grid', name:'', column_min_width:'200px', icon+label pickers) — the stacked appearance was a side-effect of the unsuppressed "Chip N" entity label disrupting the visual rhythm above the grid.
+
+#### Implementation
+- [x] src/ax-dose-logger-editor.ts: added inline `label: ''` directly on each of the 8 entity-picker schema nodes (chip_1..chip_4 at ~374/422/471/520; drink_chip_1..drink_chip_4 at ~724/773/822/871). The inline `label: ''` reliably suppresses the label the same way the show_icon boolean field's inline `label: localize(...)` works (an inline label overrides ha-form's humanize fallback; `computeLabel` returning '' does not). Kept the computeLabel suppression block as defense-in-depth.
+- [x] No grid structure change needed — the icon+label grids were already byte-identical to the Top Box grid; removing the unsuppressed entity label lets the grid render side-by-side like the Top/Bottom Box.
+
+#### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.1s)
+- [x] Dist grep confirms inline `label: ''` present on all 8 entity pickers (count = 8), grids present (count = 19), Box 1 Icon present (count = 2)
+- [x] No backend change (frontend-only — editor schema label override)
+- [x] No config migration (keys unchanged; inline label is a schema-node presentation attribute, not persisted)
+- [x] No projectstructure.md change
+- [x] activeContext.md updated (follow-on note added to the box relabel Current Status)
+- [x] progress.md updated (this section)
+
+### Follow-on Fix v2 — Non-Breaking-Space Label + 180px Grid (2026-08-08)
+
+#### Reported by user (after v1 follow-on)
+The v1 inline `label: ''` did NOT suppress the entity-picker label — ha-form still rendered "Chip N" / "Drinks chip N" above the entity selector. And the Box N Icon + Box N Label pickers were still stacked instead of side-by-side.
+
+#### Root cause
+- **Label:** ha-form treats an empty-string `label` (inline `label: ''` OR `computeLabel` returning `''`) as falsy → falls back to humanizing the schema `name` (`chip_1` → "Chip 1", `drink_chip_1` → "Drinks chip 1"). Both the `computeLabel` `return ''` AND inline `label: ''` attempts failed for the same reason.
+- **Grid stacking:** the Custom Box icon+label grids were structurally identical to the Top Box grid BUT nested 3 levels deep (panel → chips expandable → chip_N_box expandable → grid), so the available width is narrower than the 2-level-deep Top Box grid. The `column_min_width: '200px'` (same as Top Box) forced a single-column wrap.
+
+#### Implementation
+- [x] src/ax-dose-logger-editor.ts: changed inline `label: ''` → `label: '\u00A0'` (non-breaking space) on all 8 entity-picker schema nodes (chip_1..chip_4 + drink_chip_1..drink_chip_4). A non-empty whitespace string is truthy → overrides ha-form's humanize fallback while rendering as effectively blank (the known-working HA-form label-suppression trick; empty string fails, whitespace succeeds).
+- [x] src/ax-dose-logger-editor.ts: reduced column_min_width from '200px' → '180px' on the 8 Custom Box icon+label grids only (Daily chip_1..chip_4 grids at ~384/434/484/534; Drinks drink_chip_1..drink_chip_4 grids at ~735/785/835/885). User-confirmed value (180px). The Top/Bottom Box grids (1 level shallower) keep '200px'.
+
+#### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.1s)
+- [x] Dist grep confirms: `label: '\u00A0'` present on all 8 entity pickers (count = 8); `column_min_width: '180px'` on the 8 Custom Box grids (count = 8); `column_min_width: '200px'` remains on the 10 Top/Bottom Box + other grids (count = 10)
+- [x] No backend change (frontend-only — editor schema label override + grid column_min_width)
+- [x] No config migration (keys unchanged; inline label + column_min_width are schema-node presentation attributes, not persisted)
+- [x] No projectstructure.md change
+- [x] activeContext.md updated (follow-on note corrected to reflect v2 final fix)
+- [x] progress.md updated (this section)
+
+### Follow-on Fix v3 — "Settings" Label for Custom Box Entity Picker (2026-08-08)
+
+#### Reported by user (after v2 follow-on)
+The v2 non-breaking-space inline `label: '\u00A0'` STILL did not suppress the entity-picker label — ha-form still rendered "Chip N" / "Drinks chip N" above the entity selector. (The grid 180px fix from v2 DID work — boxes now render side-by-side.)
+
+#### Root cause (definitive)
+ha-form treats a falsy/empty `computeLabel` return (empty string `''`, undefined, null) as "no label provided" and falls back to humanizing the schema `name` (`chip_1` → "Chip 1", `drink_chip_1` → "Drinks chip N"). The inline schema `label` field is IGNORED when a `computeLabel` callback is provided to ha-form — so inline `label: ''` and `label: '\u00A0'` had no effect. The ONLY way to override the humanize fallback is to make `computeLabel` return a non-empty string.
+
+#### Implementation (user suggestion: label as "Settings")
+- [x] src/localize.ts: added `'config.box_settings': 'Settings'` key (neutral label for the Custom Box entity picker — the "Box N" expandable header already conveys identity; "Settings" groups the entity picker + the icon/label overrides below it).
+- [x] src/ax-dose-logger-editor.ts: changed the two `computeLabel` `return ''` blocks (chip_1..chip_4 + drink_chip_1..drink_chip_4) to `return localize(lang, 'config.box_settings')` ("Settings"). Non-empty string overrides ha-form's humanize fallback cleanly. Updated the two comment blocks to document the definitive root cause (empty computeLabel → humanize) and the "Settings" rationale.
+- [x] src/ax-dose-logger-editor.ts: removed the redundant inline `label: '\u00A0'` from all 8 entity-picker schema nodes (computeLabel takes precedence over the inline label, so the inline label was dead weight from the v2 attempt).
+
+#### Verification
+- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.4s)
+- [x] Dist grep confirms: inline `label: '\u00A0'` removed (count = 0); `config.box_settings` key present (count = 3 — localize definition + 2 computeLabel returns); `'Settings'` value present (count = 1); `column_min_width: '180px'` on the 8 Custom Box grids still in place (count = 8) from v2
+- [x] No backend change (frontend-only — editor computeLabel + localize key)
+- [x] No config migration (keys unchanged; computeLabel return value + inline label removal are runtime presentation, not persisted)
+- [x] No projectstructure.md change
+- [x] activeContext.md updated (follow-on note corrected to reflect v3 final fix — "Settings" label, definitive root cause)
+- [x] progress.md updated (this section)
