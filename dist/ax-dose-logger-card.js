@@ -410,15 +410,18 @@ const translations = {
         'tracking.cancel': 'Cancel',
         // ── Tools pane ──
         'tools.adherence_header': 'Adherence Tools',
+        'tools.dose_header': 'Dose Tools',
         'tools.general_header': 'General Tools',
         'tools.reset_adherence': 'Reset Adherence %',
         'tools.mark_adherence_taken': 'Mark Last Adherence Taken',
+        'tools.skip_dose': 'Skip Dose',
         'tools.reset_history': 'Reset History',
         'tools.undo_dose': 'Undo Dose',
         'tools.empty': 'No maintenance tools available for this medication.',
         // ── Tools dialog descriptors ──
         'tools.desc.reset_adherence': 'Clears the adherence percentage history for all windows. Does NOT affect Amount in Body, dose count, or any other sensor.',
         'tools.desc.mark_adherence_taken': 'Marks the most recent missed dose slot as taken for adherence calculation only. Does NOT add a dose to the pharmacokinetics model or dose count.',
+        'tools.desc.skip_dose': 'Skips the current missed scheduled dose slot — clears the overdue alarm and advances the next-dose schedule WITHOUT logging a dose. Amount in Body, pill inventory, total doses, and last dose are untouched. Adherence stays penalized; press "Mark Last Adherence Taken" afterwards for a prescriber-directed skip.',
         'tools.desc.reset_history': 'Clears ALL dose history across every sensor — adherence, Amount in Body, totals, and last dose. This cannot be undone.',
         'tools.desc.undo_dose': 'Removes the most recently logged dose from all sensors, including the pharmacokinetics model and adherence calculation.',
         'tools.drinks_header': 'Drink Maintenance',
@@ -496,7 +499,7 @@ const translations = {
         'config.pills_left_hold_action': 'Hold Action',
         'config.pills_left_double_tap_action': 'Double Tap Action',
         // ── Drinks Panel config labels (mirror the Daily Panel fields) ──
-        'config.drinks_panel': 'Drinks Panel',
+        'config.drinks_panel': 'Drinks Tab',
         'config.log_drink_icon': 'Log Drink Icon',
         'config.log_drink_label': 'Log Drink Label',
         'config.in_body_box': 'In Body Box',
@@ -549,9 +552,12 @@ const translations = {
         'config.drink_chip_4_double_tap_action': 'Double Tap Action',
         'config.color_scheme': 'Color Scheme',
         'config.name': 'Name Override',
-        'config.daily_panel': 'Daily Panel',
-        'config.graphs_panel': 'Graphs Panel',
-        'config.stats_panel': 'Stats Panel',
+        'config.daily_panel': 'Daily Tab',
+        'config.graphs_panel': 'Graphs Tab',
+        'config.stats_panel': 'Stats Tab',
+        'config.settings_panel': 'Settings Tab',
+        'config.confirm_tool_actions': 'Confirm Tool Actions',
+        'config.helper.confirm_tool_actions': 'Show a confirmation popup before running any Tools tab action. On by default.',
         'config.chips': 'Custom Chips',
         // Chip box expandable titles (layer 3 — nested collapsable menus)
         'config.chip_1_box': 'Chip 1',
@@ -635,25 +641,25 @@ const translations = {
         'config.helper.disruption_tap_action': 'Defaults to the Sleep Disruption popup (Sleep Disruption mode) or more-info (Low modes).',
         'config.helper.disruption_hold_action': 'Long-press action.',
         'config.helper.disruption_double_tap_action': 'Double-tap action.',
-        'config.helper.drink_chips': 'Show as a chip on the Drinks pane.',
-        'config.helper.drink_chip': 'Show as a chip on the Drinks pane.',
+        'config.helper.drink_chips': 'Show as a chip on the Drinks tab.',
+        'config.helper.drink_chip': 'Show as a chip on the Drinks tab.',
         'config.helper.drink_chip_label': "Leave empty to use the entity's name.",
         'config.helper.color_scheme': 'Accent color for the card.',
         'config.helper.name': 'Leave empty to use the device name.',
         'config.helper.chip_label': "Leave empty to use the entity's name.",
-        'config.helper.chip': 'Show as a chip on the Daily pane.',
+        'config.helper.chip': 'Show as a chip on the Daily tab.',
         // Chip override helpers (icon + actions)
         'config.helper.chip_icon': "Override the chip icon. Leave empty for the entity's default icon.",
         'config.helper.chip_show_icon': 'Display an icon on this chip. Off by default. When on, the chip box grows taller to fit the icon above the label — useful to make chips larger for a button-like layout.',
         'config.helper.chip_tap_action': 'Defaults to more-info on the entity.',
         'config.helper.chip_hold_action': 'Long-press action.',
         'config.helper.chip_double_tap_action': 'Double-tap action.',
-        'config.helper.show_amount_in_body': 'Show in the Graphs pane.',
+        'config.helper.show_amount_in_body': 'Show in the Graphs tab.',
         'config.helper.amount_in_body_default_timeframe': 'Default timescale on card load.',
         'config.helper.show_day_avg_boxes': 'Show beneath the bar graph.',
         'config.helper.show_adherence_boxes': 'Show beneath the bar graph. Requires adherence sensors.',
         'config.helper.stats_3_columns': '3 columns instead of 2.',
-        'config.helper.hide_nav_bar': 'Hide the pane navigation bar.',
+        'config.helper.hide_nav_bar': 'Hide the tab navigation bar.',
         // ── Color scheme labels ──
         'color.default': 'Default (HA Theme)',
         'color.blue': 'Blue',
@@ -1717,6 +1723,7 @@ function buildEditorForm() {
                     {
                         name: 'show_amount_in_body',
                         selector: { boolean: {} },
+                        default: true,
                     },
                     {
                         name: 'amount_in_body_default_timeframe',
@@ -1741,10 +1748,12 @@ function buildEditorForm() {
                             {
                                 name: 'show_day_avg_boxes',
                                 selector: { boolean: {} },
+                                default: true,
                             },
                             {
                                 name: 'show_adherence_boxes',
                                 selector: { boolean: {} },
+                                default: true,
                             },
                         ],
                     },
@@ -1758,6 +1767,25 @@ function buildEditorForm() {
                     {
                         name: 'stats_3_columns',
                         selector: { boolean: {} },
+                    },
+                ],
+            },
+            // ── Settings Tab ──
+            // General card behavior toggles. Currently holds the confirm-action
+            // toggle for the Tools tab (default ON); the container checks this
+            // via a negative-false test so existing configs keep the confirmation
+            // popup without migration. The schema `default: true` makes ha-form
+            // render the toggle ON when the field is undefined (existing configs),
+            // without baking the value into persisted config (decision #18).
+            {
+                type: 'expandable',
+                name: 'settings_panel',
+                flatten: true,
+                schema: [
+                    {
+                        name: 'confirm_tool_actions',
+                        selector: { boolean: {} },
+                        default: true,
                     },
                 ],
             },
@@ -1808,7 +1836,7 @@ function buildEditorForm() {
             // chips, drink_chips, safe_to_take_box, pills_left_box, in_body_box,
             // disruption_box, chip_1_box..chip_4_box, drink_chip_1_box..drink_chip_4_box)
             // that have no translation defined, which then renders as visible text
-            // under the expandable headers.
+            // under the expandable headers. (Also applies to settings_panel.)
             if (schema.type === 'grid' ||
                 schema.type === 'expandable' ||
                 !schema.selector) {
@@ -2095,11 +2123,16 @@ AxDoseStatsPanel = __decorate([
 // AX Dose Logger Card — Tools Pane (Pane 4)
 // ──────────────────────────────────────────────
 // Presentational component extracted from AxDoseLoggerCard._renderPane4.
-// Renders the maintenance button grid (Adherence Tools + General Tools). Each
-// button click opens a shared confirmation dialog via controller.openToolsDialog
-// (the dialog itself stays on the container, which owns _toolsDialog state).
-// The onConfirm closure (the actual button.press service call) is authored here
-// because it's the panel's job; the container just hosts the dialog surface.
+// Renders the maintenance button grid in three sections:
+//   1. Adherence Tools — Reset Adherence %, Mark Last Adherence Taken.
+//   2. Dose Tools       — Skip Dose, Undo Dose.
+//   3. General Tools    — Reset History.
+// Each button click goes through controller.runToolAction, which respects the
+// `confirm_tool_actions` config: when ON (default) it opens the shared tools
+// confirmation dialog (hosted on the container, which owns _toolsDialog
+// state); when OFF the action fires immediately with no popup. The onConfirm
+// closure (the actual button.press service call) is authored here because it's
+// the panel's job; the container just hosts the dialog surface.
 let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
     get _lang() {
         return this.controller.lang;
@@ -2112,28 +2145,35 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
     _handleAdherenceReset(entities) {
         if (!this.controller.hass || !entities.adherenceResetButton)
             return;
-        this.controller.openToolsDialog(localize(this._lang, 'tools.reset_adherence'), localize(this._lang, 'tools.desc.reset_adherence'), () => {
+        this.controller.runToolAction(localize(this._lang, 'tools.reset_adherence'), localize(this._lang, 'tools.desc.reset_adherence'), () => {
             this.controller.hass.callService('button', 'press', { entity_id: entities.adherenceResetButton });
         });
     }
     _handleAdherenceCover(entities) {
         if (!this.controller.hass || !entities.adherenceCoverButton)
             return;
-        this.controller.openToolsDialog(localize(this._lang, 'tools.mark_adherence_taken'), localize(this._lang, 'tools.desc.mark_adherence_taken'), () => {
+        this.controller.runToolAction(localize(this._lang, 'tools.mark_adherence_taken'), localize(this._lang, 'tools.desc.mark_adherence_taken'), () => {
             this.controller.hass.callService('button', 'press', { entity_id: entities.adherenceCoverButton });
+        });
+    }
+    _handleSkipDose(entities) {
+        if (!this.controller.hass || !entities.skipButton)
+            return;
+        this.controller.runToolAction(localize(this._lang, 'tools.skip_dose'), localize(this._lang, 'tools.desc.skip_dose'), () => {
+            this.controller.hass.callService('button', 'press', { entity_id: entities.skipButton });
         });
     }
     _handleResetHistory(entities) {
         if (!this.controller.hass || !entities.resetButton)
             return;
-        this.controller.openToolsDialog(localize(this._lang, 'tools.reset_history'), localize(this._lang, 'tools.desc.reset_history'), () => {
+        this.controller.runToolAction(localize(this._lang, 'tools.reset_history'), localize(this._lang, 'tools.desc.reset_history'), () => {
             this.controller.hass.callService('button', 'press', { entity_id: entities.resetButton });
         });
     }
     _handleUndoDoseConfirm(entities) {
         if (!this.controller.hass || !entities.undoButton)
             return;
-        this.controller.openToolsDialog(localize(this._lang, 'tools.undo_dose'), localize(this._lang, 'tools.desc.undo_dose'), () => {
+        this.controller.runToolAction(localize(this._lang, 'tools.undo_dose'), localize(this._lang, 'tools.desc.undo_dose'), () => {
             this.controller.hass.callService('button', 'press', { entity_id: entities.undoButton });
         });
     }
@@ -2144,12 +2184,12 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
     _handleDrinkUndo(drink) {
         if (!this.controller.hass || !drink.undoButtonEntityId)
             return;
-        this.controller.openToolsDialog(localize(this._lang, 'tools.undo_drink', { name: drink.name }), localize(this._lang, 'tools.desc.undo_drink'), () => { this.controller.undoDrink(drink.undoButtonEntityId); });
+        this.controller.runToolAction(localize(this._lang, 'tools.undo_drink', { name: drink.name }), localize(this._lang, 'tools.desc.undo_drink'), () => { this.controller.undoDrink(drink.undoButtonEntityId); });
     }
     _handleDrinkReset(drink) {
         if (!this.controller.hass || !drink.resetButtonEntityId)
             return;
-        this.controller.openToolsDialog(localize(this._lang, 'tools.reset_drink', { name: drink.name }), localize(this._lang, 'tools.desc.reset_drink'), () => { this.controller.resetDrink(drink.resetButtonEntityId); });
+        this.controller.runToolAction(localize(this._lang, 'tools.reset_drink', { name: drink.name }), localize(this._lang, 'tools.desc.reset_drink'), () => { this.controller.resetDrink(drink.resetButtonEntityId); });
     }
     _renderMasterTools() {
         const substance = this.entities.substance;
@@ -2196,8 +2236,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
         }
         const e = this.entities;
         const hasAdhTools = !!(e.adherenceResetButton || e.adherenceCoverButton);
-        const hasGenTools = !!(e.resetButton || e.undoButton);
-        if (!hasAdhTools && !hasGenTools) {
+        const hasDoseTools = !!(e.skipButton || e.undoButton);
+        const hasGenTools = !!e.resetButton;
+        if (!hasAdhTools && !hasDoseTools && !hasGenTools) {
             return b `
         <div class="tools-panel">
           <div class="tools-empty">${localize(this._lang, 'tools.empty')}</div>
@@ -2211,7 +2252,7 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
           <div class="tools-grid">
             ${e.adherenceResetButton ? b `
               <button
-                class="tool-btn danger"
+                class="tool-btn"
                 @click=${() => this._handleAdherenceReset(e)}
               >
                 <ha-icon icon="mdi:percent-circle-outline"></ha-icon>
@@ -2230,25 +2271,40 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
           </div>
         ` : A}
 
+        ${hasDoseTools ? b `
+          <div class="tools-section-header tools-section-header--spaced">${localize(this._lang, 'tools.dose_header')}</div>
+          <div class="tools-grid">
+            ${e.skipButton ? b `
+              <button
+                class="tool-btn"
+                @click=${() => this._handleSkipDose(e)}
+              >
+                <ha-icon icon="mdi:skip-next"></ha-icon>
+                <span>${localize(this._lang, 'tools.skip_dose')}</span>
+              </button>
+            ` : A}
+            ${e.undoButton ? b `
+              <button
+                class="tool-btn"
+                @click=${() => this._handleUndoDoseConfirm(e)}
+              >
+                <ha-icon icon="mdi:undo"></ha-icon>
+                <span>${localize(this._lang, 'tools.undo_dose')}</span>
+              </button>
+            ` : A}
+          </div>
+        ` : A}
+
         ${hasGenTools ? b `
           <div class="tools-section-header tools-section-header--spaced">${localize(this._lang, 'tools.general_header')}</div>
           <div class="tools-grid">
             ${e.resetButton ? b `
               <button
-                class="tool-btn danger"
+                class="tool-btn"
                 @click=${() => this._handleResetHistory(e)}
               >
                 <ha-icon icon="mdi:history"></ha-icon>
                 <span>${localize(this._lang, 'tools.reset_history')}</span>
-              </button>
-            ` : A}
-            ${e.undoButton ? b `
-              <button
-                class="tool-btn danger"
-                @click=${() => this._handleUndoDoseConfirm(e)}
-              >
-                <ha-icon icon="mdi:undo"></ha-icon>
-                <span>${localize(this._lang, 'tools.undo_dose')}</span>
               </button>
             ` : A}
           </div>
@@ -5082,8 +5138,21 @@ class AxDoseLoggerCard extends i {
                     result.undoButton = entityId;
                 else if (entityId.endsWith('_reset_adherence'))
                     result.adherenceResetButton = entityId;
-                else if (entityId.endsWith('_cover_last_missed'))
-                    result.adherenceCoverButton = entityId;
+                else {
+                    // Adherence cover + skip buttons are resolved by the backend
+                    // `role` state attribute, NOT entity_id suffix. The friendly
+                    // name "Mark Last Adherence Taken" slugifies to
+                    // `_mark_last_adherence_taken`, not `_cover_last_missed` (the
+                    // translation_key), so suffix-matching failed and the button
+                    // never resolved — it was missing from the Tools pane. The
+                    // `role` attribute is set explicitly by the backend and is the
+                    // same pattern the drink buttons already use.
+                    const btnRole = this._getAttr(entityId, 'role');
+                    if (btnRole === 'cover')
+                        result.adherenceCoverButton = entityId;
+                    else if (btnRole === 'skip')
+                        result.skipButton = entityId;
+                }
             }
             else if (entityId.startsWith('number.')) {
                 if (entityId.endsWith('_pills_left'))
@@ -5613,6 +5682,20 @@ class AxDoseLoggerCard extends i {
     _closeToolsDialog() {
         this._toolsDialog = null;
     }
+    // Run a Tools panel action respecting the `confirm_tool_actions` config.
+    // Default ON (negative-false check preserves existing configs without the
+    // field): the shared tools confirmation dialog opens first. When the user
+    // explicitly disables the toggle, the action fires immediately with no
+    // popup. Centralizes the dialog-vs-direct decision in the container so the
+    // Tools panel stays purely presentational.
+    _runToolAction(title, descriptor, onConfirm) {
+        if (this.config?.confirm_tool_actions !== false) {
+            this._openToolsDialog(title, descriptor, onConfirm);
+        }
+        else {
+            onConfirm();
+        }
+    }
     _handleTimeframeChange(timeframe) {
         if (timeframe === this._activeTimeframe)
             return;
@@ -5764,6 +5847,7 @@ class AxDoseLoggerCard extends i {
     handleUndoDose(entities) { this._handleUndoDose(entities); }
     handleRefill(entities) { this._handleRefill(entities); }
     openToolsDialog(title, descriptor, onConfirm) { this._openToolsDialog(title, descriptor, onConfirm); }
+    runToolAction(title, descriptor, onConfirm) { this._runToolAction(title, descriptor, onConfirm); }
     openMoreInfo(entityId) { this._openMoreInfo(entityId); }
     handleSafeBoxAction(e, kind, cfg, entity) { this._handleSafeBoxAction(e, kind, cfg, entity); }
     getPillsLeftBoxEntity(entities) { return this._getPillsLeftBoxEntity(entities); }

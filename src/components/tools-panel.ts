@@ -2,11 +2,16 @@
 // AX Dose Logger Card — Tools Pane (Pane 4)
 // ──────────────────────────────────────────────
 // Presentational component extracted from AxDoseLoggerCard._renderPane4.
-// Renders the maintenance button grid (Adherence Tools + General Tools). Each
-// button click opens a shared confirmation dialog via controller.openToolsDialog
-// (the dialog itself stays on the container, which owns _toolsDialog state).
-// The onConfirm closure (the actual button.press service call) is authored here
-// because it's the panel's job; the container just hosts the dialog surface.
+// Renders the maintenance button grid in three sections:
+//   1. Adherence Tools — Reset Adherence %, Mark Last Adherence Taken.
+//   2. Dose Tools       — Skip Dose, Undo Dose.
+//   3. General Tools    — Reset History.
+// Each button click goes through controller.runToolAction, which respects the
+// `confirm_tool_actions` config: when ON (default) it opens the shared tools
+// confirmation dialog (hosted on the container, which owns _toolsDialog
+// state); when OFF the action fires immediately with no popup. The onConfirm
+// closure (the actual button.press service call) is authored here because it's
+// the panel's job; the container just hosts the dialog surface.
 
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -35,7 +40,7 @@ export class AxDoseToolsPanel extends LitElement {
   // _handleUndoDoseConfirm methods on the container.
   private _handleAdherenceReset(entities: ResolvedEntities): void {
     if (!this.controller.hass || !entities.adherenceResetButton) return;
-    this.controller.openToolsDialog(
+    this.controller.runToolAction(
       localize(this._lang, 'tools.reset_adherence'),
       localize(this._lang, 'tools.desc.reset_adherence'),
       () => {
@@ -46,7 +51,7 @@ export class AxDoseToolsPanel extends LitElement {
 
   private _handleAdherenceCover(entities: ResolvedEntities): void {
     if (!this.controller.hass || !entities.adherenceCoverButton) return;
-    this.controller.openToolsDialog(
+    this.controller.runToolAction(
       localize(this._lang, 'tools.mark_adherence_taken'),
       localize(this._lang, 'tools.desc.mark_adherence_taken'),
       () => {
@@ -55,9 +60,20 @@ export class AxDoseToolsPanel extends LitElement {
     );
   }
 
+  private _handleSkipDose(entities: ResolvedEntities): void {
+    if (!this.controller.hass || !entities.skipButton) return;
+    this.controller.runToolAction(
+      localize(this._lang, 'tools.skip_dose'),
+      localize(this._lang, 'tools.desc.skip_dose'),
+      () => {
+        this.controller.hass!.callService('button', 'press', { entity_id: entities.skipButton });
+      },
+    );
+  }
+
   private _handleResetHistory(entities: ResolvedEntities): void {
     if (!this.controller.hass || !entities.resetButton) return;
-    this.controller.openToolsDialog(
+    this.controller.runToolAction(
       localize(this._lang, 'tools.reset_history'),
       localize(this._lang, 'tools.desc.reset_history'),
       () => {
@@ -68,7 +84,7 @@ export class AxDoseToolsPanel extends LitElement {
 
   private _handleUndoDoseConfirm(entities: ResolvedEntities): void {
     if (!this.controller.hass || !entities.undoButton) return;
-    this.controller.openToolsDialog(
+    this.controller.runToolAction(
       localize(this._lang, 'tools.undo_dose'),
       localize(this._lang, 'tools.desc.undo_dose'),
       () => {
@@ -83,7 +99,7 @@ export class AxDoseToolsPanel extends LitElement {
   // substance). Each action opens the shared tools confirmation dialog.
   private _handleDrinkUndo(drink: DrinkInfo): void {
     if (!this.controller.hass || !drink.undoButtonEntityId) return;
-    this.controller.openToolsDialog(
+    this.controller.runToolAction(
       localize(this._lang, 'tools.undo_drink', { name: drink.name }),
       localize(this._lang, 'tools.desc.undo_drink'),
       () => { this.controller.undoDrink(drink.undoButtonEntityId!); },
@@ -92,7 +108,7 @@ export class AxDoseToolsPanel extends LitElement {
 
   private _handleDrinkReset(drink: DrinkInfo): void {
     if (!this.controller.hass || !drink.resetButtonEntityId) return;
-    this.controller.openToolsDialog(
+    this.controller.runToolAction(
       localize(this._lang, 'tools.reset_drink', { name: drink.name }),
       localize(this._lang, 'tools.desc.reset_drink'),
       () => { this.controller.resetDrink(drink.resetButtonEntityId!); },
@@ -146,9 +162,10 @@ export class AxDoseToolsPanel extends LitElement {
 
     const e = this.entities;
     const hasAdhTools = !!(e.adherenceResetButton || e.adherenceCoverButton);
-    const hasGenTools = !!(e.resetButton || e.undoButton);
+    const hasDoseTools = !!(e.skipButton || e.undoButton);
+    const hasGenTools = !!e.resetButton;
 
-    if (!hasAdhTools && !hasGenTools) {
+    if (!hasAdhTools && !hasDoseTools && !hasGenTools) {
       return html`
         <div class="tools-panel">
           <div class="tools-empty">${localize(this._lang, 'tools.empty')}</div>
@@ -163,7 +180,7 @@ export class AxDoseToolsPanel extends LitElement {
           <div class="tools-grid">
             ${e.adherenceResetButton ? html`
               <button
-                class="tool-btn danger"
+                class="tool-btn"
                 @click=${() => this._handleAdherenceReset(e)}
               >
                 <ha-icon icon="mdi:percent-circle-outline"></ha-icon>
@@ -182,25 +199,40 @@ export class AxDoseToolsPanel extends LitElement {
           </div>
         ` : nothing}
 
+        ${hasDoseTools ? html`
+          <div class="tools-section-header tools-section-header--spaced">${localize(this._lang, 'tools.dose_header')}</div>
+          <div class="tools-grid">
+            ${e.skipButton ? html`
+              <button
+                class="tool-btn"
+                @click=${() => this._handleSkipDose(e)}
+              >
+                <ha-icon icon="mdi:skip-next"></ha-icon>
+                <span>${localize(this._lang, 'tools.skip_dose')}</span>
+              </button>
+            ` : nothing}
+            ${e.undoButton ? html`
+              <button
+                class="tool-btn"
+                @click=${() => this._handleUndoDoseConfirm(e)}
+              >
+                <ha-icon icon="mdi:undo"></ha-icon>
+                <span>${localize(this._lang, 'tools.undo_dose')}</span>
+              </button>
+            ` : nothing}
+          </div>
+        ` : nothing}
+
         ${hasGenTools ? html`
           <div class="tools-section-header tools-section-header--spaced">${localize(this._lang, 'tools.general_header')}</div>
           <div class="tools-grid">
             ${e.resetButton ? html`
               <button
-                class="tool-btn danger"
+                class="tool-btn"
                 @click=${() => this._handleResetHistory(e)}
               >
                 <ha-icon icon="mdi:history"></ha-icon>
                 <span>${localize(this._lang, 'tools.reset_history')}</span>
-              </button>
-            ` : nothing}
-            ${e.undoButton ? html`
-              <button
-                class="tool-btn danger"
-                @click=${() => this._handleUndoDoseConfirm(e)}
-              >
-                <ha-icon icon="mdi:undo"></ha-icon>
-                <span>${localize(this._lang, 'tools.undo_dose')}</span>
               </button>
             ` : nothing}
           </div>

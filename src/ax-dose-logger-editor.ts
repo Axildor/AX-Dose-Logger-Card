@@ -909,6 +909,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             name: 'show_amount_in_body',
             selector: { boolean: {} },
+            default: true,
           },
           {
             name: 'amount_in_body_default_timeframe',
@@ -933,10 +934,12 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               {
                 name: 'show_day_avg_boxes',
                 selector: { boolean: {} },
+                default: true,
               },
               {
                 name: 'show_adherence_boxes',
                 selector: { boolean: {} },
+                default: true,
               },
             ],
           },
@@ -950,6 +953,25 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           {
             name: 'stats_3_columns',
             selector: { boolean: {} },
+          },
+        ],
+      },
+      // ── Settings Tab ──
+      // General card behavior toggles. Currently holds the confirm-action
+      // toggle for the Tools tab (default ON); the container checks this
+      // via a negative-false test so existing configs keep the confirmation
+      // popup without migration. The schema `default: true` makes ha-form
+      // render the toggle ON when the field is undefined (existing configs),
+      // without baking the value into persisted config (decision #18).
+      {
+        type: 'expandable',
+        name: 'settings_panel',
+        flatten: true,
+        schema: [
+          {
+            name: 'confirm_tool_actions',
+            selector: { boolean: {} },
+            default: true,
           },
         ],
       },
@@ -1004,7 +1026,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
       // chips, drink_chips, safe_to_take_box, pills_left_box, in_body_box,
       // disruption_box, chip_1_box..chip_4_box, drink_chip_1_box..drink_chip_4_box)
       // that have no translation defined, which then renders as visible text
-      // under the expandable headers.
+      // under the expandable headers. (Also applies to settings_panel.)
       if (
         schema.type === 'grid' ||
         schema.type === 'expandable' ||

@@ -286,7 +286,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         else if (entityId.endsWith('_reset_history')) result.resetButton = entityId;
         else if (entityId.endsWith('_undo_dose')) result.undoButton = entityId;
         else if (entityId.endsWith('_reset_adherence')) result.adherenceResetButton = entityId;
-        else if (entityId.endsWith('_cover_last_missed')) result.adherenceCoverButton = entityId;
+        else {
+          // Adherence cover + skip buttons are resolved by the backend
+          // `role` state attribute, NOT entity_id suffix. The friendly
+          // name "Mark Last Adherence Taken" slugifies to
+          // `_mark_last_adherence_taken`, not `_cover_last_missed` (the
+          // translation_key), so suffix-matching failed and the button
+          // never resolved — it was missing from the Tools pane. The
+          // `role` attribute is set explicitly by the backend and is the
+          // same pattern the drink buttons already use.
+          const btnRole = this._getAttr(entityId, 'role');
+          if (btnRole === 'cover') result.adherenceCoverButton = entityId;
+          else if (btnRole === 'skip') result.skipButton = entityId;
+        }
       } else if (entityId.startsWith('number.')) {
         if (entityId.endsWith('_pills_left')) result.pillsLeft = entityId;
         else if (entityId.endsWith('_add_refill')) result.addRefill = entityId;
@@ -808,6 +820,20 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._toolsDialog = null;
   }
 
+  // Run a Tools panel action respecting the `confirm_tool_actions` config.
+  // Default ON (negative-false check preserves existing configs without the
+  // field): the shared tools confirmation dialog opens first. When the user
+  // explicitly disables the toggle, the action fires immediately with no
+  // popup. Centralizes the dialog-vs-direct decision in the container so the
+  // Tools panel stays purely presentational.
+  private _runToolAction(title: string, descriptor: string, onConfirm: () => void): void {
+    if (this.config?.confirm_tool_actions !== false) {
+      this._openToolsDialog(title, descriptor, onConfirm);
+    } else {
+      onConfirm();
+    }
+  }
+
   private _handleTimeframeChange(timeframe: string): void {
     if (timeframe === this._activeTimeframe) return;
     this._activeTimeframe = timeframe;
@@ -968,6 +994,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public handleUndoDose(entities: ResolvedEntities): void { this._handleUndoDose(entities); }
   public handleRefill(entities: ResolvedEntities): void { this._handleRefill(entities); }
   public openToolsDialog(title: string, descriptor: string, onConfirm: () => void): void { this._openToolsDialog(title, descriptor, onConfirm); }
+  public runToolAction(title: string, descriptor: string, onConfirm: () => void): void { this._runToolAction(title, descriptor, onConfirm); }
   public openMoreInfo(entityId: string): void { this._openMoreInfo(entityId); }
   public handleSafeBoxAction(
     e: Event | null,

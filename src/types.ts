@@ -59,6 +59,12 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   big_text?: boolean;
   hide_nav_bar?: boolean;
   bold_text?: boolean;
+  /** Show a confirmation popup before running any Tools panel action.
+   *  Default ON (preserved via the negative-false check in the container).
+   *  When set to false, Tools panel buttons fire their service call
+   *  immediately with no warning dialog. Configured via the "Settings"
+   *  expandable in the visual editor. */
+  confirm_tool_actions?: boolean;
   /** Default pane shown when the card loads. One of:
    *  'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking'.
    *  Falls back to 'daily' when unset/invalid or when the pane is invalid for
@@ -186,6 +192,7 @@ export interface ResolvedEntities {
   undoButton?: string;
   adherenceResetButton?: string;
   adherenceCoverButton?: string;
+  skipButton?: string;
   pillsLeft?: string;
   addRefill?: string;
   metrics: MetricEntity[];
@@ -370,8 +377,12 @@ export interface CardController {
   showDeviceInfo(): void;
   /** Open the device-info dialog targeted at a specific device (Inventory panel averages-box click). */
   showDeviceInfoFor(deviceId: string, name: string): void;
-  /** Open the shared tools confirmation dialog. */
+  /** Open the shared tools confirmation dialog directly. */
   openToolsDialog(title: string, descriptor: string, onConfirm: () => void): void;
+  /** Run a Tools panel action. Respects the `confirm_tool_actions` config:
+   *  when ON (default), opens the shared tools confirmation dialog first;
+   *  when OFF, fires onConfirm immediately with no popup. */
+  runToolAction(title: string, descriptor: string, onConfirm: () => void): void;
   /** Fire hass-more-info for an entity id. */
   openMoreInfo(entityId: string): void;
   /** Dispatch a Safe-to-Take box tap/hold/double-tap action (handleAction or more-info fallback). */
