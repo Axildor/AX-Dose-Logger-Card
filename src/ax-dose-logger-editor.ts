@@ -16,6 +16,49 @@
 import { localize } from './localize.js';
 
 // ──────────────────────────────────────────────
+// Button State Matrix — shared select options
+// ──────────────────────────────────────────────
+// The 7 visual-style options used by every per-state dropdown in the Daily
+// and Drinks "Button" submenus. Kept module-scoped so the schema below
+// references one source of truth (adding/reordering an option here updates
+// both submenus). Labels come from localize('button_style.*'). See plans/
+// button-state-matrix-plan.md §6.3.
+function _buttonStyleOptions() {
+  return [
+    { value: 'full', label: localize('en', 'button_style.full') },
+    { value: 'icon', label: localize('en', 'button_style.icon') },
+    { value: 'border', label: localize('en', 'button_style.border') },
+    { value: 'icon_border', label: localize('en', 'button_style.icon_border') },
+    { value: 'none', label: localize('en', 'button_style.none') },
+    { value: 'glow', label: localize('en', 'button_style.glow') },
+    { value: 'icon_glow', label: localize('en', 'button_style.icon_glow') },
+  ];
+}
+
+// The 3 "Logged" (ACK) flash layout options for the take/drink button
+// _ack_layout dropdown. Kept module-scoped alongside _buttonStyleOptions so
+// both submenus reference one source of truth. Labels come from
+// localize('ack_layout.*'). See plans/glow-speed-and-ack-style-plan.md §2.3.
+function _ackLayoutOptions() {
+  return [
+    { value: 'top', label: localize('en', 'ack_layout.top') },
+    { value: 'inline', label: localize('en', 'ack_layout.inline') },
+    { value: 'big', label: localize('en', 'ack_layout.big') },
+  ];
+}
+
+// The 3 rotating-glow speed options for the take/drink button _glow_speed
+// dropdown. 'medium' (4s) is the default. Labels come from
+// localize('glow_speed.*'). See plans/glow-speed-and-ack-style-plan.md §2.1.
+function _glowSpeedOptions() {
+  return [
+    { value: 'slow', label: localize('en', 'glow_speed.slow') },
+    { value: 'medium', label: localize('en', 'glow_speed.medium') },
+    { value: 'fast', label: localize('en', 'glow_speed.fast') },
+  ];
+}
+
+// ──────────────────────────────────────────────
 // Grid-alignment CSS injection
 // ──────────────────────────────────────────────
 
@@ -556,6 +599,121 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               },
             ],
           },
+          // ── Button State Matrix (Daily — Take Pill button) ──
+          // Restructured into nested flatten-expandables, one per aspect, so
+          // each style dropdown + its pulse toggle are visually grouped (grid
+          // pairs them side-by-side) and a section header makes the boundary
+          // between aspects clear. All select selectors use mode:'dropdown' so
+          // the 3-option selects (ack_layout, glow_speed) render as a single
+          // dropdown box instead of 3 stacked radio buttons (HA auto-selects
+          // LIST mode for ≤3 options with no explicit mode). All fields carry
+          // an explicit default so the editor pre-populates the control when
+          // the stored config value is undefined — matching the runtime ??
+          // fallbacks in daily-panel.ts. Defaults: Lockout=full+pulse off,
+          // Execution=icon+pulse off, Latency=icon_border+pulse on,
+          // ACK layout=top / duration=3000ms, glow=fast. See plans/button-
+          // submenu-optimization-plan.md.
+          {
+            type: 'expandable',
+            name: 'take_button_box',
+            title: localize('en', 'config.button'),
+            flatten: true,
+            schema: [
+              // Flat list of aspect grids — no nested expandables (2x nesting
+              // only: Button → grid). Each style dropdown + its pulse toggle
+              // are paired side-by-side in a grid so the grouping is obvious
+              // at a glance. The label names (Limit Reached Style, Take Pill
+              // Style, etc.) convey the aspect identity without section titles.
+              // ── Limit Reached: style + pulse ──
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'take_button_lockout_style',
+                    default: 'full',
+                    selector: {
+                      select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                    },
+                  },
+                  {
+                    name: 'take_button_lockout_pulse',
+                    default: false,
+                    selector: { boolean: {} },
+                  },
+                ],
+              },
+              // ── Take Pill: style + pulse ──
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'take_button_execution_style',
+                    default: 'icon',
+                    selector: {
+                      select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                    },
+                  },
+                  {
+                    name: 'take_button_execution_pulse',
+                    default: false,
+                    selector: { boolean: {} },
+                  },
+                ],
+              },
+              // ── Overdue Warning: style + pulse ──
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'take_button_latency_style',
+                    default: 'icon_border',
+                    selector: {
+                      select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                    },
+                  },
+                  {
+                    name: 'take_button_latency_pulse',
+                    default: true,
+                    selector: { boolean: {} },
+                  },
+                ],
+              },
+              // ── Logged Dose Indicator: layout + duration ──
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'take_button_ack_layout',
+                    default: 'top',
+                    selector: {
+                      select: { options: _ackLayoutOptions(), mode: 'dropdown' },
+                    },
+                  },
+                  {
+                    name: 'take_button_ack_duration_ms',
+                    default: 3000,
+                    selector: { number: { min: 500, max: 10000, step: 100 } },
+                  },
+                ],
+              },
+              // ── Rotating Glow: speed ──
+              {
+                name: 'take_button_glow_speed',
+                default: 'medium',
+                selector: {
+                  select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                },
+              },
+            ],
+          },
         ],
       },
       // ── Drinks Panel (Master Tracker) — mirrors the Daily Panel ──
@@ -900,6 +1058,75 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                     selector: { ui_action: {} },
                   },
                 ],
+              },
+            ],
+          },
+          // ── Button State Matrix (Drinks — Log Drink button) ──
+          // Restructured into nested flatten-expandables (mirrors the Daily
+          // Take Pill button structure). Only 3 aspects: Limit Reached,
+          // Logged Dose Indicator, Rotating Glow (drinks are PRN with no
+          // schedule, so Take Pill and Overdue Warning are omitted). All
+          // selects use mode:'dropdown' + explicit defaults matching the
+          // runtime ?? fallbacks in drinks-panel.ts. Defaults: Lockout=full
+          // + pulse off, ACK layout=top / duration=3000ms, glow=fast. See
+          // plans/button-submenu-optimization-plan.md §2.3.
+          {
+            type: 'expandable',
+            name: 'drink_button_box',
+            title: localize('en', 'config.button'),
+            flatten: true,
+            schema: [
+              // Flat list of aspect grids — no nested expandables (2x nesting
+              // only: Button → grid). Mirrors the Daily Take Pill button
+              // structure. Each style dropdown + its pulse toggle are paired
+              // side-by-side in a grid so the grouping is obvious at a glance.
+              // ── Limit Reached: style + pulse ──
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'drink_button_lockout_style',
+                    default: 'full',
+                    selector: {
+                      select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                    },
+                  },
+                  {
+                    name: 'drink_button_lockout_pulse',
+                    default: false,
+                    selector: { boolean: {} },
+                  },
+                ],
+              },
+              // ── Logged Dose Indicator: layout + duration ──
+              {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                  {
+                    name: 'drink_button_ack_layout',
+                    default: 'top',
+                    selector: {
+                      select: { options: _ackLayoutOptions(), mode: 'dropdown' },
+                    },
+                  },
+                  {
+                    name: 'drink_button_ack_duration_ms',
+                    default: 3000,
+                    selector: { number: { min: 500, max: 10000, step: 100 } },
+                  },
+                ],
+              },
+              // ── Rotating Glow: speed ──
+              {
+                name: 'drink_button_glow_speed',
+                default: 'medium',
+                selector: {
+                  select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                },
               },
             ],
           },

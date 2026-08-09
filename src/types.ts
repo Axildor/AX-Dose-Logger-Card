@@ -146,7 +146,79 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   drink_chip_4_tap_action?: ActionConfig;
   drink_chip_4_hold_action?: ActionConfig;
   drink_chip_4_double_tap_action?: ActionConfig;
+
+  // ── Button State Matrix — Daily (Take Pill button) ──
+  // Each scheduled/lockout state maps to one of 7 visual style options
+  // (ButtonStateStyle) + an independent icon-pulse toggle. The 'idle' state
+  // is intentionally excluded — it has no color and is not user-configurable
+  // (always falls back to the theme default). See plans/button-state-matrix-
+  // plan.md for the full state matrix + precedence.
+  take_button_lockout_style?: ButtonStateStyle;    // default 'full'   (Option 1)
+  take_button_lockout_pulse?: boolean;              // default false
+  take_button_execution_style?: ButtonStateStyle;  // default 'icon'   (Option 2)
+  take_button_execution_pulse?: boolean;            // default false
+  take_button_latency_style?: ButtonStateStyle;    // default 'icon_border' (Option 4)
+  take_button_latency_pulse?: boolean;              // default true
+  /** Layout of the transient "Logged" (ACK) flash on the Take Pill button
+   *  after a successful press. One of 'top' (default, mirrors button layout),
+   *  'inline' (tick + text on one line), or 'big' (large check only). */
+  take_button_ack_layout?: AckLayout;
+  /** Duration of the transient "Logged" (ACK) flash on the Take Pill button,
+   *  in milliseconds. Default 3000 (per the state matrix). */
+  take_button_ack_duration_ms?: number;
+  /** Speed of the rotating border-glow animation on the Take Pill button.
+   *  'slow' (6s) / 'medium' (4s, default) / 'fast' (2.2s). Only affects the
+   *  glow / icon_glow style options. */
+  take_button_glow_speed?: GlowSpeed;
+
+  // ── Button State Matrix — Drinks (Log Drink button) ──
+  // Drinks are PRN/as-needed with no schedule, so Execution Requested and
+  // Latency Warning can never activate. Only Lockout + ACK are configurable
+  // (user-confirmed — see plans/button-state-matrix-plan.md §1.2).
+  drink_button_lockout_style?: ButtonStateStyle;   // default 'full'   (Option 1)
+  drink_button_lockout_pulse?: boolean;            // default false
+  /** Layout of the transient "Logged" (ACK) flash on the Log Drink button.
+   *  Mirrors take_button_ack_layout (default 'top'). */
+  drink_button_ack_layout?: AckLayout;
+  /** Duration of the transient "Logged" (ACK) flash on the Log Drink button,
+   *  in milliseconds. Default 3000. */
+  drink_button_ack_duration_ms?: number;
+  /** Speed of the rotating border-glow animation on the Log Drink button.
+   *  'slow' (6s) / 'medium' (4s, default) / 'fast' (2.2s). */
+  drink_button_glow_speed?: GlowSpeed;
 }
+
+/**
+ * Visual style option for a single button-state color assignment.
+ * Maps 1:1 to the 7 options in the Prosumer UI State Matrix
+ * (plans/button-state-matrix-plan.md §2).
+ */
+export type ButtonStateStyle =
+  | 'full'        // Option 1 — Full Button
+  | 'icon'        // Option 2 — Icon only
+  | 'border'      // Option 3 — Border only
+  | 'icon_border' // Option 4 — Icon and Border
+  | 'none'        // Option 5 — No change (theme default)
+  | 'glow'        // Option 6 — Rotating border glow
+  | 'icon_glow';  // Option 7 — Icon and Rotating border glow
+
+/**
+ * Layout of the transient "Logged" (ACK) flash overlay shown after a
+ * successful button press. See plans/glow-speed-and-ack-style-plan.md §2.3.
+ */
+export type AckLayout =
+  | 'top'     // Option 1 — Top tick mark and text (default; mirrors button layout)
+  | 'inline'  // Option 2 — Tick mark and text inline (on one centered line)
+  | 'big';    // Option 3 — Big tickmark only (no text)
+
+/**
+ * Speed of the rotating border-glow animation. Maps to a CSS duration set via
+ * the --glow-duration var. See plans/glow-speed-and-ack-style-plan.md §2.1.
+ */
+export type GlowSpeed =
+  | 'slow'    // 6s
+  | 'medium'  // 4s
+  | 'fast';   // 2.2s (default — the prior hardcoded value)
 
 // Extends the official HomeAssistant type from custom-card-helpers with the
 // two HA frontend extensions the card uses (entities + devices). These fields

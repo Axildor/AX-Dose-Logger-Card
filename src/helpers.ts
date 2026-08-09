@@ -137,3 +137,71 @@ export function getTimeframeHours(timeframe: string): number {
     default: return 48;
   }
 }
+
+// ──────────────────────────────────────────────
+// Button State Matrix (Prosumer UI)
+// ──────────────────────────────────────────────
+// Pure state resolver shared by the Daily (Take Pill) and Drinks (Log Drink)
+// panel buttons. The container computes the ButtonStateInput from resolved
+// entities + the transient ACK flag, then this function maps it to one of 5
+// states per the Prosumer UI State Matrix (plans/button-state-matrix-plan.md).
+//
+// Precedence: ack (transient, always wins) → lockout (hard stop) → latency →
+// execution → idle. The 'idle' state has no color and is never user-configured.
+
+/**
+ * One of the 5 states in the Prosumer UI State Matrix. The 'idle' state has no
+ * color assignment (theme default) and is excluded from the editor config.
+ */
+export type ButtonState = 'lockout' | 'idle' | 'execution' | 'latency' | 'ack';
+
+/**
+ * Inputs to resolveButtonState(), supplied by the container from resolved
+ * entities + the transient ACK flag. All fields are boolean/numeric so the
+ * resolver stays pure + testable with no `this` / hass reference.
+ */
+export interface ButtonStateInput {
+  /** Hard stop: cooldown active or max limit reached (prevents double-dose). */
+  isLockedOut: boolean;
+  /** True for scheduled (non-PRN) medications — gates execution/latency. */
+  isScheduled: boolean;
+  /** Seconds past the missed scheduled slot. 0 when on-time / not yet due. */
+  overdueSeconds: number;
+  /** Adherence grace period in hours (on-time buffer). Read from the
+   *  adherence sensor's `grace_hours` attribute; fallback 1.0h. Used only
+   *  for the latency boundary — kept here so the resolver is self-contained,
+   *  though the overdue-anchored mapping means it's informational. */
+  graceHours: number;
+  /** Transient ACK flag (container sets it on successful button.press). */
+  ackActive: boolean;
+}
+
+/**
+ * Resolve a ButtonStateInput to a single ButtonState per the matrix precedence.
+ * Pure + side-effect-free so both panels share one code path.
+ */
+export function resolveButtonState(input: ButtonStateInput): ButtonState {
+  // ACK is now a pure overlay driven by the panel's `ackActive` flag (rendered
+  // via a dedicated `.ack-flash::after` rule). It no longer collapses the
+  // resolved state, so the button keeps its true color (lockout/idle/
+  // execution/latency) underneath the ack flash. Fixes the "green Take Pill
+  // lingering for several seconds after an override press" bug where the ack
+  // recolored the whole button green and the recomputed post-ack state fell
+  // to 'idle' (theme default) until the backend pushed the new
+  // pillsSafeToTake. The 'ack' value stays in the ButtonState union for type
+  // compat; it is simply never returned here.
+  if (input.isLockedOut) return 'lockout';
+  if (input.isScheduled) {
+    if (input.overdueSeconds > 0) return 'latency';
+    return 'execution';
+  }
+  return 'idle';
+}
+
+/** Fixed duration (ms) of the ACK overlay press-in intro (ax-btn-ack-intro /
+ *  ax-drink-btn-ack-intro CSS keyframes). The container freezes the resolved
+ *  ButtonState for this long after an ACK trigger so the underlying state
+ *  transition (e.g. idle to lockout) is hidden behind the overlay by the time
+ *  it commits. Mirrors the CSS keyframe duration exactly — update both
+ *  together. Fixed (not proportional to ack_duration_ms). */
+export const ACK_INTRO_MS = 240;

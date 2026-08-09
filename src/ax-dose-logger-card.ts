@@ -12,7 +12,10 @@ import {
   getState as getStateHelper,
   getAttr as getAttrHelper,
   getTimeframeHours as getTimeframeHoursHelper,
+  ACK_INTRO_MS,
+  resolveButtonState as resolveButtonStateHelper,
 } from './helpers.js';
+import type { ButtonState, ButtonStateInput } from './helpers.js';
 import { buildEditorForm, installEditorGridAlignment } from './ax-dose-logger-editor.js';
 // Panel components are statically imported so Rollup bundles them into the
 // single dist/ax-dose-logger-card.js output (HACS downloads exactly one file).
@@ -32,6 +35,7 @@ import type {
   DayBucket,
   DrinkInfo,
   ChipConfig,
+  ButtonStateStyle,
 } from './types.js';
 
 // ──────────────────────────────────────────────
@@ -80,6 +84,27 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
   @state() private _showSleepDisruptionDialog: boolean = false;
   @state() private _sleepDisruptionSubstance: 'caffeine' | 'alcohol' | null = null;
+
+  // ── Button State Matrix — transient ACK (logged) flash flags ──
+  // Set true on a successful button.press of the Take Pill / Log Drink button
+  // and auto-cleared after the configured ack_duration_ms (default 3000) via
+  // a non-blocking setTimeout. Passed to the panels as reactive props so the
+  // green "Logged" flash renders + reverts. The timer handles are NOT @state
+  // (no rendering impact); only the boolean flags are reactive.
+  @state() private _dailyAckActive: boolean = false;
+  @state() private _drinksAckActive: boolean = false;
+  private _dailyAckTimer?: number;
+  private _drinksAckTimer?: number;
+  // Frozen button state held for the ACK intro window (ACK_INTRO_MS) so the
+  // underlying state transition (e.g. idle to lockout) is hidden behind the
+  // overlay by the time it commits. Captured at ACK-trigger time from the live
+  // entities (pre-press state); cleared by a release timer that then requests
+  // a re-render so the resolver reads live state again.
+  @state() private _dailyFrozenState: ButtonState | null = null;
+  @state() private _drinksFrozenState: ButtonState | null = null;
+  private _dailyFreezeTimer?: number;
+  private _drinksFreezeTimer?: number;
+
   @state() private _activeTimeframe: string = '48h';
   @state() private _activeBarTimeframe: string = '14d';
   // Effectiveness-graph state. Mirrors the bar/line graph pattern but keyed
@@ -677,6 +702,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this.hass.callService('button', 'press', {
       entity_id: entities.takeButton,
     });
+    // Trigger the transient ACK (logged) flash on the Take Pill button.
+    this._triggerDailyAck();
   }
 
   private _handleUndoDose(entities: ResolvedEntities) {
@@ -798,6 +825,172 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this.hass.callService('button', 'press', { entity_id: logButtonEntityId });
     this._showLogDrinkDialog = false;
     this._logDrinkSubstance = null;
+    // Trigger the transient ACK flash on the Drinks panel's Log Drink button.
+    this._triggerDrinksAck();
+  }
+
+  /**
+   * Trigger the transient ACK (logged) flash on the Daily Take Pill button.
+   * Called after a successful button.press (both the direct press path and the
+   * limit-reached override-dialog confirm path). Sets the reactive flag true,
+   * clears any in-flight timer, then arms a new setTimeout that flips it back
+   * to false after the configured ack_duration_ms (default 3000). Non-blocking
+   * — the container keeps rendering normally while the flash plays out.
+   */
+  private _triggerDailyAck(): void {
+    const duration = this.config?.take_button_ack_duration_ms ?? 3000;
+    // Freeze the resolved button state for the ACK intro window so the
+    // post-press state transition (e.g. idle to lockout) is hidden behind the
+    // overlay once it's opaque. Capture the PRE-press state from the live
+    // entities first — the trigger fires synchronously right after
+    // button.press, before HA has pushed the new state, so the resolved state
+    // is still the pre-press value.
+    const entities = this._resolveEntities();
+    this._dailyFrozenState = this._computeDailyButtonState(entities);
+    if (this._dailyFreezeTimer !== undefined) {
+      window.clearTimeout(this._dailyFreezeTimer);
+    }
+    this._dailyFreezeTimer = window.setTimeout(() => {
+      this._dailyFrozenState = null;
+      this._dailyFreezeTimer = undefined;
+      this.requestUpdate();
+    }, ACK_INTRO_MS);
+
+    this._dailyAckActive = true;
+    if (this._dailyAckTimer !== undefined) {
+      window.clearTimeout(this._dailyAckTimer);
+    }
+    this._dailyAckTimer = window.setTimeout(() => {
+      this._dailyAckActive = false;
+      this._dailyAckTimer = undefined;
+      this.requestUpdate();
+    }, Math.max(500, duration));
+  }
+
+  /** Trigger the transient ACK flash on the Drinks Log Drink button. */
+  private _triggerDrinksAck(): void {
+    const duration = this.config?.drink_button_ack_duration_ms ?? 3000;
+    // Freeze the resolved button state for the ACK intro window — mirrors
+    // _triggerDailyAck so the post-press state transition (e.g. idle to
+    // lockout when the daily drink limit is hit) is hidden behind the overlay
+    // once it's opaque.
+    const entities = this._resolveEntities();
+    this._drinksFrozenState = this._computeDrinksButtonState(entities);
+    if (this._drinksFreezeTimer !== undefined) {
+      window.clearTimeout(this._drinksFreezeTimer);
+    }
+    this._drinksFreezeTimer = window.setTimeout(() => {
+      this._drinksFrozenState = null;
+      this._drinksFreezeTimer = undefined;
+      this.requestUpdate();
+    }, ACK_INTRO_MS);
+
+    this._drinksAckActive = true;
+    if (this._drinksAckTimer !== undefined) {
+      window.clearTimeout(this._drinksAckTimer);
+    }
+    this._drinksAckTimer = window.setTimeout(() => {
+      this._drinksAckActive = false;
+      this._drinksAckTimer = undefined;
+      this.requestUpdate();
+    }, Math.max(500, duration));
+  }
+
+  /**
+   * Resolve the adherence grace period (on-time buffer) in hours from any
+   * resolved adherence sensor's `grace_hours` state attribute (the 7-day
+   * window is the tightest representative). Falls back to the backend default
+   * 1.0h when no adherence sensor exposes the attribute (matches
+   * config_flow.py:211). Powers the Button State Matrix latency boundary.
+   */
+  private _resolveGraceHours(entities: ResolvedEntities): number {
+    const candidates = [
+      entities.adherence7Days,
+      entities.adherence14Days,
+      entities.adherence30Days,
+      entities.adherence365Days,
+    ];
+    for (const eid of candidates) {
+      if (!eid) continue;
+      const gh = this._getAttr(eid, 'grace_hours');
+      if (typeof gh === 'number' && gh > 0) return gh;
+    }
+    return 1.0;
+  }
+
+  /**
+   * Compute the resolved ButtonState for the Daily (Take Pill) button from the
+   * current entities + the transient ACK flag. Pure read of hass state; the
+   * panel receives the resulting state as a reactive prop.
+   */
+  private _computeDailyButtonState(entities: ResolvedEntities): ButtonState {
+    // While the ACK intro freeze is active, return the captured pre-press
+    // state so the underlying color doesn't transition until the overlay is
+    // opaque. The freeze is released by the ACK_INTRO_MS timer armed in
+    // _triggerDailyAck.
+    if (this._dailyFrozenState !== null) {
+      return this._dailyFrozenState;
+    }
+    // Lockout — always reads the REAL pillsSafeToTake sensor (never the
+    // display-swapped entity) so the safety gate is decoupled from the box.
+    const safeState = this._getState(entities.pillsSafeToTake);
+    const safeCount = parseInt(safeState, 10);
+    const isLockedOut = !isNaN(safeCount) && safeCount <= 0;
+
+    // Scheduled = tracking_type != as_needed. Defensive snake/title-case
+    // normalization mirroring _handleTakePill.
+    const tt = (this._getAttr(entities.nextDose, 'tracking_type') || '').toLowerCase();
+    const isScheduled = tt !== 'as_needed' && tt !== 'as needed' && tt !== '';
+
+    // Overdue seconds (0 when on-time / not yet due / as-needed).
+    const overdueState = this._getState(entities.overdue);
+    let overdueSeconds = 0;
+    if (overdueState && overdueState !== 'unavailable' && overdueState !== 'unknown') {
+      const s = parseFloat(overdueState);
+      if (!isNaN(s) && s > 0) overdueSeconds = s;
+    }
+
+    const input: ButtonStateInput = {
+      isLockedOut,
+      isScheduled,
+      overdueSeconds,
+      graceHours: this._resolveGraceHours(entities),
+      ackActive: this._dailyAckActive,
+    };
+    return resolveButtonStateHelper(input);
+  }
+
+  /**
+   * Compute the resolved ButtonState for the Drinks (Log Drink) button.
+   * Drinks are PRN/as-needed with no schedule → execution/latency never active;
+   * only lockout (daily limit reached) + idle + transient ack are possible.
+   * Lockout reads the master daily-amount sensor's `remaining` attribute
+   * (caffeine/alcohol daily limit); absent sensor/limit → never locks out.
+   */
+  private _computeDrinksButtonState(entities: ResolvedEntities): ButtonState {
+    // While the ACK intro freeze is active, return the captured pre-press
+    // state (mirrors _computeDailyButtonState).
+    if (this._drinksFrozenState !== null) {
+      return this._drinksFrozenState;
+    }
+    let isLockedOut = false;
+    if (entities.amountLast24h) {
+      const remaining = this._getAttr(entities.amountLast24h, 'remaining');
+      if (typeof remaining === 'number' && remaining <= 0) {
+        isLockedOut = true;
+      } else if (typeof remaining === 'string') {
+        const r = parseFloat(remaining);
+        if (!isNaN(r) && r <= 0) isLockedOut = true;
+      }
+    }
+    const input: ButtonStateInput = {
+      isLockedOut,
+      isScheduled: false, // drinks have no schedule
+      overdueSeconds: 0,
+      graceHours: 1.0,
+      ackActive: this._drinksAckActive,
+    };
+    return resolveButtonStateHelper(input);
   }
 
   private _undoDrink(undoButtonEntityId: string): void {
@@ -983,6 +1176,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public computeNextDose(entities: ResolvedEntities): string { return this._computeNextDose(entities); }
   public computeOverTime(entities: ResolvedEntities): string | null { return this._computeOverTime(entities); }
   public computeTimeSinceLastDose(entities: ResolvedEntities): string { return this._computeTimeSinceLastDose(entities); }
+  /** Resolve the Daily (Take Pill) button state for the Button State Matrix.
+   *  Delegates to the private resolver so the panel stays presentational. */
+  public computeDailyButtonState(entities: ResolvedEntities): ButtonState { return this._computeDailyButtonState(entities); }
+  /** Resolve the Drinks (Log Drink) button state for the Button State Matrix. */
+  public computeDrinksButtonState(entities: ResolvedEntities): ButtonState { return this._computeDrinksButtonState(entities); }
   public bucketByDay(dayCount?: number): DayBucket[] { return this._bucketByDay(dayCount); }
   public daysSinceReveal(entities: ResolvedEntities): { hasDaysSensor: boolean; daysSince: number } { return this._daysSinceReveal(entities); }
   public getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[] { return this._getDrinksOfSubstance(substance); }
@@ -1265,6 +1463,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
                       this.hass.callService('button', 'press', {
                         entity_id: dlg.entities.takeButton,
                       });
+                      // Limit-reached override confirm also counts as a
+                      // successful dose log → trigger the ACK flash.
+                      this._triggerDailyAck();
                     }
                     this._overrideDialog = null;
                   }}>
@@ -2030,10 +2231,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     return html`
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
         <div class="card-content">
-          ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-daily-panel>` : nothing}
+          ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive}></ax-dose-daily-panel>` : nothing}
           ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : nothing}
           ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : nothing}
-          ${this._activePane === 'drinks' ? html`<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-drinks-panel>` : nothing}
+          ${this._activePane === 'drinks' ? html`<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDrinksButtonState(entities)} .ackActive=${this._drinksAckActive}></ax-dose-drinks-panel>` : nothing}
           ${this._activePane === 'inventory' ? html`<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-inventory-panel>` : nothing}
           ${this._activePane === 'tools' ? html`<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : nothing}
           ${this._activePane === 'tracking' ? html`<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : nothing}
@@ -2127,6 +2328,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     if (this._graphsRefetchTimer !== null) {
       window.clearTimeout(this._graphsRefetchTimer);
       this._graphsRefetchTimer = null;
+    }
+    // Cancel any pending ACK intro state-freeze timers so they can't flip the
+    // frozen state (and request a re-render) on a detached element.
+    if (this._dailyFreezeTimer !== undefined) {
+      window.clearTimeout(this._dailyFreezeTimer);
+      this._dailyFreezeTimer = undefined;
+    }
+    if (this._drinksFreezeTimer !== undefined) {
+      window.clearTimeout(this._drinksFreezeTimer);
+      this._drinksFreezeTimer = undefined;
     }
   }
 

@@ -269,6 +269,47 @@ const translations: Record<string, Record<string, string>> = {
     // Custom Box entity picker neutral label (the "Box N" expandable header
     // already conveys identity; this groups the entity + overrides below it).
     'config.box_settings': 'Settings',
+    // ── Button State Matrix (Prosumer UI) — config labels ──
+    // Submenu header (shared by Daily + Drinks Button expandables).
+    'config.button': 'Button',
+    // Daily (Take Pill button) — per-state style + pulse + ack layout/duration.
+    // Labels use patient-facing terminology (not internal state-machine jargon):
+    // "Limit Reached" (lockout), "Take Pill" (execution-requested), "Overdue
+    // Warning" (latency), "Logged Dose Indicator" (ack flash). Config keys are
+    // unchanged — only the user-facing label text changed.
+    'config.take_button_lockout_style': 'Limit Reached Style',
+    'config.take_button_lockout_pulse': 'Limit Reached Icon Pulse',
+    'config.take_button_execution_style': 'Take Pill Style',
+    'config.take_button_execution_pulse': 'Take Pill Icon Pulse',
+    'config.take_button_latency_style': 'Overdue Warning Style',
+    'config.take_button_latency_pulse': 'Overdue Warning Icon Pulse',
+    'config.take_button_ack_layout': 'Logged Dose Indicator Style',
+    'config.take_button_ack_duration_ms': 'Logged Animation Duration (ms)',
+    'config.take_button_glow_speed': 'Rotating Glow Speed',
+    // Drinks (Log Drink button) — lockout + ack only (no schedule).
+    'config.drink_button_lockout_style': 'Limit Reached Style',
+    'config.drink_button_lockout_pulse': 'Limit Reached Icon Pulse',
+    'config.drink_button_ack_layout': 'Logged Dose Indicator Style',
+    'config.drink_button_ack_duration_ms': 'Logged Animation Duration (ms)',
+    'config.drink_button_glow_speed': 'Rotating Glow Speed',
+    // ── Button State Matrix — 7 visual style option labels ──
+    'button_style.full': 'Full Button',
+    'button_style.icon': 'Icon Only',
+    'button_style.border': 'Border Only',
+    'button_style.icon_border': 'Icon and Border',
+    'button_style.none': 'No Change',
+    'button_style.glow': 'Rotating Border Glow',
+    'button_style.icon_glow': 'Icon and Rotating Border Glow',
+    // ── ACK (Logged) flash layout option labels (3 options) ──
+    'ack_layout.top': 'Top tick mark and text',
+    'ack_layout.inline': 'Tick mark and text inline',
+    'ack_layout.big': 'Big tick mark',
+    // ── Rotating border-glow speed option labels (3 options) ──
+    'glow_speed.slow': 'Slow',
+    'glow_speed.medium': 'Medium',
+    'glow_speed.fast': 'Fast',
+    // ACK transient flash text ("Logged") rendered via the ack overlay element.
+    'button.ack_text': 'Logged',
     // Box expandable titles (layer 3 — nested collapsable menus)
     'config.chip_1_box': 'Box 1',
     'config.chip_2_box': 'Box 2',
@@ -372,6 +413,25 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.show_adherence_boxes': 'Show beneath the bar graph. Requires adherence sensors.',
     'config.helper.stats_3_columns': '3 columns instead of 2.',
     'config.helper.hide_nav_bar': 'Hide the tab navigation bar.',
+    // ── Button State Matrix helpers ──
+    // Daily (Take Pill) per-state helpers. Terminology aligned with the
+    // renamed labels (Limit Reached / Take Pill / Overdue Warning / Logged
+    // Dose Indicator). See plans/button-submenu-optimization-plan.md §2.1.
+    'config.helper.take_button_lockout_style': 'Visual style when the daily limit is reached. Default: Full Button.',
+    'config.helper.take_button_lockout_pulse': 'Pulse the button icon when the limit is reached.',
+    'config.helper.take_button_execution_style': 'Visual style when a scheduled dose is due (within the adherence grace window). Default: Icon Only.',
+    'config.helper.take_button_execution_pulse': 'Pulse the button icon when a dose is due.',
+    'config.helper.take_button_latency_style': 'Visual style when the dose is overdue (past the adherence grace window). Default: Icon and Border.',
+    'config.helper.take_button_latency_pulse': 'Pulse the button icon when overdue. On by default.',
+    'config.helper.take_button_ack_layout': 'Layout of the transient "Logged" flash after pressing the button. Default: Top tick mark and text.',
+    'config.helper.take_button_ack_duration_ms': 'How long the "Logged" flash appears, in milliseconds. Default: 3000.',
+    'config.helper.take_button_glow_speed': 'Speed of the rotating border glow animation. Default: Medium.',
+    // Drinks (Log Drink) per-state helpers.
+    'config.helper.drink_button_lockout_style': 'Visual style when the substance daily limit is reached. Default: Full Button.',
+    'config.helper.drink_button_lockout_pulse': 'Pulse the button icon when the limit is reached.',
+    'config.helper.drink_button_ack_layout': 'Layout of the transient "Logged" flash after logging a drink. Default: Top tick mark and text.',
+    'config.helper.drink_button_ack_duration_ms': 'How long the "Logged" flash appears, in milliseconds. Default: 3000.',
+    'config.helper.drink_button_glow_speed': 'Speed of the rotating border glow animation. Default: Medium.',
 
     // ── Color scheme labels ──
     'color.default': 'Default (HA Theme)',

@@ -19,7 +19,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { ActionConfig } from 'custom-card-helpers';
-import type { CardController, ResolvedEntities, AxDoseLoggerHass } from '../types.js';
+import type { CardController, ResolvedEntities, AxDoseLoggerHass, ButtonStateStyle, AckLayout, GlowSpeed } from '../types.js';
+import type { ButtonState } from '../helpers.js';
 import { localize } from '../localize.js';
 
 @customElement('ax-dose-drinks-panel')
@@ -31,9 +32,60 @@ export class AxDoseDrinksPanel extends LitElement {
   // to refresh "Xh XXm" countdowns even when hass/entities/controller refs are
   // unchanged. The panel doesn't read this value; it just needs to change.
   @property({ attribute: false }) tick: number = 0;
+  // ── Button State Matrix (Prosumer UI) — Drinks ──
+  // Drinks are PRN/as-needed with no schedule, so only lockout + ack states
+  // are possible. Resolved by the container's _computeDrinksButtonState.
+  @property({ attribute: false }) buttonState: ButtonState = 'idle';
+  @property({ attribute: false }) ackActive: boolean = false;
 
   private get _lang(): string {
     return this.controller.lang;
+  }
+
+  /**
+   * Build the CSS class string for the Log Drink button from the resolved
+   * ButtonState + the per-state style option + pulse toggle. Mirrors the
+   * Daily panel's _takeButtonClasses but only handles lockout + ack (the two
+   * states possible for PRN drinks). 'idle' renders only the base button.
+   */
+  private _logDrinkButtonClasses(): string {
+    const state = this.buttonState;
+    const cfg = this.controller.config;
+    let style: ButtonStateStyle = 'none';
+    let pulse = false;
+    if (state === 'lockout') {
+      style = cfg?.drink_button_lockout_style ?? 'full';
+      pulse = cfg?.drink_button_lockout_pulse ?? false;
+    } else {
+      // idle — no color, no style option (theme default).
+      return this.ackActive ? 'log-drink-btn ack-flash' : 'log-drink-btn';
+    }
+    const color = state === 'lockout' ? 'red' : 'green';
+    const classes: string[] = ['log-drink-btn', `state-${state}`];
+    if (style === 'full') classes.push(`full-${color}`);
+    if (style === 'icon' || style === 'icon_border' || style === 'icon_glow') classes.push(`icon-${color}`);
+    if (style === 'border' || style === 'icon_border') classes.push(`border-${color}`);
+    if (style === 'glow' || style === 'icon_glow') classes.push(`glow-${color}`);
+    if (style === 'none') classes.push('style-none');
+    if (pulse) classes.push('pulse');
+    // ACK overlay is a pure flash layered on top of the true state — it does
+    // not recolor the button, so the real state stays correct underneath.
+    if (this.ackActive) classes.push('ack-flash');
+    return classes.join(' ');
+  }
+
+  /** Resolve the rotating border-glow animation duration (CSS string) from the
+   *  per-button glow_speed config. 'medium' (4s) is the default. Mirrors
+   *  daily-panel._glowDuration. */
+  private _glowDuration(): string {
+    const speed: GlowSpeed = this.controller.config?.drink_button_glow_speed ?? 'medium';
+    return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+  }
+
+  /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
+   *  config. 'top' is the default and mirrors the normal button layout. */
+  private _ackLayout(): AckLayout {
+    return this.controller.config?.drink_button_ack_layout ?? 'top';
   }
 
   render() {
@@ -172,14 +224,25 @@ export class AxDoseDrinksPanel extends LitElement {
 
         <div class="daily-main">
           <button
-            class="log-drink-btn safe"
+            class=${this._logDrinkButtonClasses()}
+            style=${[
+              `--glow-duration: ${this._glowDuration()}`,
+              this.ackActive ? `--ack-duration: ${this.controller.config?.drink_button_ack_duration_ms ?? 3000}ms` : '',
+            ].filter(Boolean).join('; ')}
             aria-label=${logDrinkLabel}
             ?disabled=${!substance}
             @click=${() => substance && c.showLogDrinkDialog(substance)}
           >
+            <div class="glow-track"></div>
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
             <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
+            ${this.ackActive ? html`
+              <div class="ack-flash ack-${this._ackLayout()}">
+                <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>
+                ${this._ackLayout() !== 'big' ? html`<span class="ack-text">${localize(this._lang, 'button.ack_text')}</span>` : nothing}
+              </div>
+            ` : nothing}
           </button>
 
           <div class="stats-column">
@@ -330,13 +393,203 @@ export class AxDoseDrinksPanel extends LitElement {
       transform: scale(0.96);
     }
 
-    .log-drink-btn.safe {
+    /* ── Button State Matrix (Prosumer UI) — Drinks ──
+       Only lockout + ack are possible for PRN drinks. Mirrors the Daily
+       panel's CSS structure (full / icon / border / glow / pulse / ack).
+       The default (idle / no state class) keeps the original theme-tinted
+       safe look. See plans/button-state-matrix-plan.md §1.2. */
+    :host {
+      --btn-red: var(--error-color, #db4437);
+      --rgb-btn-red: var(--rgb-error-color, 219, 68, 55);
+      --btn-green: #43a047;
+      --rgb-btn-green: 67, 160, 71;
+      /* Dark green surface for the Logged Dose Indicator (ACK) overlay.
+         High contrast against the bright --btn-green glyph so the tick/text
+         are clearly legible; opaque so the underlying button state (red)
+         does not bleed through behind the green tick. See plans/
+         ack-clarity-and-softening-plan.md (Issue 2). */
+      --btn-green-soft: #212c22;
+    }
+
+    /* Base idle (no state class) — original theme-tinted safe look. */
+    .log-drink-btn:not(.state-lockout):not(.state-ack) {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .log-drink-btn:not(.state-lockout):not(.state-ack):hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 1 — Full Button (red lockout / green ack). */
+    .log-drink-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
+    .log-drink-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
+    .log-drink-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
+    .log-drink-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+
+    /* Option 2 — Icon only (theme bg, recolored icon).
+       The > child combinator scopes the recolor to the button's OWN icon
+       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
+       so it keeps its own color from .ack-flash. See plans/
+       ack-clarity-and-softening-plan.md (Issue 1). */
+    .log-drink-btn.icon-red > ha-icon    { color: var(--btn-red); }
+    .log-drink-btn.icon-green > ha-icon  { color: var(--btn-green); }
+    .log-drink-btn.icon-red, .log-drink-btn.icon-green {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .log-drink-btn.icon-red:hover, .log-drink-btn.icon-green:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 3 — Border only (inset box-shadow so the button does not grow;
+       a real border would add 2px to the outer size on each side). */
+    .log-drink-btn.border-red, .log-drink-btn.border-green {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .log-drink-btn.border-red    { box-shadow: inset 0 0 0 2px var(--btn-red); }
+    .log-drink-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
+
+    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+       TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
+       cannot share one element — oversizing moves the mask's content-box ring
+       off the button, where overflow:hidden clips it away → nothing renders).
+       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       the 2px ring on the button edge + overflow:hidden to clip the rotating
+       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       (inset -150%) rotating gradient source; the track's mask carves the ring
+       from this rotating gradient. transform animates without @property. */
+    @keyframes ax-drink-btn-glow-sweep { to { transform: rotate(360deg); } }
+    .log-drink-btn.glow-red, .log-drink-btn.glow-green {
+      position: relative;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
+       exactly on the button edge. padding:2px defines the ring thickness;
+       border-radius:inherit follows the rounded corners; overflow:hidden clips
+       the rotating child to the perimeter. */
+    .log-drink-btn .glow-track {
+      position: absolute;
+      inset: 0;
+      padding: 2px;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      /* Both prefixed AND unprefixed mask must be declared: mask-composite
+         operates on the unprefixed mask in modern Chromium. */
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+    }
+    /* Layer 2 — the rotating oversized gradient engine. 400% of the track
+       (button-sized) so its rotating square always covers the track at every
+       angle (no corner gaps). The track's mask carves the 2px ring from this
+       rotating gradient. */
+    .log-drink-btn .glow-track::before {
+      content: '';
+      position: absolute;
+      inset: -150%;
+      animation: ax-drink-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+    }
+    /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
+       153deg = 50% of the line) so the state color stays unambiguous; a
+       white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
+       crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
+    .log-drink-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .log-drink-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+
+    /* Option 5 — No change (theme default). */
+    .log-drink-btn.style-none {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
     }
 
-    .log-drink-btn.safe:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    /* Icon-pulse animation. */
+    @keyframes ax-drink-btn-icon-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.15); opacity: 0.7; }
+    }
+    .log-drink-btn.pulse ha-icon {
+      animation: ax-drink-btn-icon-pulse 1.2s ease-in-out infinite;
+    }
+
+    /* ACK (logged) transient overlay — a pure flash layered on top of the
+       button's true state. The button keeps its real color underneath; the
+       overlay paints an opaque green surface + white tick ("mdi:check-bold")
+       and optional "Logged" text, fully covering the underlying button, then
+       fades to reveal the true state. Rendered as a real <div class="ack-flash">
+       element (conditionally added to the template when ackActive is true) so
+       it can host a real <ha-icon>. The layout is selected by the ack-top /
+       ack-inline / ack-big modifier class from the per-button ack_layout
+       config. Duration comes from the inline --ack-duration var. */
+    .log-drink-btn .ack-flash {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Issue 2 — dark green surface (not the saturated --btn-green) so the
+         flash is less jarring; opaque so the underlying button state does
+         not bleed through. The tick + text use solid --btn-green (bright
+         green) for clear, legible success semantics on the dark surface. */
+      background: var(--btn-green-soft);
+      color: var(--btn-green);
+      border-radius: inherit;
+      opacity: 0;
+      transform-origin: center;
+      /* Issue 3 — two-animation split on a single line (a multi-line
+         animation shorthand breaks the Lit CSS compiler, which drops the
+         whole rule + the keyframes). A FIXED 240ms press-in intro (so the
+         press feel stays snappy even when a long ack_duration is set — a
+         proportional intro would stretch to ~800ms at 10000ms and feel
+         sluggish), then the hold+fade animation delayed by 240ms. The intro
+         uses "both" fill so its end state (opacity 1, scale 1) holds during
+         the 240ms delay before the fade animation takes over. */
+      animation: ax-drink-btn-ack-intro 240ms ease-out both, ax-drink-btn-ack-fade var(--ack-duration, 3000ms) ease-out 240ms forwards;
+      pointer-events: none;
+      z-index: 2;
+    }
+    /* Option 1 — Top tick mark and text (default; mirrors button layout). */
+    .log-drink-btn .ack-flash.ack-top {
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-drink-btn .ack-flash.ack-top .ack-icon { --mdc-icon-size: 28px; }
+    .log-drink-btn .ack-flash.ack-top .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 2 — Tick mark and text inline (the prior single-line layout). */
+    .log-drink-btn .ack-flash.ack-inline {
+      flex-direction: row;
+      gap: 8px;
+    }
+    .log-drink-btn .ack-flash.ack-inline .ack-icon { --mdc-icon-size: 24px; }
+    .log-drink-btn .ack-flash.ack-inline .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 3 — Big tickmark only (no text). */
+    .log-drink-btn .ack-flash.ack-big .ack-icon { --mdc-icon-size: 56px; }
+    /* Issue 3 — FIXED 240ms press-in intro mirrors the button's own
+       :active { transform: scale(0.96) } press so the overlay reads like a
+       button press instead of a hard cut. Fixed (not proportional to
+       --ack-duration) so the press feel stays snappy even when a long flash
+       interval is set. */
+    @keyframes ax-drink-btn-ack-intro {
+      0%   { opacity: 0; transform: scale(0.96); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Hold + fade-out. Starts at opacity 1 (the intro's end state) and is
+       delayed by 240ms (see the animation shorthand above) so it begins
+       exactly when the intro finishes. */
+    @keyframes ax-drink-btn-ack-fade {
+      0%   { opacity: 1; transform: scale(1); }
+      70%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1); }
     }
 
     .log-drink-btn:disabled {

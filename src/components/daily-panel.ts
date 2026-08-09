@@ -10,7 +10,8 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { ActionConfig } from 'custom-card-helpers';
-import type { CardController, ResolvedEntities, AxDoseLoggerHass } from '../types.js';
+import type { CardController, ResolvedEntities, AxDoseLoggerHass, ButtonStateStyle, AckLayout, GlowSpeed } from '../types.js';
+import type { ButtonState } from '../helpers.js';
 import { localize } from '../localize.js';
 
 @customElement('ax-dose-daily-panel')
@@ -27,19 +28,89 @@ export class AxDoseDailyPanel extends LitElement {
   // to refresh "Xh XXm" countdowns even when hass/entities/controller refs are
   // unchanged. The panel doesn't read this value; it just needs to change.
   @property({ attribute: false }) tick: number = 0;
+  // ── Button State Matrix (Prosumer UI) ──
+  // Resolved ButtonState from the container's _computeDailyButtonState(). The
+  // panel maps it to a CSS class string using the per-state style option +
+  // pulse toggle from the card config. 'idle' renders no state class (theme
+  // default). See plans/button-state-matrix-plan.md.
+  @property({ attribute: false }) buttonState: ButtonState = 'idle';
+  // Transient ACK flag from the container (mirrors buttonState==='ack' but
+  // kept separate so the panel can drive the ack-duration CSS var even when
+  // the state resolver already collapsed to 'ack').
+  @property({ attribute: false }) ackActive: boolean = false;
 
   private get _lang(): string {
     return this.controller.lang;
   }
 
+  /**
+   * Build the CSS class string for the Take Pill button from the resolved
+   * ButtonState + the per-state style option + pulse toggle in the card
+   * config. Maps the 7 style options (full / icon / border / icon_border /
+   * none / glow / icon_glow) onto state-color class pairs. The 'idle' state
+   * renders only the base button (no color override). Returns the full
+   * class list including the base 'take-pill-btn'.
+   */
+  private _takeButtonClasses(): string {
+    const state = this.buttonState;
+    const cfg = this.controller.config;
+    // State → color token + configured style option + pulse toggle.
+    let style: ButtonStateStyle = 'none';
+    let pulse = false;
+    if (state === 'lockout') {
+      style = cfg?.take_button_lockout_style ?? 'full';
+      pulse = cfg?.take_button_lockout_pulse ?? false;
+    } else if (state === 'execution') {
+      style = cfg?.take_button_execution_style ?? 'icon';
+      pulse = cfg?.take_button_execution_pulse ?? false;
+    } else if (state === 'latency') {
+      style = cfg?.take_button_latency_style ?? 'icon_border';
+      pulse = cfg?.take_button_latency_pulse ?? true;
+    } else {
+      // idle — no color, no style option (theme default).
+      return this.ackActive ? 'take-pill-btn ack-flash' : 'take-pill-btn';
+    }
+    // State → color name.
+    const color = state === 'lockout' ? 'red'
+      : state === 'execution' ? 'blue'
+      : state === 'latency' ? 'amber'
+      : 'green'; // ack
+    // Style option → class fragments.
+    const classes: string[] = ['take-pill-btn', `state-${state}`];
+    if (style === 'full') classes.push(`full-${color}`);
+    if (style === 'icon' || style === 'icon_border' || style === 'icon_glow') classes.push(`icon-${color}`);
+    if (style === 'border' || style === 'icon_border') classes.push(`border-${color}`);
+    if (style === 'glow' || style === 'icon_glow') classes.push(`glow-${color}`);
+    if (style === 'none') classes.push(`style-none`);
+    if (pulse) classes.push('pulse');
+    // ACK overlay is a pure flash layered on top of the true state — it does
+    // not recolor the button, so the real state stays correct underneath.
+    if (this.ackActive) classes.push('ack-flash');
+    return classes.join(' ');
+  }
+
+  /** Resolve the rotating border-glow animation duration (CSS string) from the
+   *  per-button glow_speed config. 'medium' (4s) is the default. See plans/
+   *  glow-speed-and-ack-style-plan.md. */
+  private _glowDuration(): string {
+    const speed: GlowSpeed = this.controller.config?.take_button_glow_speed ?? 'medium';
+    return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+  }
+
+  /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
+   *  config. 'top' is the default and mirrors the normal button layout. */
+  private _ackLayout(): AckLayout {
+    return this.controller.config?.take_button_ack_layout ?? 'top';
+  }
+
   render() {
     const c = this.controller;
     const e = this.entities;
-    // Button limit logic — always uses the REAL pills_safe_to_take sensor,
-    // never the display entity, so swapping the box doesn't affect safety.
+    // safeState powers the Safe to Take box display value below. The lockout
+    // detection (safeCount <= 0) now lives in the container's
+    // _computeDailyButtonState so this panel stays presentational; the
+    // resolved buttonState prop drives the Take Pill button styling.
     const safeState = c.getState(e.pillsSafeToTake);
-    const safeCount = parseInt(safeState, 10);
-    const isLimitReached = !isNaN(safeCount) && safeCount <= 0;
     const timeSince = c.computeTimeSinceLastDose(e);
     const nextDose = c.computeNextDose(e);
     const overTime = c.computeOverTime(e);
@@ -132,19 +203,30 @@ export class AxDoseDailyPanel extends LitElement {
 
         <div class="daily-main">
           <button
-            class="take-pill-btn ${isLimitReached ? 'danger' : 'safe'}"
-            aria-label=${isLimitReached
+            class=${this._takeButtonClasses()}
+            style=${[
+              `--glow-duration: ${this._glowDuration()}`,
+              this.ackActive ? `--ack-duration: ${this.controller.config?.take_button_ack_duration_ms ?? 3000}ms` : '',
+            ].filter(Boolean).join('; ')}
+            aria-label=${this.buttonState === 'lockout'
               ? localize(this._lang, 'aria.take_pill_limit')
               : (c.config?.take_pill_label || localize(this._lang, 'aria.take_pill_safe'))}
             @click=${() => c.handleTakePill(e)}
           >
-            <ha-icon icon="${isLimitReached ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
-            <span class="take-label">${isLimitReached ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
+            <div class="glow-track"></div>
+            <ha-icon icon="${this.buttonState === 'lockout' ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
+            <span class="take-label">${this.buttonState === 'lockout' ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
               ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-              : (nextDose !== 'Unavailable'
+              : (nextDose !== 'Unavailable' && nextDose !== 'now'
                 ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`
                 : nothing)}</span>
+            ${this.ackActive ? html`
+              <div class="ack-flash ack-${this._ackLayout()}">
+                <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>
+                ${this._ackLayout() !== 'big' ? html`<span class="ack-text">${localize(this._lang, 'button.ack_text')}</span>` : nothing}
+              </div>
+            ` : nothing}
           </button>
 
           <div class="stats-column">
@@ -329,22 +411,225 @@ export class AxDoseDailyPanel extends LitElement {
       transform: scale(0.96);
     }
 
-    .take-pill-btn.safe {
+    /* ── Button State Matrix (Prosumer UI) ──
+       Replaces the prior binary .safe/.danger classes with a 5-state, 7-style-
+       option system. The default (idle / no state class) keeps the original
+       theme-tinted look. Each colored state composes a state-color class
+       (e.g. .full-red, .icon-blue, .border-amber, .glow-green) from the panel's
+       _takeButtonClasses() helper. See plans/button-state-matrix-plan.md. */
+
+    /* State color tokens (CSS vars so the rules below stay generic). */
+    :host {
+      --btn-red: var(--error-color, #db4437);
+      --rgb-btn-red: var(--rgb-error-color, 219, 68, 55);
+      --btn-blue: #03a9f4;
+      --rgb-btn-blue: 3, 169, 244;
+      --btn-amber: #f5a623;
+      --rgb-btn-amber: 245, 166, 35;
+      --btn-green: #43a047;
+      --rgb-btn-green: 67, 160, 71;
+      /* Dark green surface for the Logged Dose Indicator (ACK) overlay.
+         High contrast against the bright --btn-green glyph so the tick/text
+         are clearly legible; opaque so the underlying button state
+         (red/amber/blue) does not bleed through behind the green tick.
+         See plans/ack-clarity-and-softening-plan.md (Issue 2). */
+      --btn-green-soft: #212c22;
+    }
+
+    /* Base idle state (no state class) — original theme-tinted safe look. */
+    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack) {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack):hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 1 — Full Button (per color). */
+    .take-pill-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
+    .take-pill-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
+    .take-pill-btn.full-blue   { background: rgba(var(--rgb-btn-blue), 0.12); color: var(--btn-blue); }
+    .take-pill-btn.full-blue:hover   { background: rgba(var(--rgb-btn-blue), 0.2); }
+    .take-pill-btn.full-amber  { background: rgba(var(--rgb-btn-amber), 0.12);color: var(--btn-amber); }
+    .take-pill-btn.full-amber:hover  { background: rgba(var(--rgb-btn-amber), 0.2); }
+    .take-pill-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
+    .take-pill-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+
+    /* Option 2 — Icon only (button bg stays theme default, icon recolored).
+       The > child combinator scopes the recolor to the button's OWN icon
+       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
+       so it keeps its own color from .ack-flash. See plans/
+       ack-clarity-and-softening-plan.md (Issue 1). */
+    .take-pill-btn.icon-red > ha-icon    { color: var(--btn-red); }
+    .take-pill-btn.icon-blue > ha-icon   { color: var(--btn-blue); }
+    .take-pill-btn.icon-amber > ha-icon  { color: var(--btn-amber); }
+    .take-pill-btn.icon-green > ha-icon  { color: var(--btn-green); }
+    /* Icon-only states still use the theme default bg so they read as "safe". */
+    .take-pill-btn.icon-red, .take-pill-btn.icon-blue,
+    .take-pill-btn.icon-amber, .take-pill-btn.icon-green {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .take-pill-btn.icon-red:hover, .take-pill-btn.icon-blue:hover,
+    .take-pill-btn.icon-amber:hover, .take-pill-btn.icon-green:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 3 — Border only (inset box-shadow so the button does not grow;
+       a real border would add 2px to the outer size on each side). */
+    .take-pill-btn.border-red    { box-shadow: inset 0 0 0 2px var(--btn-red); }
+    .take-pill-btn.border-blue   { box-shadow: inset 0 0 0 2px var(--btn-blue); }
+    .take-pill-btn.border-amber  { box-shadow: inset 0 0 0 2px var(--btn-amber); }
+    .take-pill-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
+    .take-pill-btn.border-red, .take-pill-btn.border-blue,
+    .take-pill-btn.border-amber, .take-pill-btn.border-green {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
     }
 
-    .take-pill-btn.safe:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+       TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
+       cannot share one element — oversizing moves the mask's content-box ring
+       off the button, where overflow:hidden clips it away → nothing renders).
+       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       the 2px ring on the button edge + overflow:hidden to clip the rotating
+       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       (inset -150%) rotating gradient source; the track's mask carves the ring
+       from this rotating gradient. transform animates without @property. */
+    @keyframes ax-btn-glow-sweep { to { transform: rotate(360deg); } }
+    .take-pill-btn.glow-red, .take-pill-btn.glow-blue,
+    .take-pill-btn.glow-amber, .take-pill-btn.glow-green {
+      position: relative;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
+       exactly on the button edge. padding:2px defines the ring thickness;
+       border-radius:inherit follows the rounded corners; overflow:hidden clips
+       the rotating child to the perimeter. */
+    .take-pill-btn .glow-track {
+      position: absolute;
+      inset: 0;
+      padding: 2px;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      /* Both prefixed AND unprefixed mask must be declared: mask-composite
+         operates on the unprefixed mask in modern Chromium. */
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+    }
+    /* Layer 2 — the rotating oversized gradient engine. 400% of the track
+       (button-sized) so its rotating square always covers the track at every
+       angle (no corner gaps). The track's mask carves the 2px ring from this
+       rotating gradient. */
+    .take-pill-btn .glow-track::before {
+      content: '';
+      position: absolute;
+      inset: -150%;
+      animation: ax-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+    }
+    /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
+       153deg = 50% of the line) so the state color stays unambiguous; a
+       white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
+       crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
+    .take-pill-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.glow-blue .glow-track::before   { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-blue)   76.5deg, var(--btn-blue)   229.5deg, color-mix(in srgb, var(--btn-blue)   60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.glow-amber .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-amber)  76.5deg, var(--btn-amber)  229.5deg, color-mix(in srgb, var(--btn-amber)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+
+    /* Option 5 — No change (theme default, no color override). */
+    .take-pill-btn.style-none {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
     }
 
-    .take-pill-btn.danger {
-      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.12);
-      color: var(--error-color, #db4437);
+    /* Icon-pulse animation (independent toggle per state). */
+    @keyframes ax-btn-icon-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.15); opacity: 0.7; }
+    }
+    .take-pill-btn.pulse ha-icon {
+      animation: ax-btn-icon-pulse 1.2s ease-in-out infinite;
     }
 
-    .take-pill-btn.danger:hover {
-      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.2);
+    /* ACK (logged) transient overlay — a pure flash layered on top of the
+       button's true state. The button keeps its real color underneath; the
+       overlay paints an opaque green surface + white tick ("mdi:check-bold")
+       and optional "Logged" text, fully covering the underlying button, then
+       fades to reveal the true state. Rendered as a real <div class="ack-flash">
+       element (conditionally added to the template when ackActive is true) so
+       it can host a real <ha-icon>. The layout is selected by the ack-top /
+       ack-inline / ack-big modifier class from the per-button ack_layout
+       config. Duration comes from the inline --ack-duration var. */
+    .take-pill-btn .ack-flash {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Issue 2 — dark green surface (not the saturated --btn-green) so the
+         flash is less jarring; opaque so the underlying button state does
+         not bleed through. The tick + text use solid --btn-green (bright
+         green) for clear, legible success semantics on the dark surface. */
+      background: var(--btn-green-soft);
+      color: var(--btn-green);
+      border-radius: inherit;
+      opacity: 0;
+      transform-origin: center;
+      /* Issue 3 — two-animation split on a single line (a multi-line
+         animation shorthand breaks the Lit CSS compiler, which drops the
+         whole rule + the keyframes). A FIXED 240ms press-in intro (so the
+         press feel stays snappy even when a long ack_duration is set — a
+         proportional intro would stretch to ~800ms at 10000ms and feel
+         sluggish), then the hold+fade animation delayed by 240ms. The intro
+         uses "both" fill so its end state (opacity 1, scale 1) holds during
+         the 240ms delay before the fade animation takes over. */
+      animation: ax-btn-ack-intro 240ms ease-out both, ax-btn-ack-fade var(--ack-duration, 3000ms) ease-out 240ms forwards;
+      pointer-events: none;
+      z-index: 2;
+    }
+    /* Option 1 — Top tick mark and text (default; mirrors button layout). */
+    .take-pill-btn .ack-flash.ack-top {
+      flex-direction: column;
+      gap: 4px;
+    }
+    .take-pill-btn .ack-flash.ack-top .ack-icon { --mdc-icon-size: 28px; }
+    .take-pill-btn .ack-flash.ack-top .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 2 — Tick mark and text inline (the prior single-line layout). */
+    .take-pill-btn .ack-flash.ack-inline {
+      flex-direction: row;
+      gap: 8px;
+    }
+    .take-pill-btn .ack-flash.ack-inline .ack-icon { --mdc-icon-size: 24px; }
+    .take-pill-btn .ack-flash.ack-inline .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 3 — Big tickmark only (no text). */
+    .take-pill-btn .ack-flash.ack-big .ack-icon { --mdc-icon-size: 56px; }
+    /* Issue 3 — FIXED 240ms press-in intro mirrors the button's own
+       :active { transform: scale(0.96) } press so the overlay reads like a
+       button press instead of a hard cut. Fixed (not proportional to
+       --ack-duration) so the press feel stays snappy even when a long flash
+       interval is set. */
+    @keyframes ax-btn-ack-intro {
+      0%   { opacity: 0; transform: scale(0.96); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Hold + fade-out. Starts at opacity 1 (the intro's end state) and is
+       delayed by 240ms (see the animation shorthand above) so it begins
+       exactly when the intro finishes. */
+    @keyframes ax-btn-ack-fade {
+      0%   { opacity: 1; transform: scale(1); }
+      70%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1); }
     }
 
     .take-pill-btn ha-icon {

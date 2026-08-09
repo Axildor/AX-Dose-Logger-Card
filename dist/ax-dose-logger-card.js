@@ -564,6 +564,47 @@ const translations = {
         // Custom Box entity picker neutral label (the "Box N" expandable header
         // already conveys identity; this groups the entity + overrides below it).
         'config.box_settings': 'Settings',
+        // ── Button State Matrix (Prosumer UI) — config labels ──
+        // Submenu header (shared by Daily + Drinks Button expandables).
+        'config.button': 'Button',
+        // Daily (Take Pill button) — per-state style + pulse + ack layout/duration.
+        // Labels use patient-facing terminology (not internal state-machine jargon):
+        // "Limit Reached" (lockout), "Take Pill" (execution-requested), "Overdue
+        // Warning" (latency), "Logged Dose Indicator" (ack flash). Config keys are
+        // unchanged — only the user-facing label text changed.
+        'config.take_button_lockout_style': 'Limit Reached Style',
+        'config.take_button_lockout_pulse': 'Limit Reached Icon Pulse',
+        'config.take_button_execution_style': 'Take Pill Style',
+        'config.take_button_execution_pulse': 'Take Pill Icon Pulse',
+        'config.take_button_latency_style': 'Overdue Warning Style',
+        'config.take_button_latency_pulse': 'Overdue Warning Icon Pulse',
+        'config.take_button_ack_layout': 'Logged Dose Indicator Style',
+        'config.take_button_ack_duration_ms': 'Logged Animation Duration (ms)',
+        'config.take_button_glow_speed': 'Rotating Glow Speed',
+        // Drinks (Log Drink button) — lockout + ack only (no schedule).
+        'config.drink_button_lockout_style': 'Limit Reached Style',
+        'config.drink_button_lockout_pulse': 'Limit Reached Icon Pulse',
+        'config.drink_button_ack_layout': 'Logged Dose Indicator Style',
+        'config.drink_button_ack_duration_ms': 'Logged Animation Duration (ms)',
+        'config.drink_button_glow_speed': 'Rotating Glow Speed',
+        // ── Button State Matrix — 7 visual style option labels ──
+        'button_style.full': 'Full Button',
+        'button_style.icon': 'Icon Only',
+        'button_style.border': 'Border Only',
+        'button_style.icon_border': 'Icon and Border',
+        'button_style.none': 'No Change',
+        'button_style.glow': 'Rotating Border Glow',
+        'button_style.icon_glow': 'Icon and Rotating Border Glow',
+        // ── ACK (Logged) flash layout option labels (3 options) ──
+        'ack_layout.top': 'Top tick mark and text',
+        'ack_layout.inline': 'Tick mark and text inline',
+        'ack_layout.big': 'Big tick mark',
+        // ── Rotating border-glow speed option labels (3 options) ──
+        'glow_speed.slow': 'Slow',
+        'glow_speed.medium': 'Medium',
+        'glow_speed.fast': 'Fast',
+        // ACK transient flash text ("Logged") rendered via the ack overlay element.
+        'button.ack_text': 'Logged',
         // Box expandable titles (layer 3 — nested collapsable menus)
         'config.chip_1_box': 'Box 1',
         'config.chip_2_box': 'Box 2',
@@ -666,6 +707,25 @@ const translations = {
         'config.helper.show_adherence_boxes': 'Show beneath the bar graph. Requires adherence sensors.',
         'config.helper.stats_3_columns': '3 columns instead of 2.',
         'config.helper.hide_nav_bar': 'Hide the tab navigation bar.',
+        // ── Button State Matrix helpers ──
+        // Daily (Take Pill) per-state helpers. Terminology aligned with the
+        // renamed labels (Limit Reached / Take Pill / Overdue Warning / Logged
+        // Dose Indicator). See plans/button-submenu-optimization-plan.md §2.1.
+        'config.helper.take_button_lockout_style': 'Visual style when the daily limit is reached. Default: Full Button.',
+        'config.helper.take_button_lockout_pulse': 'Pulse the button icon when the limit is reached.',
+        'config.helper.take_button_execution_style': 'Visual style when a scheduled dose is due (within the adherence grace window). Default: Icon Only.',
+        'config.helper.take_button_execution_pulse': 'Pulse the button icon when a dose is due.',
+        'config.helper.take_button_latency_style': 'Visual style when the dose is overdue (past the adherence grace window). Default: Icon and Border.',
+        'config.helper.take_button_latency_pulse': 'Pulse the button icon when overdue. On by default.',
+        'config.helper.take_button_ack_layout': 'Layout of the transient "Logged" flash after pressing the button. Default: Top tick mark and text.',
+        'config.helper.take_button_ack_duration_ms': 'How long the "Logged" flash appears, in milliseconds. Default: 3000.',
+        'config.helper.take_button_glow_speed': 'Speed of the rotating border glow animation. Default: Medium.',
+        // Drinks (Log Drink) per-state helpers.
+        'config.helper.drink_button_lockout_style': 'Visual style when the substance daily limit is reached. Default: Full Button.',
+        'config.helper.drink_button_lockout_pulse': 'Pulse the button icon when the limit is reached.',
+        'config.helper.drink_button_ack_layout': 'Layout of the transient "Logged" flash after logging a drink. Default: Top tick mark and text.',
+        'config.helper.drink_button_ack_duration_ms': 'How long the "Logged" flash appears, in milliseconds. Default: 3000.',
+        'config.helper.drink_button_glow_speed': 'Speed of the rotating border glow animation. Default: Medium.',
         // ── Color scheme labels ──
         'color.default': 'Default (HA Theme)',
         'color.blue': 'Blue',
@@ -841,6 +901,36 @@ function getTimeframeHours(timeframe) {
         default: return 48;
     }
 }
+/**
+ * Resolve a ButtonStateInput to a single ButtonState per the matrix precedence.
+ * Pure + side-effect-free so both panels share one code path.
+ */
+function resolveButtonState(input) {
+    // ACK is now a pure overlay driven by the panel's `ackActive` flag (rendered
+    // via a dedicated `.ack-flash::after` rule). It no longer collapses the
+    // resolved state, so the button keeps its true color (lockout/idle/
+    // execution/latency) underneath the ack flash. Fixes the "green Take Pill
+    // lingering for several seconds after an override press" bug where the ack
+    // recolored the whole button green and the recomputed post-ack state fell
+    // to 'idle' (theme default) until the backend pushed the new
+    // pillsSafeToTake. The 'ack' value stays in the ButtonState union for type
+    // compat; it is simply never returned here.
+    if (input.isLockedOut)
+        return 'lockout';
+    if (input.isScheduled) {
+        if (input.overdueSeconds > 0)
+            return 'latency';
+        return 'execution';
+    }
+    return 'idle';
+}
+/** Fixed duration (ms) of the ACK overlay press-in intro (ax-btn-ack-intro /
+ *  ax-drink-btn-ack-intro CSS keyframes). The container freezes the resolved
+ *  ButtonState for this long after an ACK trigger so the underlying state
+ *  transition (e.g. idle to lockout) is hidden behind the overlay by the time
+ *  it commits. Mirrors the CSS keyframe duration exactly — update both
+ *  together. Fixed (not proportional to ack_duration_ms). */
+const ACK_INTRO_MS = 240;
 
 // ──────────────────────────────────────────────
 // AX Dose Logger Card — Visual Editor module
@@ -856,6 +946,46 @@ function getTimeframeHours(timeframe) {
 //
 // Both are imported statically by the container (no dynamic import() → no
 // code-splitting → HACS single-file delivery stays intact).
+// ──────────────────────────────────────────────
+// Button State Matrix — shared select options
+// ──────────────────────────────────────────────
+// The 7 visual-style options used by every per-state dropdown in the Daily
+// and Drinks "Button" submenus. Kept module-scoped so the schema below
+// references one source of truth (adding/reordering an option here updates
+// both submenus). Labels come from localize('button_style.*'). See plans/
+// button-state-matrix-plan.md §6.3.
+function _buttonStyleOptions() {
+    return [
+        { value: 'full', label: localize('en', 'button_style.full') },
+        { value: 'icon', label: localize('en', 'button_style.icon') },
+        { value: 'border', label: localize('en', 'button_style.border') },
+        { value: 'icon_border', label: localize('en', 'button_style.icon_border') },
+        { value: 'none', label: localize('en', 'button_style.none') },
+        { value: 'glow', label: localize('en', 'button_style.glow') },
+        { value: 'icon_glow', label: localize('en', 'button_style.icon_glow') },
+    ];
+}
+// The 3 "Logged" (ACK) flash layout options for the take/drink button
+// _ack_layout dropdown. Kept module-scoped alongside _buttonStyleOptions so
+// both submenus reference one source of truth. Labels come from
+// localize('ack_layout.*'). See plans/glow-speed-and-ack-style-plan.md §2.3.
+function _ackLayoutOptions() {
+    return [
+        { value: 'top', label: localize('en', 'ack_layout.top') },
+        { value: 'inline', label: localize('en', 'ack_layout.inline') },
+        { value: 'big', label: localize('en', 'ack_layout.big') },
+    ];
+}
+// The 3 rotating-glow speed options for the take/drink button _glow_speed
+// dropdown. 'medium' (4s) is the default. Labels come from
+// localize('glow_speed.*'). See plans/glow-speed-and-ack-style-plan.md §2.1.
+function _glowSpeedOptions() {
+    return [
+        { value: 'slow', label: localize('en', 'glow_speed.slow') },
+        { value: 'medium', label: localize('en', 'glow_speed.medium') },
+        { value: 'fast', label: localize('en', 'glow_speed.fast') },
+    ];
+}
 // ──────────────────────────────────────────────
 // Grid-alignment CSS injection
 // ──────────────────────────────────────────────
@@ -1376,6 +1506,121 @@ function buildEditorForm() {
                             },
                         ],
                     },
+                    // ── Button State Matrix (Daily — Take Pill button) ──
+                    // Restructured into nested flatten-expandables, one per aspect, so
+                    // each style dropdown + its pulse toggle are visually grouped (grid
+                    // pairs them side-by-side) and a section header makes the boundary
+                    // between aspects clear. All select selectors use mode:'dropdown' so
+                    // the 3-option selects (ack_layout, glow_speed) render as a single
+                    // dropdown box instead of 3 stacked radio buttons (HA auto-selects
+                    // LIST mode for ≤3 options with no explicit mode). All fields carry
+                    // an explicit default so the editor pre-populates the control when
+                    // the stored config value is undefined — matching the runtime ??
+                    // fallbacks in daily-panel.ts. Defaults: Lockout=full+pulse off,
+                    // Execution=icon+pulse off, Latency=icon_border+pulse on,
+                    // ACK layout=top / duration=3000ms, glow=fast. See plans/button-
+                    // submenu-optimization-plan.md.
+                    {
+                        type: 'expandable',
+                        name: 'take_button_box',
+                        title: localize('en', 'config.button'),
+                        flatten: true,
+                        schema: [
+                            // Flat list of aspect grids — no nested expandables (2x nesting
+                            // only: Button → grid). Each style dropdown + its pulse toggle
+                            // are paired side-by-side in a grid so the grouping is obvious
+                            // at a glance. The label names (Limit Reached Style, Take Pill
+                            // Style, etc.) convey the aspect identity without section titles.
+                            // ── Limit Reached: style + pulse ──
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'take_button_lockout_style',
+                                        default: 'full',
+                                        selector: {
+                                            select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                                        },
+                                    },
+                                    {
+                                        name: 'take_button_lockout_pulse',
+                                        default: false,
+                                        selector: { boolean: {} },
+                                    },
+                                ],
+                            },
+                            // ── Take Pill: style + pulse ──
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'take_button_execution_style',
+                                        default: 'icon',
+                                        selector: {
+                                            select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                                        },
+                                    },
+                                    {
+                                        name: 'take_button_execution_pulse',
+                                        default: false,
+                                        selector: { boolean: {} },
+                                    },
+                                ],
+                            },
+                            // ── Overdue Warning: style + pulse ──
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'take_button_latency_style',
+                                        default: 'icon_border',
+                                        selector: {
+                                            select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                                        },
+                                    },
+                                    {
+                                        name: 'take_button_latency_pulse',
+                                        default: true,
+                                        selector: { boolean: {} },
+                                    },
+                                ],
+                            },
+                            // ── Logged Dose Indicator: layout + duration ──
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'take_button_ack_layout',
+                                        default: 'top',
+                                        selector: {
+                                            select: { options: _ackLayoutOptions(), mode: 'dropdown' },
+                                        },
+                                    },
+                                    {
+                                        name: 'take_button_ack_duration_ms',
+                                        default: 3000,
+                                        selector: { number: { min: 500, max: 10000, step: 100 } },
+                                    },
+                                ],
+                            },
+                            // ── Rotating Glow: speed ──
+                            {
+                                name: 'take_button_glow_speed',
+                                default: 'medium',
+                                selector: {
+                                    select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                                },
+                            },
+                        ],
+                    },
                 ],
             },
             // ── Drinks Panel (Master Tracker) — mirrors the Daily Panel ──
@@ -1720,6 +1965,75 @@ function buildEditorForm() {
                                         selector: { ui_action: {} },
                                     },
                                 ],
+                            },
+                        ],
+                    },
+                    // ── Button State Matrix (Drinks — Log Drink button) ──
+                    // Restructured into nested flatten-expandables (mirrors the Daily
+                    // Take Pill button structure). Only 3 aspects: Limit Reached,
+                    // Logged Dose Indicator, Rotating Glow (drinks are PRN with no
+                    // schedule, so Take Pill and Overdue Warning are omitted). All
+                    // selects use mode:'dropdown' + explicit defaults matching the
+                    // runtime ?? fallbacks in drinks-panel.ts. Defaults: Lockout=full
+                    // + pulse off, ACK layout=top / duration=3000ms, glow=fast. See
+                    // plans/button-submenu-optimization-plan.md §2.3.
+                    {
+                        type: 'expandable',
+                        name: 'drink_button_box',
+                        title: localize('en', 'config.button'),
+                        flatten: true,
+                        schema: [
+                            // Flat list of aspect grids — no nested expandables (2x nesting
+                            // only: Button → grid). Mirrors the Daily Take Pill button
+                            // structure. Each style dropdown + its pulse toggle are paired
+                            // side-by-side in a grid so the grouping is obvious at a glance.
+                            // ── Limit Reached: style + pulse ──
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'drink_button_lockout_style',
+                                        default: 'full',
+                                        selector: {
+                                            select: { options: _buttonStyleOptions(), mode: 'dropdown' },
+                                        },
+                                    },
+                                    {
+                                        name: 'drink_button_lockout_pulse',
+                                        default: false,
+                                        selector: { boolean: {} },
+                                    },
+                                ],
+                            },
+                            // ── Logged Dose Indicator: layout + duration ──
+                            {
+                                type: 'grid',
+                                name: '',
+                                column_min_width: '200px',
+                                schema: [
+                                    {
+                                        name: 'drink_button_ack_layout',
+                                        default: 'top',
+                                        selector: {
+                                            select: { options: _ackLayoutOptions(), mode: 'dropdown' },
+                                        },
+                                    },
+                                    {
+                                        name: 'drink_button_ack_duration_ms',
+                                        default: 3000,
+                                        selector: { number: { min: 500, max: 10000, step: 100 } },
+                                    },
+                                ],
+                            },
+                            // ── Rotating Glow: speed ──
+                            {
+                                name: 'drink_button_glow_speed',
+                                default: 'medium',
+                                selector: {
+                                    select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                                },
                             },
                         ],
                     },
@@ -2637,18 +2951,95 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
         // to refresh "Xh XXm" countdowns even when hass/entities/controller refs are
         // unchanged. The panel doesn't read this value; it just needs to change.
         this.tick = 0;
+        // ── Button State Matrix (Prosumer UI) ──
+        // Resolved ButtonState from the container's _computeDailyButtonState(). The
+        // panel maps it to a CSS class string using the per-state style option +
+        // pulse toggle from the card config. 'idle' renders no state class (theme
+        // default). See plans/button-state-matrix-plan.md.
+        this.buttonState = 'idle';
+        // Transient ACK flag from the container (mirrors buttonState==='ack' but
+        // kept separate so the panel can drive the ack-duration CSS var even when
+        // the state resolver already collapsed to 'ack').
+        this.ackActive = false;
     }
     get _lang() {
         return this.controller.lang;
     }
+    /**
+     * Build the CSS class string for the Take Pill button from the resolved
+     * ButtonState + the per-state style option + pulse toggle in the card
+     * config. Maps the 7 style options (full / icon / border / icon_border /
+     * none / glow / icon_glow) onto state-color class pairs. The 'idle' state
+     * renders only the base button (no color override). Returns the full
+     * class list including the base 'take-pill-btn'.
+     */
+    _takeButtonClasses() {
+        const state = this.buttonState;
+        const cfg = this.controller.config;
+        // State → color token + configured style option + pulse toggle.
+        let style = 'none';
+        let pulse = false;
+        if (state === 'lockout') {
+            style = cfg?.take_button_lockout_style ?? 'full';
+            pulse = cfg?.take_button_lockout_pulse ?? false;
+        }
+        else if (state === 'execution') {
+            style = cfg?.take_button_execution_style ?? 'icon';
+            pulse = cfg?.take_button_execution_pulse ?? false;
+        }
+        else if (state === 'latency') {
+            style = cfg?.take_button_latency_style ?? 'icon_border';
+            pulse = cfg?.take_button_latency_pulse ?? true;
+        }
+        else {
+            // idle — no color, no style option (theme default).
+            return this.ackActive ? 'take-pill-btn ack-flash' : 'take-pill-btn';
+        }
+        // State → color name.
+        const color = state === 'lockout' ? 'red'
+            : state === 'execution' ? 'blue'
+                : state === 'latency' ? 'amber'
+                    : 'green'; // ack
+        // Style option → class fragments.
+        const classes = ['take-pill-btn', `state-${state}`];
+        if (style === 'full')
+            classes.push(`full-${color}`);
+        if (style === 'icon' || style === 'icon_border' || style === 'icon_glow')
+            classes.push(`icon-${color}`);
+        if (style === 'border' || style === 'icon_border')
+            classes.push(`border-${color}`);
+        if (style === 'glow' || style === 'icon_glow')
+            classes.push(`glow-${color}`);
+        if (style === 'none')
+            classes.push(`style-none`);
+        if (pulse)
+            classes.push('pulse');
+        // ACK overlay is a pure flash layered on top of the true state — it does
+        // not recolor the button, so the real state stays correct underneath.
+        if (this.ackActive)
+            classes.push('ack-flash');
+        return classes.join(' ');
+    }
+    /** Resolve the rotating border-glow animation duration (CSS string) from the
+     *  per-button glow_speed config. 'medium' (4s) is the default. See plans/
+     *  glow-speed-and-ack-style-plan.md. */
+    _glowDuration() {
+        const speed = this.controller.config?.take_button_glow_speed ?? 'medium';
+        return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+    }
+    /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
+     *  config. 'top' is the default and mirrors the normal button layout. */
+    _ackLayout() {
+        return this.controller.config?.take_button_ack_layout ?? 'top';
+    }
     render() {
         const c = this.controller;
         const e = this.entities;
-        // Button limit logic — always uses the REAL pills_safe_to_take sensor,
-        // never the display entity, so swapping the box doesn't affect safety.
+        // safeState powers the Safe to Take box display value below. The lockout
+        // detection (safeCount <= 0) now lives in the container's
+        // _computeDailyButtonState so this panel stays presentational; the
+        // resolved buttonState prop drives the Take Pill button styling.
         const safeState = c.getState(e.pillsSafeToTake);
-        const safeCount = parseInt(safeState, 10);
-        const isLimitReached = !isNaN(safeCount) && safeCount <= 0;
         const timeSince = c.computeTimeSinceLastDose(e);
         const nextDose = c.computeNextDose(e);
         const overTime = c.computeOverTime(e);
@@ -2737,19 +3128,30 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
 
         <div class="daily-main">
           <button
-            class="take-pill-btn ${isLimitReached ? 'danger' : 'safe'}"
-            aria-label=${isLimitReached
+            class=${this._takeButtonClasses()}
+            style=${[
+            `--glow-duration: ${this._glowDuration()}`,
+            this.ackActive ? `--ack-duration: ${this.controller.config?.take_button_ack_duration_ms ?? 3000}ms` : '',
+        ].filter(Boolean).join('; ')}
+            aria-label=${this.buttonState === 'lockout'
             ? localize(this._lang, 'aria.take_pill_limit')
             : (c.config?.take_pill_label || localize(this._lang, 'aria.take_pill_safe'))}
             @click=${() => c.handleTakePill(e)}
           >
-            <ha-icon icon="${isLimitReached ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
-            <span class="take-label">${isLimitReached ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
+            <div class="glow-track"></div>
+            <ha-icon icon="${this.buttonState === 'lockout' ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
+            <span class="take-label">${this.buttonState === 'lockout' ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
             ? b ` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-            : (nextDose !== 'Unavailable'
+            : (nextDose !== 'Unavailable' && nextDose !== 'now'
                 ? b ` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`
                 : A)}</span>
+            ${this.ackActive ? b `
+              <div class="ack-flash ack-${this._ackLayout()}">
+                <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>
+                ${this._ackLayout() !== 'big' ? b `<span class="ack-text">${localize(this._lang, 'button.ack_text')}</span>` : A}
+              </div>
+            ` : A}
           </button>
 
           <div class="stats-column">
@@ -2935,22 +3337,225 @@ AxDoseDailyPanel.styles = i$3 `
       transform: scale(0.96);
     }
 
-    .take-pill-btn.safe {
+    /* ── Button State Matrix (Prosumer UI) ──
+       Replaces the prior binary .safe/.danger classes with a 5-state, 7-style-
+       option system. The default (idle / no state class) keeps the original
+       theme-tinted look. Each colored state composes a state-color class
+       (e.g. .full-red, .icon-blue, .border-amber, .glow-green) from the panel's
+       _takeButtonClasses() helper. See plans/button-state-matrix-plan.md. */
+
+    /* State color tokens (CSS vars so the rules below stay generic). */
+    :host {
+      --btn-red: var(--error-color, #db4437);
+      --rgb-btn-red: var(--rgb-error-color, 219, 68, 55);
+      --btn-blue: #03a9f4;
+      --rgb-btn-blue: 3, 169, 244;
+      --btn-amber: #f5a623;
+      --rgb-btn-amber: 245, 166, 35;
+      --btn-green: #43a047;
+      --rgb-btn-green: 67, 160, 71;
+      /* Dark green surface for the Logged Dose Indicator (ACK) overlay.
+         High contrast against the bright --btn-green glyph so the tick/text
+         are clearly legible; opaque so the underlying button state
+         (red/amber/blue) does not bleed through behind the green tick.
+         See plans/ack-clarity-and-softening-plan.md (Issue 2). */
+      --btn-green-soft: #212c22;
+    }
+
+    /* Base idle state (no state class) — original theme-tinted safe look. */
+    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack) {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack):hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 1 — Full Button (per color). */
+    .take-pill-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
+    .take-pill-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
+    .take-pill-btn.full-blue   { background: rgba(var(--rgb-btn-blue), 0.12); color: var(--btn-blue); }
+    .take-pill-btn.full-blue:hover   { background: rgba(var(--rgb-btn-blue), 0.2); }
+    .take-pill-btn.full-amber  { background: rgba(var(--rgb-btn-amber), 0.12);color: var(--btn-amber); }
+    .take-pill-btn.full-amber:hover  { background: rgba(var(--rgb-btn-amber), 0.2); }
+    .take-pill-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
+    .take-pill-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+
+    /* Option 2 — Icon only (button bg stays theme default, icon recolored).
+       The > child combinator scopes the recolor to the button's OWN icon
+       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
+       so it keeps its own color from .ack-flash. See plans/
+       ack-clarity-and-softening-plan.md (Issue 1). */
+    .take-pill-btn.icon-red > ha-icon    { color: var(--btn-red); }
+    .take-pill-btn.icon-blue > ha-icon   { color: var(--btn-blue); }
+    .take-pill-btn.icon-amber > ha-icon  { color: var(--btn-amber); }
+    .take-pill-btn.icon-green > ha-icon  { color: var(--btn-green); }
+    /* Icon-only states still use the theme default bg so they read as "safe". */
+    .take-pill-btn.icon-red, .take-pill-btn.icon-blue,
+    .take-pill-btn.icon-amber, .take-pill-btn.icon-green {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .take-pill-btn.icon-red:hover, .take-pill-btn.icon-blue:hover,
+    .take-pill-btn.icon-amber:hover, .take-pill-btn.icon-green:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 3 — Border only (inset box-shadow so the button does not grow;
+       a real border would add 2px to the outer size on each side). */
+    .take-pill-btn.border-red    { box-shadow: inset 0 0 0 2px var(--btn-red); }
+    .take-pill-btn.border-blue   { box-shadow: inset 0 0 0 2px var(--btn-blue); }
+    .take-pill-btn.border-amber  { box-shadow: inset 0 0 0 2px var(--btn-amber); }
+    .take-pill-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
+    .take-pill-btn.border-red, .take-pill-btn.border-blue,
+    .take-pill-btn.border-amber, .take-pill-btn.border-green {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
     }
 
-    .take-pill-btn.safe:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+       TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
+       cannot share one element — oversizing moves the mask's content-box ring
+       off the button, where overflow:hidden clips it away → nothing renders).
+       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       the 2px ring on the button edge + overflow:hidden to clip the rotating
+       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       (inset -150%) rotating gradient source; the track's mask carves the ring
+       from this rotating gradient. transform animates without @property. */
+    @keyframes ax-btn-glow-sweep { to { transform: rotate(360deg); } }
+    .take-pill-btn.glow-red, .take-pill-btn.glow-blue,
+    .take-pill-btn.glow-amber, .take-pill-btn.glow-green {
+      position: relative;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
+       exactly on the button edge. padding:2px defines the ring thickness;
+       border-radius:inherit follows the rounded corners; overflow:hidden clips
+       the rotating child to the perimeter. */
+    .take-pill-btn .glow-track {
+      position: absolute;
+      inset: 0;
+      padding: 2px;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      /* Both prefixed AND unprefixed mask must be declared: mask-composite
+         operates on the unprefixed mask in modern Chromium. */
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+    }
+    /* Layer 2 — the rotating oversized gradient engine. 400% of the track
+       (button-sized) so its rotating square always covers the track at every
+       angle (no corner gaps). The track's mask carves the 2px ring from this
+       rotating gradient. */
+    .take-pill-btn .glow-track::before {
+      content: '';
+      position: absolute;
+      inset: -150%;
+      animation: ax-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+    }
+    /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
+       153deg = 50% of the line) so the state color stays unambiguous; a
+       white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
+       crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
+    .take-pill-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.glow-blue .glow-track::before   { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-blue)   76.5deg, var(--btn-blue)   229.5deg, color-mix(in srgb, var(--btn-blue)   60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.glow-amber .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-amber)  76.5deg, var(--btn-amber)  229.5deg, color-mix(in srgb, var(--btn-amber)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+
+    /* Option 5 — No change (theme default, no color override). */
+    .take-pill-btn.style-none {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
     }
 
-    .take-pill-btn.danger {
-      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.12);
-      color: var(--error-color, #db4437);
+    /* Icon-pulse animation (independent toggle per state). */
+    @keyframes ax-btn-icon-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.15); opacity: 0.7; }
+    }
+    .take-pill-btn.pulse ha-icon {
+      animation: ax-btn-icon-pulse 1.2s ease-in-out infinite;
     }
 
-    .take-pill-btn.danger:hover {
-      background: rgba(var(--rgb-error-color, 219, 68, 55), 0.2);
+    /* ACK (logged) transient overlay — a pure flash layered on top of the
+       button's true state. The button keeps its real color underneath; the
+       overlay paints an opaque green surface + white tick ("mdi:check-bold")
+       and optional "Logged" text, fully covering the underlying button, then
+       fades to reveal the true state. Rendered as a real <div class="ack-flash">
+       element (conditionally added to the template when ackActive is true) so
+       it can host a real <ha-icon>. The layout is selected by the ack-top /
+       ack-inline / ack-big modifier class from the per-button ack_layout
+       config. Duration comes from the inline --ack-duration var. */
+    .take-pill-btn .ack-flash {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Issue 2 — dark green surface (not the saturated --btn-green) so the
+         flash is less jarring; opaque so the underlying button state does
+         not bleed through. The tick + text use solid --btn-green (bright
+         green) for clear, legible success semantics on the dark surface. */
+      background: var(--btn-green-soft);
+      color: var(--btn-green);
+      border-radius: inherit;
+      opacity: 0;
+      transform-origin: center;
+      /* Issue 3 — two-animation split on a single line (a multi-line
+         animation shorthand breaks the Lit CSS compiler, which drops the
+         whole rule + the keyframes). A FIXED 240ms press-in intro (so the
+         press feel stays snappy even when a long ack_duration is set — a
+         proportional intro would stretch to ~800ms at 10000ms and feel
+         sluggish), then the hold+fade animation delayed by 240ms. The intro
+         uses "both" fill so its end state (opacity 1, scale 1) holds during
+         the 240ms delay before the fade animation takes over. */
+      animation: ax-btn-ack-intro 240ms ease-out both, ax-btn-ack-fade var(--ack-duration, 3000ms) ease-out 240ms forwards;
+      pointer-events: none;
+      z-index: 2;
+    }
+    /* Option 1 — Top tick mark and text (default; mirrors button layout). */
+    .take-pill-btn .ack-flash.ack-top {
+      flex-direction: column;
+      gap: 4px;
+    }
+    .take-pill-btn .ack-flash.ack-top .ack-icon { --mdc-icon-size: 28px; }
+    .take-pill-btn .ack-flash.ack-top .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 2 — Tick mark and text inline (the prior single-line layout). */
+    .take-pill-btn .ack-flash.ack-inline {
+      flex-direction: row;
+      gap: 8px;
+    }
+    .take-pill-btn .ack-flash.ack-inline .ack-icon { --mdc-icon-size: 24px; }
+    .take-pill-btn .ack-flash.ack-inline .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 3 — Big tickmark only (no text). */
+    .take-pill-btn .ack-flash.ack-big .ack-icon { --mdc-icon-size: 56px; }
+    /* Issue 3 — FIXED 240ms press-in intro mirrors the button's own
+       :active { transform: scale(0.96) } press so the overlay reads like a
+       button press instead of a hard cut. Fixed (not proportional to
+       --ack-duration) so the press feel stays snappy even when a long flash
+       interval is set. */
+    @keyframes ax-btn-ack-intro {
+      0%   { opacity: 0; transform: scale(0.96); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Hold + fade-out. Starts at opacity 1 (the intro's end state) and is
+       delayed by 240ms (see the animation shorthand above) so it begins
+       exactly when the intro finishes. */
+    @keyframes ax-btn-ack-fade {
+      0%   { opacity: 1; transform: scale(1); }
+      70%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1); }
     }
 
     .take-pill-btn ha-icon {
@@ -3097,6 +3702,12 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseDailyPanel.prototype, "tick", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDailyPanel.prototype, "buttonState", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDailyPanel.prototype, "ackActive", void 0);
 AxDoseDailyPanel = __decorate([
     t('ax-dose-daily-panel')
 ], AxDoseDailyPanel);
@@ -4210,9 +4821,65 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
         // to refresh "Xh XXm" countdowns even when hass/entities/controller refs are
         // unchanged. The panel doesn't read this value; it just needs to change.
         this.tick = 0;
+        // ── Button State Matrix (Prosumer UI) — Drinks ──
+        // Drinks are PRN/as-needed with no schedule, so only lockout + ack states
+        // are possible. Resolved by the container's _computeDrinksButtonState.
+        this.buttonState = 'idle';
+        this.ackActive = false;
     }
     get _lang() {
         return this.controller.lang;
+    }
+    /**
+     * Build the CSS class string for the Log Drink button from the resolved
+     * ButtonState + the per-state style option + pulse toggle. Mirrors the
+     * Daily panel's _takeButtonClasses but only handles lockout + ack (the two
+     * states possible for PRN drinks). 'idle' renders only the base button.
+     */
+    _logDrinkButtonClasses() {
+        const state = this.buttonState;
+        const cfg = this.controller.config;
+        let style = 'none';
+        let pulse = false;
+        if (state === 'lockout') {
+            style = cfg?.drink_button_lockout_style ?? 'full';
+            pulse = cfg?.drink_button_lockout_pulse ?? false;
+        }
+        else {
+            // idle — no color, no style option (theme default).
+            return this.ackActive ? 'log-drink-btn ack-flash' : 'log-drink-btn';
+        }
+        const color = state === 'lockout' ? 'red' : 'green';
+        const classes = ['log-drink-btn', `state-${state}`];
+        if (style === 'full')
+            classes.push(`full-${color}`);
+        if (style === 'icon' || style === 'icon_border' || style === 'icon_glow')
+            classes.push(`icon-${color}`);
+        if (style === 'border' || style === 'icon_border')
+            classes.push(`border-${color}`);
+        if (style === 'glow' || style === 'icon_glow')
+            classes.push(`glow-${color}`);
+        if (style === 'none')
+            classes.push('style-none');
+        if (pulse)
+            classes.push('pulse');
+        // ACK overlay is a pure flash layered on top of the true state — it does
+        // not recolor the button, so the real state stays correct underneath.
+        if (this.ackActive)
+            classes.push('ack-flash');
+        return classes.join(' ');
+    }
+    /** Resolve the rotating border-glow animation duration (CSS string) from the
+     *  per-button glow_speed config. 'medium' (4s) is the default. Mirrors
+     *  daily-panel._glowDuration. */
+    _glowDuration() {
+        const speed = this.controller.config?.drink_button_glow_speed ?? 'medium';
+        return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+    }
+    /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
+     *  config. 'top' is the default and mirrors the normal button layout. */
+    _ackLayout() {
+        return this.controller.config?.drink_button_ack_layout ?? 'top';
     }
     render() {
         const c = this.controller;
@@ -4348,14 +5015,25 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
 
         <div class="daily-main">
           <button
-            class="log-drink-btn safe"
+            class=${this._logDrinkButtonClasses()}
+            style=${[
+            `--glow-duration: ${this._glowDuration()}`,
+            this.ackActive ? `--ack-duration: ${this.controller.config?.drink_button_ack_duration_ms ?? 3000}ms` : '',
+        ].filter(Boolean).join('; ')}
             aria-label=${logDrinkLabel}
             ?disabled=${!substance}
             @click=${() => substance && c.showLogDrinkDialog(substance)}
           >
+            <div class="glow-track"></div>
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
             <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
+            ${this.ackActive ? b `
+              <div class="ack-flash ack-${this._ackLayout()}">
+                <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>
+                ${this._ackLayout() !== 'big' ? b `<span class="ack-text">${localize(this._lang, 'button.ack_text')}</span>` : A}
+              </div>
+            ` : A}
           </button>
 
           <div class="stats-column">
@@ -4507,13 +5185,203 @@ AxDoseDrinksPanel.styles = i$3 `
       transform: scale(0.96);
     }
 
-    .log-drink-btn.safe {
+    /* ── Button State Matrix (Prosumer UI) — Drinks ──
+       Only lockout + ack are possible for PRN drinks. Mirrors the Daily
+       panel's CSS structure (full / icon / border / glow / pulse / ack).
+       The default (idle / no state class) keeps the original theme-tinted
+       safe look. See plans/button-state-matrix-plan.md §1.2. */
+    :host {
+      --btn-red: var(--error-color, #db4437);
+      --rgb-btn-red: var(--rgb-error-color, 219, 68, 55);
+      --btn-green: #43a047;
+      --rgb-btn-green: 67, 160, 71;
+      /* Dark green surface for the Logged Dose Indicator (ACK) overlay.
+         High contrast against the bright --btn-green glyph so the tick/text
+         are clearly legible; opaque so the underlying button state (red)
+         does not bleed through behind the green tick. See plans/
+         ack-clarity-and-softening-plan.md (Issue 2). */
+      --btn-green-soft: #212c22;
+    }
+
+    /* Base idle (no state class) — original theme-tinted safe look. */
+    .log-drink-btn:not(.state-lockout):not(.state-ack) {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .log-drink-btn:not(.state-lockout):not(.state-ack):hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 1 — Full Button (red lockout / green ack). */
+    .log-drink-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
+    .log-drink-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
+    .log-drink-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
+    .log-drink-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+
+    /* Option 2 — Icon only (theme bg, recolored icon).
+       The > child combinator scopes the recolor to the button's OWN icon
+       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
+       so it keeps its own color from .ack-flash. See plans/
+       ack-clarity-and-softening-plan.md (Issue 1). */
+    .log-drink-btn.icon-red > ha-icon    { color: var(--btn-red); }
+    .log-drink-btn.icon-green > ha-icon  { color: var(--btn-green); }
+    .log-drink-btn.icon-red, .log-drink-btn.icon-green {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .log-drink-btn.icon-red:hover, .log-drink-btn.icon-green:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    }
+
+    /* Option 3 — Border only (inset box-shadow so the button does not grow;
+       a real border would add 2px to the outer size on each side). */
+    .log-drink-btn.border-red, .log-drink-btn.border-green {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    .log-drink-btn.border-red    { box-shadow: inset 0 0 0 2px var(--btn-red); }
+    .log-drink-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
+
+    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+       TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
+       cannot share one element — oversizing moves the mask's content-box ring
+       off the button, where overflow:hidden clips it away → nothing renders).
+       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       the 2px ring on the button edge + overflow:hidden to clip the rotating
+       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       (inset -150%) rotating gradient source; the track's mask carves the ring
+       from this rotating gradient. transform animates without @property. */
+    @keyframes ax-drink-btn-glow-sweep { to { transform: rotate(360deg); } }
+    .log-drink-btn.glow-red, .log-drink-btn.glow-green {
+      position: relative;
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      color: var(--primary-color, #03a9f4);
+    }
+    /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
+       exactly on the button edge. padding:2px defines the ring thickness;
+       border-radius:inherit follows the rounded corners; overflow:hidden clips
+       the rotating child to the perimeter. */
+    .log-drink-btn .glow-track {
+      position: absolute;
+      inset: 0;
+      padding: 2px;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      /* Both prefixed AND unprefixed mask must be declared: mask-composite
+         operates on the unprefixed mask in modern Chromium. */
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+    }
+    /* Layer 2 — the rotating oversized gradient engine. 400% of the track
+       (button-sized) so its rotating square always covers the track at every
+       angle (no corner gaps). The track's mask carves the 2px ring from this
+       rotating gradient. */
+    .log-drink-btn .glow-track::before {
+      content: '';
+      position: absolute;
+      inset: -150%;
+      animation: ax-drink-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+    }
+    /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
+       153deg = 50% of the line) so the state color stays unambiguous; a
+       white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
+       crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
+    .log-drink-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .log-drink-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+
+    /* Option 5 — No change (theme default). */
+    .log-drink-btn.style-none {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
       color: var(--primary-color, #03a9f4);
     }
 
-    .log-drink-btn.safe:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    /* Icon-pulse animation. */
+    @keyframes ax-drink-btn-icon-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.15); opacity: 0.7; }
+    }
+    .log-drink-btn.pulse ha-icon {
+      animation: ax-drink-btn-icon-pulse 1.2s ease-in-out infinite;
+    }
+
+    /* ACK (logged) transient overlay — a pure flash layered on top of the
+       button's true state. The button keeps its real color underneath; the
+       overlay paints an opaque green surface + white tick ("mdi:check-bold")
+       and optional "Logged" text, fully covering the underlying button, then
+       fades to reveal the true state. Rendered as a real <div class="ack-flash">
+       element (conditionally added to the template when ackActive is true) so
+       it can host a real <ha-icon>. The layout is selected by the ack-top /
+       ack-inline / ack-big modifier class from the per-button ack_layout
+       config. Duration comes from the inline --ack-duration var. */
+    .log-drink-btn .ack-flash {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Issue 2 — dark green surface (not the saturated --btn-green) so the
+         flash is less jarring; opaque so the underlying button state does
+         not bleed through. The tick + text use solid --btn-green (bright
+         green) for clear, legible success semantics on the dark surface. */
+      background: var(--btn-green-soft);
+      color: var(--btn-green);
+      border-radius: inherit;
+      opacity: 0;
+      transform-origin: center;
+      /* Issue 3 — two-animation split on a single line (a multi-line
+         animation shorthand breaks the Lit CSS compiler, which drops the
+         whole rule + the keyframes). A FIXED 240ms press-in intro (so the
+         press feel stays snappy even when a long ack_duration is set — a
+         proportional intro would stretch to ~800ms at 10000ms and feel
+         sluggish), then the hold+fade animation delayed by 240ms. The intro
+         uses "both" fill so its end state (opacity 1, scale 1) holds during
+         the 240ms delay before the fade animation takes over. */
+      animation: ax-drink-btn-ack-intro 240ms ease-out both, ax-drink-btn-ack-fade var(--ack-duration, 3000ms) ease-out 240ms forwards;
+      pointer-events: none;
+      z-index: 2;
+    }
+    /* Option 1 — Top tick mark and text (default; mirrors button layout). */
+    .log-drink-btn .ack-flash.ack-top {
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-drink-btn .ack-flash.ack-top .ack-icon { --mdc-icon-size: 28px; }
+    .log-drink-btn .ack-flash.ack-top .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 2 — Tick mark and text inline (the prior single-line layout). */
+    .log-drink-btn .ack-flash.ack-inline {
+      flex-direction: row;
+      gap: 8px;
+    }
+    .log-drink-btn .ack-flash.ack-inline .ack-icon { --mdc-icon-size: 24px; }
+    .log-drink-btn .ack-flash.ack-inline .ack-text {
+      font-size: calc(18px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+    }
+    /* Option 3 — Big tickmark only (no text). */
+    .log-drink-btn .ack-flash.ack-big .ack-icon { --mdc-icon-size: 56px; }
+    /* Issue 3 — FIXED 240ms press-in intro mirrors the button's own
+       :active { transform: scale(0.96) } press so the overlay reads like a
+       button press instead of a hard cut. Fixed (not proportional to
+       --ack-duration) so the press feel stays snappy even when a long flash
+       interval is set. */
+    @keyframes ax-drink-btn-ack-intro {
+      0%   { opacity: 0; transform: scale(0.96); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    /* Hold + fade-out. Starts at opacity 1 (the intro's end state) and is
+       delayed by 240ms (see the animation shorthand above) so it begins
+       exactly when the intro finishes. */
+    @keyframes ax-drink-btn-ack-fade {
+      0%   { opacity: 1; transform: scale(1); }
+      70%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1); }
     }
 
     .log-drink-btn:disabled {
@@ -4668,6 +5536,12 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "tick", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDrinksPanel.prototype, "buttonState", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDrinksPanel.prototype, "ackActive", void 0);
 AxDoseDrinksPanel = __decorate([
     t('ax-dose-drinks-panel')
 ], AxDoseDrinksPanel);
@@ -5016,6 +5890,21 @@ class AxDoseLoggerCard extends i {
         // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
         this._showSleepDisruptionDialog = false;
         this._sleepDisruptionSubstance = null;
+        // ── Button State Matrix — transient ACK (logged) flash flags ──
+        // Set true on a successful button.press of the Take Pill / Log Drink button
+        // and auto-cleared after the configured ack_duration_ms (default 3000) via
+        // a non-blocking setTimeout. Passed to the panels as reactive props so the
+        // green "Logged" flash renders + reverts. The timer handles are NOT @state
+        // (no rendering impact); only the boolean flags are reactive.
+        this._dailyAckActive = false;
+        this._drinksAckActive = false;
+        // Frozen button state held for the ACK intro window (ACK_INTRO_MS) so the
+        // underlying state transition (e.g. idle to lockout) is hidden behind the
+        // overlay by the time it commits. Captured at ACK-trigger time from the live
+        // entities (pre-press state); cleared by a release timer that then requests
+        // a re-render so the resolver reads live state again.
+        this._dailyFrozenState = null;
+        this._drinksFrozenState = null;
         this._activeTimeframe = '48h';
         this._activeBarTimeframe = '14d';
         // Effectiveness-graph state. Mirrors the bar/line graph pattern but keyed
@@ -5615,6 +6504,8 @@ class AxDoseLoggerCard extends i {
         this.hass.callService('button', 'press', {
             entity_id: entities.takeButton,
         });
+        // Trigger the transient ACK (logged) flash on the Take Pill button.
+        this._triggerDailyAck();
     }
     _handleUndoDose(entities) {
         if (!this.hass || !entities.undoButton)
@@ -5752,6 +6643,166 @@ class AxDoseLoggerCard extends i {
         this.hass.callService('button', 'press', { entity_id: logButtonEntityId });
         this._showLogDrinkDialog = false;
         this._logDrinkSubstance = null;
+        // Trigger the transient ACK flash on the Drinks panel's Log Drink button.
+        this._triggerDrinksAck();
+    }
+    /**
+     * Trigger the transient ACK (logged) flash on the Daily Take Pill button.
+     * Called after a successful button.press (both the direct press path and the
+     * limit-reached override-dialog confirm path). Sets the reactive flag true,
+     * clears any in-flight timer, then arms a new setTimeout that flips it back
+     * to false after the configured ack_duration_ms (default 3000). Non-blocking
+     * — the container keeps rendering normally while the flash plays out.
+     */
+    _triggerDailyAck() {
+        const duration = this.config?.take_button_ack_duration_ms ?? 3000;
+        // Freeze the resolved button state for the ACK intro window so the
+        // post-press state transition (e.g. idle to lockout) is hidden behind the
+        // overlay once it's opaque. Capture the PRE-press state from the live
+        // entities first — the trigger fires synchronously right after
+        // button.press, before HA has pushed the new state, so the resolved state
+        // is still the pre-press value.
+        const entities = this._resolveEntities();
+        this._dailyFrozenState = this._computeDailyButtonState(entities);
+        if (this._dailyFreezeTimer !== undefined) {
+            window.clearTimeout(this._dailyFreezeTimer);
+        }
+        this._dailyFreezeTimer = window.setTimeout(() => {
+            this._dailyFrozenState = null;
+            this._dailyFreezeTimer = undefined;
+            this.requestUpdate();
+        }, ACK_INTRO_MS);
+        this._dailyAckActive = true;
+        if (this._dailyAckTimer !== undefined) {
+            window.clearTimeout(this._dailyAckTimer);
+        }
+        this._dailyAckTimer = window.setTimeout(() => {
+            this._dailyAckActive = false;
+            this._dailyAckTimer = undefined;
+            this.requestUpdate();
+        }, Math.max(500, duration));
+    }
+    /** Trigger the transient ACK flash on the Drinks Log Drink button. */
+    _triggerDrinksAck() {
+        const duration = this.config?.drink_button_ack_duration_ms ?? 3000;
+        // Freeze the resolved button state for the ACK intro window — mirrors
+        // _triggerDailyAck so the post-press state transition (e.g. idle to
+        // lockout when the daily drink limit is hit) is hidden behind the overlay
+        // once it's opaque.
+        const entities = this._resolveEntities();
+        this._drinksFrozenState = this._computeDrinksButtonState(entities);
+        if (this._drinksFreezeTimer !== undefined) {
+            window.clearTimeout(this._drinksFreezeTimer);
+        }
+        this._drinksFreezeTimer = window.setTimeout(() => {
+            this._drinksFrozenState = null;
+            this._drinksFreezeTimer = undefined;
+            this.requestUpdate();
+        }, ACK_INTRO_MS);
+        this._drinksAckActive = true;
+        if (this._drinksAckTimer !== undefined) {
+            window.clearTimeout(this._drinksAckTimer);
+        }
+        this._drinksAckTimer = window.setTimeout(() => {
+            this._drinksAckActive = false;
+            this._drinksAckTimer = undefined;
+            this.requestUpdate();
+        }, Math.max(500, duration));
+    }
+    /**
+     * Resolve the adherence grace period (on-time buffer) in hours from any
+     * resolved adherence sensor's `grace_hours` state attribute (the 7-day
+     * window is the tightest representative). Falls back to the backend default
+     * 1.0h when no adherence sensor exposes the attribute (matches
+     * config_flow.py:211). Powers the Button State Matrix latency boundary.
+     */
+    _resolveGraceHours(entities) {
+        const candidates = [
+            entities.adherence7Days,
+            entities.adherence14Days,
+            entities.adherence30Days,
+            entities.adherence365Days,
+        ];
+        for (const eid of candidates) {
+            if (!eid)
+                continue;
+            const gh = this._getAttr(eid, 'grace_hours');
+            if (typeof gh === 'number' && gh > 0)
+                return gh;
+        }
+        return 1.0;
+    }
+    /**
+     * Compute the resolved ButtonState for the Daily (Take Pill) button from the
+     * current entities + the transient ACK flag. Pure read of hass state; the
+     * panel receives the resulting state as a reactive prop.
+     */
+    _computeDailyButtonState(entities) {
+        // While the ACK intro freeze is active, return the captured pre-press
+        // state so the underlying color doesn't transition until the overlay is
+        // opaque. The freeze is released by the ACK_INTRO_MS timer armed in
+        // _triggerDailyAck.
+        if (this._dailyFrozenState !== null) {
+            return this._dailyFrozenState;
+        }
+        // Lockout — always reads the REAL pillsSafeToTake sensor (never the
+        // display-swapped entity) so the safety gate is decoupled from the box.
+        const safeState = this._getState(entities.pillsSafeToTake);
+        const safeCount = parseInt(safeState, 10);
+        const isLockedOut = !isNaN(safeCount) && safeCount <= 0;
+        // Scheduled = tracking_type != as_needed. Defensive snake/title-case
+        // normalization mirroring _handleTakePill.
+        const tt = (this._getAttr(entities.nextDose, 'tracking_type') || '').toLowerCase();
+        const isScheduled = tt !== 'as_needed' && tt !== 'as needed' && tt !== '';
+        // Overdue seconds (0 when on-time / not yet due / as-needed).
+        const overdueState = this._getState(entities.overdue);
+        let overdueSeconds = 0;
+        if (overdueState && overdueState !== 'unavailable' && overdueState !== 'unknown') {
+            const s = parseFloat(overdueState);
+            if (!isNaN(s) && s > 0)
+                overdueSeconds = s;
+        }
+        const input = {
+            isLockedOut,
+            isScheduled,
+            overdueSeconds,
+            graceHours: this._resolveGraceHours(entities),
+            ackActive: this._dailyAckActive,
+        };
+        return resolveButtonState(input);
+    }
+    /**
+     * Compute the resolved ButtonState for the Drinks (Log Drink) button.
+     * Drinks are PRN/as-needed with no schedule → execution/latency never active;
+     * only lockout (daily limit reached) + idle + transient ack are possible.
+     * Lockout reads the master daily-amount sensor's `remaining` attribute
+     * (caffeine/alcohol daily limit); absent sensor/limit → never locks out.
+     */
+    _computeDrinksButtonState(entities) {
+        // While the ACK intro freeze is active, return the captured pre-press
+        // state (mirrors _computeDailyButtonState).
+        if (this._drinksFrozenState !== null) {
+            return this._drinksFrozenState;
+        }
+        let isLockedOut = false;
+        if (entities.amountLast24h) {
+            const remaining = this._getAttr(entities.amountLast24h, 'remaining');
+            if (typeof remaining === 'number' && remaining <= 0) {
+                isLockedOut = true;
+            }
+            else if (typeof remaining === 'string') {
+                const r = parseFloat(remaining);
+                if (!isNaN(r) && r <= 0)
+                    isLockedOut = true;
+            }
+        }
+        const input = {
+            isLockedOut,
+            isScheduled: false, // drinks have no schedule
+            overdueSeconds: 0,
+            ackActive: this._drinksAckActive,
+        };
+        return resolveButtonState(input);
     }
     _undoDrink(undoButtonEntityId) {
         if (!this.hass || !undoButtonEntityId)
@@ -5924,6 +6975,11 @@ class AxDoseLoggerCard extends i {
     computeNextDose(entities) { return this._computeNextDose(entities); }
     computeOverTime(entities) { return this._computeOverTime(entities); }
     computeTimeSinceLastDose(entities) { return this._computeTimeSinceLastDose(entities); }
+    /** Resolve the Daily (Take Pill) button state for the Button State Matrix.
+     *  Delegates to the private resolver so the panel stays presentational. */
+    computeDailyButtonState(entities) { return this._computeDailyButtonState(entities); }
+    /** Resolve the Drinks (Log Drink) button state for the Button State Matrix. */
+    computeDrinksButtonState(entities) { return this._computeDrinksButtonState(entities); }
     bucketByDay(dayCount) { return this._bucketByDay(dayCount); }
     daysSinceReveal(entities) { return this._daysSinceReveal(entities); }
     getDrinksOfSubstance(substance) { return this._getDrinksOfSubstance(substance); }
@@ -6176,6 +7232,9 @@ class AxDoseLoggerCard extends i {
                 this.hass.callService('button', 'press', {
                     entity_id: dlg.entities.takeButton,
                 });
+                // Limit-reached override confirm also counts as a
+                // successful dose log → trigger the ACK flash.
+                this._triggerDailyAck();
             }
             this._overrideDialog = null;
         }}>
@@ -6865,10 +7924,10 @@ class AxDoseLoggerCard extends i {
         return b `
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
         <div class="card-content">
-          ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-daily-panel>` : A}
+          ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive}></ax-dose-daily-panel>` : A}
           ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : A}
           ${this._activePane === 'stats' ? b `<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : A}
-          ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-drinks-panel>` : A}
+          ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDrinksButtonState(entities)} .ackActive=${this._drinksAckActive}></ax-dose-drinks-panel>` : A}
           ${this._activePane === 'inventory' ? b `<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-inventory-panel>` : A}
           ${this._activePane === 'tools' ? b `<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : A}
           ${this._activePane === 'tracking' ? b `<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : A}
@@ -6957,6 +8016,16 @@ class AxDoseLoggerCard extends i {
         if (this._graphsRefetchTimer !== null) {
             window.clearTimeout(this._graphsRefetchTimer);
             this._graphsRefetchTimer = null;
+        }
+        // Cancel any pending ACK intro state-freeze timers so they can't flip the
+        // frozen state (and request a re-render) on a detached element.
+        if (this._dailyFreezeTimer !== undefined) {
+            window.clearTimeout(this._dailyFreezeTimer);
+            this._dailyFreezeTimer = undefined;
+        }
+        if (this._drinksFreezeTimer !== undefined) {
+            window.clearTimeout(this._drinksFreezeTimer);
+            this._drinksFreezeTimer = undefined;
         }
     }
     _startTickTimer() {
@@ -7502,6 +8571,18 @@ __decorate([
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_sleepDisruptionSubstance", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_dailyAckActive", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_drinksAckActive", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_dailyFrozenState", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_drinksFrozenState", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_activeTimeframe", void 0);
