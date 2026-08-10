@@ -78,7 +78,7 @@ This card requires the **AX Dose Logger** integration to be installed and config
 
 1. Edit your dashboard → Add Card → Search for "AX Dose Logger"
 2. Select your medication or Master Tracker device from the dropdown
-3. Configure color scheme, custom boxes, graph options, and per-box overrides as desired
+3. Configure color scheme (see the note on starred colors below), custom boxes, graph options, and per-box overrides as desired
 
 The visual editor is organized into expandable sections: **Daily Tab** (Take Pill button, Top Box, Bottom Box, Custom Boxes with per-box collapsable menus), **Drinks Tab** (Log Drink button, Top Box, Bottom Box, Custom Boxes with per-box collapsable menus), and **Graphs Tab** (Amount in Body toggle + default timeframe, day-average/adherence boxes). See [Configuration Options](#configuration-options-not-needed-for-reference-only) for the full reference table.
 
@@ -134,6 +134,19 @@ The overdue boundary is derived from the **adherence grace period** (the "on-tim
 
 Each state also has its own **Icon Pulse** toggle (the Overdue Warning pulse is on by default; all others are off).
 
+#### ⚠️ Color Scheme and Indicator Conflicts
+
+The card's **Color Scheme** setting tints the idle Take Pill / Log Drink button with your chosen accent. Four of the scheme colors — **Red**, **Blue**, **Orange**, and **Green** — match (or closely approximate) the four medical button-state indicators in the matrix above:
+
+- **Red** ≈ Limit Reached (`#db4437`)
+- **Blue** = Dose Due (`#03a9f4`) — exact match
+- **Orange** ≈ Overdue Amber (`#f5a623`) — near match
+- **Green** = Logged (`#43a047`) — exact match
+
+In the visual editor these four are listed last and marked with a trailing `*` so the conflict is visible at the point of choice. With the default button styles, the idle button is tinted by the accent, so picking one of the starred colors can make the idle button resemble an active medical state at a glance. The active-state coloring still overrides correctly (this is a readability concern, not a functional bug), but for an unambiguous read of the indicators prefer a non-starred color.
+
+This same information is available in-card: press the drug title to open the device-info popup, then the **Medical Color Indicators** button (shown by default — toggle it off in the card's top-level settings once learned).
+
 The **Logged Dose Indicator** flash has its own layout dropdown instead of the 7 style options:
 
 1. **Top tick mark and text** (default) — the tick (`mdi:check-bold`) sits above the "Logged" text, mirroring the normal button's icon-over-label layout.
@@ -145,6 +158,8 @@ The flash renders on a **dark green** surface (`#212C22`) with a bright-green ti
 Because the 240ms intro is a fade-in (the overlay starts semi-transparent), the card **freezes the resolved button state for that same 240ms** on a successful press — the post-press color change (e.g. the default color flipping to the Limit Reached red when the dose hits the daily limit) is held until the overlay reaches full opacity, so it commits behind the now-opaque green and is never visible as a flash. The freeze releases automatically once the intro completes.
 
 The **Logged Animation Duration** controls how long the flash appears (default 3000ms, configurable 500–10000ms). The **Rotating Glow Speed** dropdown (Slow / Medium / Fast) controls the speed of the rotating border-glow animation used by options 6 and 7; default is Medium (4s per rotation). The glow line sweeps ~85% of the button perimeter (a small transparent gap lets the bright comet head remain visible as it travels). Note: because the glow rotates a gradient around the button's rounded-rect perimeter, the sweep appears to speed up at the corners — this is inherent to the technique and accepted.
+
+**Rapid successive clicks:** if you tap the button again while the green "Logged" flash is still visible, the text instantly updates to reflect the running total — `Logged 2x`, `Logged 3x`, and so on — and the fade timer resets so each press gets the full duration. The first press shows the bare `Logged` (no `1x`). In the **Big tick mark** layout (no text) a small `Nx` badge appears below the tick when the count reaches 2 or more. The counter resets to zero once the flash fades out, so the next press starts a fresh `Logged`. This is a visual tally only — each tap fires a real dose log on the backend.
 
 These options live in the visual editor under the **Daily Tab → Button** and **Drinks Tab → Button** expandables. Inside each Button expandable, the aspect fields are a flat list where each style dropdown is paired side-by-side with its Icon Pulse toggle in a grid row, so it is visually obvious which toggle belongs to which dropdown. Every dropdown renders as a single dropdown box (not a stack of radio buttons) and is pre-populated with its default value (e.g. the Logged Animation Duration shows 3000 instead of blank). The Drinks submenu only offers Limit Reached and Logged Dose Indicator (drinks are PRN/as-needed with no schedule, so Take Pill and Overdue Warning never apply). The Idle state has no color and is intentionally not shown in the editor.
 

@@ -18,6 +18,7 @@
 
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import type { ActionConfig } from 'custom-card-helpers';
 import type { CardController, ResolvedEntities, AxDoseLoggerHass, ButtonStateStyle, AckLayout, GlowSpeed } from '../types.js';
 import type { ButtonState } from '../helpers.js';
@@ -37,6 +38,11 @@ export class AxDoseDrinksPanel extends LitElement {
   // are possible. Resolved by the container's _computeDrinksButtonState.
   @property({ attribute: false }) buttonState: ButtonState = 'idle';
   @property({ attribute: false }) ackActive: boolean = false;
+  // Rapid successive-click count from the container. 0 means no ACK active,
+  // 1 means first press (no suffix rendered), 2 and above means "Logged {n}x".
+  // Drives the ack-text suffix on top/inline layouts and the Nx badge on the
+  // big layout. Mirrors the Daily panel. See plans/rapid-click-count-plan.md.
+  @property({ attribute: false }) ackCount: number = 0;
 
   private get _lang(): string {
     return this.controller.lang;
@@ -86,6 +92,15 @@ export class AxDoseDrinksPanel extends LitElement {
    *  config. 'top' is the default and mirrors the normal button layout. */
   private _ackLayout(): AckLayout {
     return this.controller.config?.drink_button_ack_layout ?? 'top';
+  }
+
+  /** Resolve the ACK (Logged) flash label text, appending the rapid-click
+   *  count suffix ("Logged 2x", "Logged 3x" …) when the count is 2 or more.
+   *  The first press (count 1) shows the bare "Logged" with no suffix so no
+   *  "1x" is rendered. Mirrors the Daily panel's _ackLabelText. */
+  private _ackLabelText(): string {
+    const base = localize(this._lang, 'button.ack_text'); // "Logged"
+    return this.ackCount >= 2 ? `${base} ${this.ackCount}x` : base;
   }
 
   render() {
@@ -237,12 +252,16 @@ export class AxDoseDrinksPanel extends LitElement {
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
             <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
-            ${this.ackActive ? html`
-              <div class="ack-flash ack-${this._ackLayout()}">
+            ${this.ackActive ? keyed(this.ackCount, html`
+              <div class="ack-flash ack-${this._ackLayout()}${this.ackCount >= 2 ? ' ack-repeat' : ''}">
                 <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>
-                ${this._ackLayout() !== 'big' ? html`<span class="ack-text">${localize(this._lang, 'button.ack_text')}</span>` : nothing}
+                ${this._ackLayout() !== 'big'
+                  ? html`<span class="ack-text">${this._ackLabelText()}</span>`
+                  : (this.ackCount >= 2
+                    ? html`<span class="ack-count-badge">${this.ackCount}x</span>`
+                    : nothing)}
               </div>
-            ` : nothing}
+            `) : nothing}
           </button>
 
           <div class="stats-column">
@@ -552,6 +571,14 @@ export class AxDoseDrinksPanel extends LitElement {
       pointer-events: none;
       z-index: 2;
     }
+    /* Rapid-click repeat: on the 2nd+ press the overlay is already at full
+       opacity, so skip the 240ms intro (no flicker) and run only the fade
+       animation from the start. The keyed() directive recreates the element
+       on each ackCount change, restarting the animation so the fade timer
+       effectively resets with each click. */
+    .log-drink-btn .ack-flash.ack-repeat {
+      animation: ax-drink-btn-ack-fade var(--ack-duration, 3000ms) ease-out forwards;
+    }
     /* Option 1 — Top tick mark and text (default; mirrors button layout). */
     .log-drink-btn .ack-flash.ack-top {
       flex-direction: column;
@@ -574,6 +601,20 @@ export class AxDoseDrinksPanel extends LitElement {
     }
     /* Option 3 — Big tickmark only (no text). */
     .log-drink-btn .ack-flash.ack-big .ack-icon { --mdc-icon-size: 56px; }
+    /* Rapid-click count badge for the big (tickmark-only) ACK layout.
+       Hidden on top/inline (those embed the count in ack-text). Sized to
+       match the big tickmark's visual weight (56px icon) so the count reads
+       as a peer of the tick, not a footnote. Mirrors the Daily panel's badge. */
+    .log-drink-btn .ack-flash.ack-big .ack-count-badge {
+      font-size: calc(28px + var(--pill-text-offset, 0px));
+      font-weight: 700;
+      color: var(--btn-green);
+      background: rgba(67, 160, 71, 0.18);
+      padding: 4px 14px;
+      border-radius: 14px;
+      margin-top: 10px;
+      line-height: 1.1;
+    }
     /* Issue 3 — FIXED 240ms press-in intro mirrors the button's own
        :active { transform: scale(0.96) } press so the overlay reads like a
        button press instead of a hard cut. Fixed (not proportional to

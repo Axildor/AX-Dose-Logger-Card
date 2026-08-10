@@ -85,14 +85,28 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   @state() private _showSleepDisruptionDialog: boolean = false;
   @state() private _sleepDisruptionSubstance: 'caffeine' | 'alcohol' | null = null;
 
+  // Medical Color Indicators explainer popup. Opened via a button in the
+  // device-info dialog (when show_color_indicator_explainer is not false).
+  // ha-dialog + ha-markdown, mirroring the Sleep Disruption popup pattern.
+  @state() private _showColorExplainerDialog: boolean = false;
+
   // ── Button State Matrix — transient ACK (logged) flash flags ──
   // Set true on a successful button.press of the Take Pill / Log Drink button
   // and auto-cleared after the configured ack_duration_ms (default 3000) via
   // a non-blocking setTimeout. Passed to the panels as reactive props so the
   // green "Logged" flash renders + reverts. The timer handles are NOT @state
   // (no rendering impact); only the boolean flags are reactive.
+  // Rapid successive clicks: while the ACK flag is true, each additional
+  // press increments the paired counter and resets the fade timer so the
+  // overlay text updates to "Logged 2x", "Logged 3x" etc. The counter is
+  // coupled to the ACK flag lifecycle — 0 means inactive, 1 means first
+  // press (no suffix rendered), 2 and above means "Logged {n}x". When the
+  // timer expires the flag flips false AND the counter resets to 0 in the
+  // same tick. See plans/rapid-click-count-plan.md.
   @state() private _dailyAckActive: boolean = false;
   @state() private _drinksAckActive: boolean = false;
+  @state() private _dailyAckCount: number = 0;
+  @state() private _drinksAckCount: number = 0;
   private _dailyAckTimer?: number;
   private _drinksAckTimer?: number;
   // Frozen button state held for the ACK intro window (ACK_INTRO_MS) so the
@@ -856,12 +870,23 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       this.requestUpdate();
     }, ACK_INTRO_MS);
 
-    this._dailyAckActive = true;
+    // Rapid successive clicks: if a flash is already active, increment the
+    // running counter (1st press showed "Logged", 2nd shows "Logged 2x" etc.)
+    // and reset the fade timer. If this is the first press in the window,
+    // initialise the counter to 1 and arm the flag. The counter and flag are
+    // cleared together when the timer fires so there is one source of truth.
+    if (this._dailyAckActive) {
+      this._dailyAckCount += 1;
+    } else {
+      this._dailyAckCount = 1;
+      this._dailyAckActive = true;
+    }
     if (this._dailyAckTimer !== undefined) {
       window.clearTimeout(this._dailyAckTimer);
     }
     this._dailyAckTimer = window.setTimeout(() => {
       this._dailyAckActive = false;
+      this._dailyAckCount = 0;
       this._dailyAckTimer = undefined;
       this.requestUpdate();
     }, Math.max(500, duration));
@@ -885,12 +910,22 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       this.requestUpdate();
     }, ACK_INTRO_MS);
 
-    this._drinksAckActive = true;
+    // Rapid successive clicks: mirrors _triggerDailyAck. Each press while the
+    // flash is active increments the counter ("Logged 2x", "Logged 3x" …) and
+    // resets the fade timer; the first press initialises to 1 and arms the
+    // flag. The timer clears both together on expiry.
+    if (this._drinksAckActive) {
+      this._drinksAckCount += 1;
+    } else {
+      this._drinksAckCount = 1;
+      this._drinksAckActive = true;
+    }
     if (this._drinksAckTimer !== undefined) {
       window.clearTimeout(this._drinksAckTimer);
     }
     this._drinksAckTimer = window.setTimeout(() => {
       this._drinksAckActive = false;
+      this._drinksAckCount = 0;
       this._drinksAckTimer = undefined;
       this.requestUpdate();
     }, Math.max(500, duration));
@@ -1096,6 +1131,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public showDeviceInfoFor(deviceId: string, name: string): void {
     this._deviceInfoTarget = { deviceId, name };
     this._showDeviceInfo = true;
+  }
+  public showColorExplainerDialog(): void {
+    this._showColorExplainerDialog = true;
   }
   public showLogDrinkDialog(substance: 'caffeine' | 'alcohol'): void {
     this._logDrinkSubstance = substance;
@@ -1309,7 +1347,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     return html`
       <ha-dialog
         open
-        width="small"
+        width="medium"
         @closed=${close}
       >
         <div slot="header" class="dialog-header">${targetName}</div>
@@ -1318,6 +1356,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
             <ha-icon icon="mdi:information-outline"></ha-icon>
             <span>${localize(this._lang, 'dialog.device_info.button')}</span>
           </button>
+          ${this.config?.show_color_indicator_explainer !== false
+            ? html`<button class="dialog-btn" aria-label=${localize(this._lang, 'dialog.device_info.color_indicators_aria')} @click=${() => { this.showColorExplainerDialog(); close(); }}>
+                <ha-icon icon="mdi:palette-outline"></ha-icon>
+                <span>${localize(this._lang, 'dialog.device_info.color_indicators')}</span>
+              </button>`
+            : nothing}
         </div>
       </ha-dialog>
     `;
@@ -1985,7 +2029,38 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     `;
   }
 
-  private _renderToolsDialog() {
+ // Medical Color Indicators explainer popup. ha-dialog + ha-markdown, mirroring
+ // the Sleep Disruption popup pattern. Reached via a button in the device-info
+ // dialog (when show_color_indicator_explainer is not false). Content is the
+ // indicator-color table + the Color Scheme interference note — the same facts
+ // documented in the README "⚠️ Color Scheme and Indicator Conflicts"
+ // subsection, surfaced in-card for discoverability.
+ private _renderColorExplainerDialog() {
+   const close = () => { this._showColorExplainerDialog = false; };
+   return html`
+     <ha-dialog
+       open
+       width="medium"
+       @closed=${close}
+     >
+       <div slot="header" class="dialog-header">
+         <ha-icon icon="mdi:palette-outline"></ha-icon>
+         ${localize(this._lang, 'dialog.color_indicators.title')}
+       </div>
+       <div class="dialog-body">
+         <ha-markdown .content=${localize(this._lang, 'dialog.color_indicators.explainer')}></ha-markdown>
+       </div>
+       <div class="custom-action-bar">
+         <button class="dialog-btn" @click=${close}>
+           <ha-icon icon="mdi:close"></ha-icon>
+           <span>${localize(this._lang, 'dialog.color_indicators.close')}</span>
+         </button>
+       </div>
+     </ha-dialog>
+   `;
+ }
+
+ private _renderToolsDialog() {
     const dialog = this._toolsDialog;
     if (!dialog) return nothing;
 
@@ -2231,10 +2306,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     return html`
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
         <div class="card-content">
-          ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive}></ax-dose-daily-panel>` : nothing}
+          ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive} .ackCount=${this._dailyAckCount}></ax-dose-daily-panel>` : nothing}
           ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : nothing}
           ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : nothing}
-          ${this._activePane === 'drinks' ? html`<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDrinksButtonState(entities)} .ackActive=${this._drinksAckActive}></ax-dose-drinks-panel>` : nothing}
+          ${this._activePane === 'drinks' ? html`<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDrinksButtonState(entities)} .ackActive=${this._drinksAckActive} .ackCount=${this._drinksAckCount}></ax-dose-drinks-panel>` : nothing}
           ${this._activePane === 'inventory' ? html`<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-inventory-panel>` : nothing}
           ${this._activePane === 'tools' ? html`<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : nothing}
           ${this._activePane === 'tracking' ? html`<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : nothing}
@@ -2244,6 +2319,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : nothing}
         ${this._showLogDrinkDialog ? this._renderLogDrinkDialog() : nothing}
         ${this._showSleepDisruptionDialog ? this._renderSleepDisruptionDialog() : nothing}
+        ${this._showColorExplainerDialog ? this._renderColorExplainerDialog() : nothing}
         ${this._toolsDialog ? this._renderToolsDialog() : nothing}
         ${this._overrideDialog ? this._renderOverrideDialog() : nothing}
         ${this._trackingOverrideDialog ? this._renderTrackingOverrideDialog() : nothing}
@@ -2299,6 +2375,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._logDrinkSubstance = null;
     this._showSleepDisruptionDialog = false;
     this._sleepDisruptionSubstance = null;
+    this._showColorExplainerDialog = false;
     this._toolsDialog = null;
     this._overrideDialog = null;
     // Clear pending tracking flags so stale entries from a prior session
@@ -2338,6 +2415,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     if (this._drinksFreezeTimer !== undefined) {
       window.clearTimeout(this._drinksFreezeTimer);
       this._drinksFreezeTimer = undefined;
+    }
+    // Cancel any pending ACK fade timers so they can't flip the ACK flag (and
+    // request a re-render) on a detached element. Hardening that falls out of
+    // the rapid-click counter work — the ACK timers were previously left to
+    // fire harmlessly on a detached element; now they are cancelled for
+    // cleanliness alongside the freeze timers.
+    if (this._dailyAckTimer !== undefined) {
+      window.clearTimeout(this._dailyAckTimer);
+      this._dailyAckTimer = undefined;
+    }
+    if (this._drinksAckTimer !== undefined) {
+      window.clearTimeout(this._drinksAckTimer);
+      this._drinksAckTimer = undefined;
     }
   }
 
@@ -2400,9 +2490,23 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       '_drinkLowPredictions',
       '_showSleepDisruptionDialog',
       '_sleepDisruptionSubstance',
+      '_showColorExplainerDialog',
       '_toolsDialog',
       '_overrideDialog',
       '_trackingOverrideDialog',
+      // ACK flash state — the fade-timer expiry sets _dailyAckActive = false
+      // and _dailyAckCount = 0, then calls requestUpdate(). Without these in
+      // the whitelist, shouldUpdate returns false (no hass change, no other
+      // whitelisted prop), the .ack-flash div is never removed from the DOM,
+      // and a rapid re-press with the same ackCount (1) reuses the stale
+      // keyed() instance — the CSS animation does not restart and the flash
+      // is invisible. Same for the drinks panel and the frozen-state cleanup.
+      '_dailyAckActive',
+      '_dailyAckCount',
+      '_drinksAckActive',
+      '_drinksAckCount',
+      '_dailyFrozenState',
+      '_drinksFrozenState',
     ] as const) {
       if (changedProps.has(key)) return true;
     }
@@ -2667,7 +2771,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
     .dialog-body--center {
       display: flex;
+      flex-direction: column;
       justify-content: center;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Device-info dialog: stacked buttons kept narrow (half-width) and
+       centered, since they no longer share a row. Scoped to
+       .dialog-body--center (used only by the device-info dialog) so the
+       full-width .dialog-btn in other dialogs is unaffected. */
+    .dialog-body--center .dialog-btn {
+      width: 50%;
+      box-sizing: border-box;
     }
 
     /* Sleep Disruption popup — live Disruption + ETA Low summary box

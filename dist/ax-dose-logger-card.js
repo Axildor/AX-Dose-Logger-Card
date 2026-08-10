@@ -32,26 +32,26 @@ typeof SuppressedError === "function" ? SuppressedError : function (error, suppr
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const t$2=globalThis,e$2=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$4=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$4.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$4.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$2.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
+const t$2=globalThis,e$3=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$4=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$3&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$4.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$4.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$5=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$3)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$2.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$3?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
 
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */const{is:i$2,defineProperty:e$1,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$3,getOwnPropertySymbols:o$3,getPrototypeOf:n$2}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$1=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$2(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$1(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$2(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$3(t),...o$3(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$1?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
+ */const{is:i$4,defineProperty:e$2,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$3,getOwnPropertySymbols:o$3,getPrototypeOf:n$2}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$2=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$4(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$2(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$2(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$3(t),...o$3(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$2?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
 
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const t$1=globalThis,i$1=t=>t,s$1=t$1.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$2=`lit$${Math.random().toFixed(9).slice(2)}$`,n$1="?"+o$2,r$2=`<${n$1}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m=/>/g,p=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),w=x(2),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e?e.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p):void 0!==u[3]&&(c=p):c===p?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p:'"'===u[3]?$:g):c===$||c===g?c=p:c===_||c===m?c=v:(c=p,n=void 0);const x=c===p&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$2:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$2+x):s+o$2+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$2),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$2)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$2),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n$1)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$2,t+1));)d.push({type:7,index:l}),t+=o$2.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$1(t).nextSibling;i$1(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t$1.litHtmlPolyfillSupport;B?.(S,k),(t$1.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
+const t$1=globalThis,i$3=t=>t,s$1=t$1.trustedTypes,e$1=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$2=`lit$${Math.random().toFixed(9).slice(2)}$`,n$1="?"+o$2,r$2=`<${n$1}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m$1=/>/g,p$1=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),w=x(2),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e$1?e$1.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m$1:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p$1):void 0!==u[3]&&(c=p$1):c===p$1?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p$1:'"'===u[3]?$:g):c===$||c===g?c=p$1:c===_||c===m$1?c=v:(c=p$1,n=void 0);const x=c===p$1&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$2:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$2+x):s+o$2+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$2),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$2)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$2),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n$1)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$2,t+1));)d.push({type:7,index:l}),t+=o$2.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$3(t).nextSibling;i$3(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t$1.litHtmlPolyfillSupport;B?.(S,k),(t$1.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
 
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o$1=s.litElementPolyfillSupport;o$1?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.2");
+ */const s=globalThis;let i$2 = class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}};i$2._$litElement$=true,i$2["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i$2});const o$1=s.litElementPolyfillSupport;o$1?.({LitElement:i$2});(s.litElementVersions??=[]).push("4.2.2");
 
 /**
  * @license
@@ -448,6 +448,36 @@ const translations = {
         'dialog.device_info.button': 'To Device info',
         'dialog.device_info.aria': 'View device info',
         'dialog.refill.aria': 'Refill medication',
+        // ── Medical Color Indicators explainer popup (device-info dialog) ──
+        'dialog.device_info.color_indicators': 'Medical Color Indicators',
+        'dialog.device_info.color_indicators_aria': 'Open the medical color indicators explainer',
+        'dialog.color_indicators.title': 'Medical Color Indicators',
+        'dialog.color_indicators.close': 'Close',
+        'dialog.color_indicators.explainer': [
+            '### Button State Indicator Colors',
+            '',
+            'The Take Pill and Log Drink buttons use a fixed color matrix to encode the system\'s current status. Each color means a specific medical state:',
+            '',
+            '| Color | State | When active |',
+            '|-------|-------|-------------|',
+            '| **Red** | Limit Reached | Daily limit reached / cooldown active |',
+            '| **Blue** | Dose Due | Scheduled dose due (within the adherence grace window) |',
+            '| **Amber** | Overdue Warning | Overdue (past the adherence grace window) |',
+            '| **Green** | Logged Dose Indicator | Transient flash after a successful press |',
+            '',
+            'These indicator colors are **fixed** — they are not affected by the card\'s Color Scheme setting.',
+            '',
+            '### Color Scheme Conflict',
+            '',
+            'The idle button\'s background is tinted by your chosen **Color Scheme** accent. Four scheme colors match (or closely approximate) the four indicators above, so choosing one of them can make the *idle* button resemble an *active* medical state at a glance:',
+            '',
+            '- **Red** matches Limit Reached',
+            '- **Blue** matches Dose Due (exact)',
+            '- **Orange** matches Overdue Amber (near)',
+            '- **Green** matches Logged (exact)',
+            '',
+            'In the Color Scheme dropdown these four are listed last and marked with a trailing `*`. The active-state coloring still overrides correctly when a dose is actually due/overdue/limit-reached — this is a **readability** concern for the idle state, not a functional bug. Pick a non-starred color if you want the indicators to stay unambiguous.',
+        ].join('\n'),
         // ── Sleep Disruption dialog (Master Tracker) ──
         'dialog.sleep_disruption.title': 'Sleep Disruption',
         'dialog.sleep_disruption.close': 'Close',
@@ -558,6 +588,7 @@ const translations = {
         'config.graphs_panel': 'Graphs Tab',
         'config.stats_panel': 'Stats Tab',
         'config.settings_panel': 'Settings Tab',
+        'config.show_color_indicator_explainer': 'Color Explainer Button',
         'config.confirm_tool_actions': 'Confirm Tool Actions',
         'config.helper.confirm_tool_actions': 'Show a confirmation popup before running any Tools tab action. On by default.',
         'config.chips': 'Custom Boxes',
@@ -691,7 +722,7 @@ const translations = {
         'config.helper.drink_chips': 'Show as a box on the Drinks tab.',
         'config.helper.drink_chip': 'Show as a box on the Drinks tab.',
         'config.helper.drink_chip_label': "Leave empty to use the entity's name.",
-        'config.helper.color_scheme': 'Accent color for the card.',
+        'config.helper.color_scheme': 'Accent color for the card. *Press card title for more info on indicator colors and the starred colors.',
         'config.helper.name': 'Leave empty to use the device name.',
         'config.helper.chip_label': "Leave empty to use the entity's name.",
         'config.helper.chip': 'Show as a box on the Daily tab.',
@@ -707,6 +738,7 @@ const translations = {
         'config.helper.show_adherence_boxes': 'Show beneath the bar graph. Requires adherence sensors.',
         'config.helper.stats_3_columns': '3 columns instead of 2.',
         'config.helper.hide_nav_bar': 'Hide the tab navigation bar.',
+        'config.helper.show_color_indicator_explainer': 'Show a Medical Color Indicators button in the device-info popup.',
         // ── Button State Matrix helpers ──
         // Daily (Take Pill) per-state helpers. Terminology aligned with the
         // renamed labels (Limit Reached / Take Pill / Overdue Warning / Logged
@@ -1082,16 +1114,40 @@ function installEditorGridAlignment() {
 function buildEditorForm() {
     return {
         schema: [
+            // ── Row 1: Device | Name Override ──
+            // Device + Name share a 2-column row; color_scheme moved to its own
+            // full-width row below so its helper text has room to render on one
+            // line (the device picker renders fine in a grid — same width as the
+            // Top/Bottom Box device/entity pickers elsewhere in the editor).
             {
-                name: 'device_id',
-                required: true,
-                selector: {
-                    device: {
-                        filter: { integration: 'ax_dose_logger' },
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                    {
+                        name: 'device_id',
+                        required: true,
+                        selector: {
+                            device: {
+                                filter: { integration: 'ax_dose_logger' },
+                            },
+                        },
                     },
-                },
+                    {
+                        name: 'name',
+                        selector: { text: {} },
+                    },
+                ],
             },
-            // ── Row 1: Color Scheme | Name Override ──
+            // ── Row 2: Color Scheme | Default View ──
+            // Color Scheme shares a row with Default View; its one-line helper
+            // ("*Press card title for more info...") points to the in-card
+            // Medical Color Indicators popup (opened via the device-info dialog
+            // when the Color Explainer Button toggle is ON). The four colliding
+            // colors are listed last and marked with ` *`. Option `value` strings
+            // are unchanged, so reordering needs no config migration. See plans/
+            // color-scheme-indicator-conflict-plan.md +
+            // color-indicators-explainer-popup-plan.md.
             {
                 type: 'grid',
                 name: '',
@@ -1103,11 +1159,7 @@ function buildEditorForm() {
                             select: {
                                 options: [
                                     { value: 'default', label: localize('en', 'color.default') },
-                                    { value: 'blue', label: localize('en', 'color.blue') },
-                                    { value: 'red', label: localize('en', 'color.red') },
-                                    { value: 'green', label: localize('en', 'color.green') },
                                     { value: 'yellow', label: localize('en', 'color.yellow') },
-                                    { value: 'orange', label: localize('en', 'color.orange') },
                                     { value: 'purple', label: localize('en', 'color.purple') },
                                     { value: 'pink', label: localize('en', 'color.pink') },
                                     { value: 'teal', label: localize('en', 'color.teal') },
@@ -1116,22 +1168,15 @@ function buildEditorForm() {
                                     { value: 'slate', label: localize('en', 'color.slate') },
                                     { value: 'gold', label: localize('en', 'color.gold') },
                                     { value: 'grey', label: localize('en', 'color.grey') },
+                                    // Indicator-conflicting colors (see helper text):
+                                    { value: 'red', label: localize('en', 'color.red') + ' *' },
+                                    { value: 'blue', label: localize('en', 'color.blue') + ' *' },
+                                    { value: 'orange', label: localize('en', 'color.orange') + ' *' },
+                                    { value: 'green', label: localize('en', 'color.green') + ' *' },
                                 ],
                             },
                         },
                     },
-                    {
-                        name: 'name',
-                        selector: { text: {} },
-                    },
-                ],
-            },
-            // ── Row 2: Default View | Hide Navigation Bar ──
-            {
-                type: 'grid',
-                name: '',
-                column_min_width: '200px',
-                schema: [
                     {
                         name: 'default_view',
                         selector: {
@@ -1148,13 +1193,26 @@ function buildEditorForm() {
                             },
                         },
                     },
+                ],
+            },
+            // ── Row 3: Color Explainer Button | Hide Navigation Bar ──
+            {
+                type: 'grid',
+                name: '',
+                column_min_width: '200px',
+                schema: [
+                    {
+                        name: 'show_color_indicator_explainer',
+                        default: true,
+                        selector: { boolean: {} },
+                    },
                     {
                         name: 'hide_nav_bar',
                         selector: { boolean: {} },
                     },
                 ],
             },
-            // ── Row 3: Large Text | Bold Text ──
+            // ── Row 4: Large Text | Bold Text ──
             {
                 type: 'grid',
                 name: '',
@@ -2211,7 +2269,7 @@ function buildEditorForm() {
 // statistics grid. Calls back into the controller for more-info opens (click +
 // keyboard). All formatting/computation is delegated to the controller so this
 // component holds only the template + its CSS.
-let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
+let AxDoseStatsPanel = class AxDoseStatsPanel extends i$2 {
     constructor() {
         super(...arguments);
         // 30s tick from the container — a reactive trigger so the panel re-renders
@@ -2358,7 +2416,7 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i {
     `;
     }
 };
-AxDoseStatsPanel.styles = i$3 `
+AxDoseStatsPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
@@ -2455,7 +2513,7 @@ AxDoseStatsPanel = __decorate([
 // state); when OFF the action fires immediately with no popup. The onConfirm
 // closure (the actual button.press service call) is authored here because it's
 // the panel's job; the container just hosts the dialog surface.
-let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
+let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
     get _lang() {
         return this.controller.lang;
     }
@@ -2635,7 +2693,7 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i {
     `;
     }
 };
-AxDoseToolsPanel.styles = i$3 `
+AxDoseToolsPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
@@ -2768,7 +2826,7 @@ AxDoseToolsPanel = __decorate([
 // The slider @change calls controller.handleTrackingChange, which owns the
 // _pendingTracking race-guard + the override-dialog state on the container —
 // so this panel holds only the template + CSS; no state machine lives here.
-let AxDoseTrackingPanel = class AxDoseTrackingPanel extends i {
+let AxDoseTrackingPanel = class AxDoseTrackingPanel extends i$2 {
     get _lang() {
         return this.controller.lang;
     }
@@ -2825,7 +2883,7 @@ let AxDoseTrackingPanel = class AxDoseTrackingPanel extends i {
     `;
     }
 };
-AxDoseTrackingPanel.styles = i$3 `
+AxDoseTrackingPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
@@ -2936,6 +2994,25 @@ AxDoseTrackingPanel = __decorate([
     t('ax-dose-tracking-panel')
 ], AxDoseTrackingPanel);
 
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const e=t=>(...e)=>({_$litDirective$:t,values:e});let i$1 = class i{constructor(t){}get _$AU(){return this._$AM._$AU}_$AT(t,e,i){this._$Ct=t,this._$AM=e,this._$Ci=i;}_$AS(t,e){return this.update(t,e)}update(t,e){return this.render(...e)}};
+
+/**
+ * @license
+ * Copyright 2020 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const m={},p=(o,t=m)=>o._$AH=t;
+
+/**
+ * @license
+ * Copyright 2021 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const i=e(class extends i$1{constructor(){super(...arguments),this.key=A;}render(r,t){return this.key=r,t}update(r,[t,e]){return t!==this.key&&(p(r),this.key=t),e}});
+
 // ──────────────────────────────────────────────
 // AX Dose Logger Card — Daily Pane (Pane 1)
 // ──────────────────────────────────────────────
@@ -2944,7 +3021,7 @@ AxDoseTrackingPanel = __decorate([
 // button (press / override dialog), safe-to-take box (tap/hold/double-tap
 // actions), pills-left stat-pill (refill dialog), custom chips. Every action
 // calls back into the controller so the container owns the dialog state.
-let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
+let AxDoseDailyPanel = class AxDoseDailyPanel extends i$2 {
     constructor() {
         super(...arguments);
         // 30s tick from the container — a reactive trigger so the panel re-renders
@@ -2961,6 +3038,11 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
         // kept separate so the panel can drive the ack-duration CSS var even when
         // the state resolver already collapsed to 'ack').
         this.ackActive = false;
+        // Rapid successive-click count from the container. 0 means no ACK active,
+        // 1 means first press (no suffix rendered), 2 and above means "Logged {n}x".
+        // Drives the ack-text suffix on top/inline layouts and the Nx badge on the
+        // big layout. See plans/rapid-click-count-plan.md.
+        this.ackCount = 0;
     }
     get _lang() {
         return this.controller.lang;
@@ -3031,6 +3113,14 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
      *  config. 'top' is the default and mirrors the normal button layout. */
     _ackLayout() {
         return this.controller.config?.take_button_ack_layout ?? 'top';
+    }
+    /** Resolve the ACK (Logged) flash label text, appending the rapid-click
+     *  count suffix ("Logged 2x", "Logged 3x" …) when the count is 2 or more.
+     *  The first press (count 1) shows the bare "Logged" with no suffix so no
+     *  "1x" is rendered. See plans/rapid-click-count-plan.md. */
+    _ackLabelText() {
+        const base = localize(this._lang, 'button.ack_text'); // "Logged"
+        return this.ackCount >= 2 ? `${base} ${this.ackCount}x` : base;
     }
     render() {
         const c = this.controller;
@@ -3146,12 +3236,16 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
             : (nextDose !== 'Unavailable' && nextDose !== 'now'
                 ? b ` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`
                 : A)}</span>
-            ${this.ackActive ? b `
-              <div class="ack-flash ack-${this._ackLayout()}">
+            ${this.ackActive ? i(this.ackCount, b `
+              <div class="ack-flash ack-${this._ackLayout()}${this.ackCount >= 2 ? ' ack-repeat' : ''}">
                 <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>
-                ${this._ackLayout() !== 'big' ? b `<span class="ack-text">${localize(this._lang, 'button.ack_text')}</span>` : A}
+                ${this._ackLayout() !== 'big'
+            ? b `<span class="ack-text">${this._ackLabelText()}</span>`
+            : (this.ackCount >= 2
+                ? b `<span class="ack-count-badge">${this.ackCount}x</span>`
+                : A)}
               </div>
-            ` : A}
+            `) : A}
           </button>
 
           <div class="stats-column">
@@ -3270,7 +3364,7 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i {
     `;
     }
 };
-AxDoseDailyPanel.styles = i$3 `
+AxDoseDailyPanel.styles = i$5 `
     /* Bold-text catch-all: sets a base font-weight so text without an explicit
        font-weight declaration still inherits the boost when bold_text is on.
        --pill-font-weight-boost is 1.5 (on) or 1 (off), injected on <ha-card>. */
@@ -3518,6 +3612,14 @@ AxDoseDailyPanel.styles = i$3 `
       pointer-events: none;
       z-index: 2;
     }
+    /* Rapid-click repeat: on the 2nd+ press the overlay is already at full
+       opacity, so skip the 240ms intro (no flicker) and run only the fade
+       animation from the start. The key() directive recreates the element
+       on each ackCount change, restarting the animation so the fade timer
+       effectively resets with each click. */
+    .take-pill-btn .ack-flash.ack-repeat {
+      animation: ax-btn-ack-fade var(--ack-duration, 3000ms) ease-out forwards;
+    }
     /* Option 1 — Top tick mark and text (default; mirrors button layout). */
     .take-pill-btn .ack-flash.ack-top {
       flex-direction: column;
@@ -3540,6 +3642,23 @@ AxDoseDailyPanel.styles = i$3 `
     }
     /* Option 3 — Big tickmark only (no text). */
     .take-pill-btn .ack-flash.ack-big .ack-icon { --mdc-icon-size: 56px; }
+    /* Rapid-click count badge for the big (tickmark-only) ACK layout.
+       Hidden on top/inline (those embed the count in ack-text). Sized to
+       match the big tickmark's visual weight (56px icon) so the count reads
+       as a peer of the tick, not a footnote. Uses the bright --btn-green
+       glyph color so it reads as part of the success indicator; a
+       translucent green chip background ties it to the green overlay
+       surface. */
+    .take-pill-btn .ack-flash.ack-big .ack-count-badge {
+      font-size: calc(28px + var(--pill-text-offset, 0px));
+      font-weight: 700;
+      color: var(--btn-green);
+      background: rgba(67, 160, 71, 0.18);
+      padding: 4px 14px;
+      border-radius: 14px;
+      margin-top: 10px;
+      line-height: 1.1;
+    }
     /* Issue 3 — FIXED 240ms press-in intro mirrors the button's own
        :active { transform: scale(0.96) } press so the overlay reads like a
        button press instead of a hard cut. Fixed (not proportional to
@@ -3708,6 +3827,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseDailyPanel.prototype, "ackActive", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDailyPanel.prototype, "ackCount", void 0);
 AxDoseDailyPanel = __decorate([
     t('ax-dose-daily-panel')
 ], AxDoseDailyPanel);
@@ -3722,7 +3844,7 @@ AxDoseDailyPanel = __decorate([
 // props and calls back for timeframe changes + carousel navigation. The actual
 // history fetching stays on the container (updated() lifecycle).
 var AxDoseGraphsPanel_1;
-let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i {
+let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i$2 {
     constructor() {
         super(...arguments);
         // Graph-local state mirrored from the container as reactive props. The
@@ -4458,7 +4580,7 @@ AxDoseGraphsPanel.METRIC_COLORS = [
     '#03a9f4', '#4caf50', '#ff9800', '#e91e63',
     '#9c27b0', '#00bcd4', '#ffc107', '#795548',
 ];
-AxDoseGraphsPanel.styles = i$3 `
+AxDoseGraphsPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
@@ -4814,7 +4936,7 @@ AxDoseGraphsPanel = AxDoseGraphsPanel_1 = __decorate([
 //                Bottom "Sleep Disruption" — entities.sleepDisruption state
 //   No chips row (Drinks master has no chip config). Estimated Low Time was
 //   intentionally removed to keep exactly 2 right boxes, identical to Daily.
-let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
+let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
     constructor() {
         super(...arguments);
         // 30s tick from the container — a reactive trigger so the panel re-renders
@@ -4826,6 +4948,11 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
         // are possible. Resolved by the container's _computeDrinksButtonState.
         this.buttonState = 'idle';
         this.ackActive = false;
+        // Rapid successive-click count from the container. 0 means no ACK active,
+        // 1 means first press (no suffix rendered), 2 and above means "Logged {n}x".
+        // Drives the ack-text suffix on top/inline layouts and the Nx badge on the
+        // big layout. Mirrors the Daily panel. See plans/rapid-click-count-plan.md.
+        this.ackCount = 0;
     }
     get _lang() {
         return this.controller.lang;
@@ -4880,6 +5007,14 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
      *  config. 'top' is the default and mirrors the normal button layout. */
     _ackLayout() {
         return this.controller.config?.drink_button_ack_layout ?? 'top';
+    }
+    /** Resolve the ACK (Logged) flash label text, appending the rapid-click
+     *  count suffix ("Logged 2x", "Logged 3x" …) when the count is 2 or more.
+     *  The first press (count 1) shows the bare "Logged" with no suffix so no
+     *  "1x" is rendered. Mirrors the Daily panel's _ackLabelText. */
+    _ackLabelText() {
+        const base = localize(this._lang, 'button.ack_text'); // "Logged"
+        return this.ackCount >= 2 ? `${base} ${this.ackCount}x` : base;
     }
     render() {
         const c = this.controller;
@@ -5028,12 +5163,16 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
             <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
-            ${this.ackActive ? b `
-              <div class="ack-flash ack-${this._ackLayout()}">
+            ${this.ackActive ? i(this.ackCount, b `
+              <div class="ack-flash ack-${this._ackLayout()}${this.ackCount >= 2 ? ' ack-repeat' : ''}">
                 <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>
-                ${this._ackLayout() !== 'big' ? b `<span class="ack-text">${localize(this._lang, 'button.ack_text')}</span>` : A}
+                ${this._ackLayout() !== 'big'
+            ? b `<span class="ack-text">${this._ackLabelText()}</span>`
+            : (this.ackCount >= 2
+                ? b `<span class="ack-count-badge">${this.ackCount}x</span>`
+                : A)}
               </div>
-            ` : A}
+            `) : A}
           </button>
 
           <div class="stats-column">
@@ -5125,7 +5264,7 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i {
     `;
     }
 };
-AxDoseDrinksPanel.styles = i$3 `
+AxDoseDrinksPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
@@ -5344,6 +5483,14 @@ AxDoseDrinksPanel.styles = i$3 `
       pointer-events: none;
       z-index: 2;
     }
+    /* Rapid-click repeat: on the 2nd+ press the overlay is already at full
+       opacity, so skip the 240ms intro (no flicker) and run only the fade
+       animation from the start. The keyed() directive recreates the element
+       on each ackCount change, restarting the animation so the fade timer
+       effectively resets with each click. */
+    .log-drink-btn .ack-flash.ack-repeat {
+      animation: ax-drink-btn-ack-fade var(--ack-duration, 3000ms) ease-out forwards;
+    }
     /* Option 1 — Top tick mark and text (default; mirrors button layout). */
     .log-drink-btn .ack-flash.ack-top {
       flex-direction: column;
@@ -5366,6 +5513,20 @@ AxDoseDrinksPanel.styles = i$3 `
     }
     /* Option 3 — Big tickmark only (no text). */
     .log-drink-btn .ack-flash.ack-big .ack-icon { --mdc-icon-size: 56px; }
+    /* Rapid-click count badge for the big (tickmark-only) ACK layout.
+       Hidden on top/inline (those embed the count in ack-text). Sized to
+       match the big tickmark's visual weight (56px icon) so the count reads
+       as a peer of the tick, not a footnote. Mirrors the Daily panel's badge. */
+    .log-drink-btn .ack-flash.ack-big .ack-count-badge {
+      font-size: calc(28px + var(--pill-text-offset, 0px));
+      font-weight: 700;
+      color: var(--btn-green);
+      background: rgba(67, 160, 71, 0.18);
+      padding: 4px 14px;
+      border-radius: 14px;
+      margin-top: 10px;
+      line-height: 1.1;
+    }
     /* Issue 3 — FIXED 240ms press-in intro mirrors the button's own
        :active { transform: scale(0.96) } press so the overlay reads like a
        button press instead of a hard cut. Fixed (not proportional to
@@ -5542,6 +5703,9 @@ __decorate([
 __decorate([
     n({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "ackActive", void 0);
+__decorate([
+    n({ attribute: false })
+], AxDoseDrinksPanel.prototype, "ackCount", void 0);
 AxDoseDrinksPanel = __decorate([
     t('ax-dose-drinks-panel')
 ], AxDoseDrinksPanel);
@@ -5555,7 +5719,7 @@ AxDoseDrinksPanel = __decorate([
 //   col 2: 7-day avg + trailing-dynamic-to-365-day avg (reuses the medicine
 //          "Running N-Day Avg" reveal logic via drinkDaysSinceReveal, reading
 //          history_start_date on the 365-day avg sensor).
-let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
+let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i$2 {
     constructor() {
         super(...arguments);
         // 30s tick from the container — a reactive trigger so the panel re-renders
@@ -5667,7 +5831,7 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i {
     `;
     }
 };
-AxDoseInventoryPanel.styles = i$3 `
+AxDoseInventoryPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
     }
@@ -5849,7 +6013,7 @@ AxDoseInventoryPanel = __decorate([
 // ──────────────────────────────────────────────
 // AxDoseLoggerCard — Main Card Class (Container)
 // ──────────────────────────────────────────────
-class AxDoseLoggerCard extends i {
+class AxDoseLoggerCard extends i$2 {
     constructor() {
         super(...arguments);
         this._activePane = 'daily';
@@ -5890,14 +6054,27 @@ class AxDoseLoggerCard extends i {
         // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
         this._showSleepDisruptionDialog = false;
         this._sleepDisruptionSubstance = null;
+        // Medical Color Indicators explainer popup. Opened via a button in the
+        // device-info dialog (when show_color_indicator_explainer is not false).
+        // ha-dialog + ha-markdown, mirroring the Sleep Disruption popup pattern.
+        this._showColorExplainerDialog = false;
         // ── Button State Matrix — transient ACK (logged) flash flags ──
         // Set true on a successful button.press of the Take Pill / Log Drink button
         // and auto-cleared after the configured ack_duration_ms (default 3000) via
         // a non-blocking setTimeout. Passed to the panels as reactive props so the
         // green "Logged" flash renders + reverts. The timer handles are NOT @state
         // (no rendering impact); only the boolean flags are reactive.
+        // Rapid successive clicks: while the ACK flag is true, each additional
+        // press increments the paired counter and resets the fade timer so the
+        // overlay text updates to "Logged 2x", "Logged 3x" etc. The counter is
+        // coupled to the ACK flag lifecycle — 0 means inactive, 1 means first
+        // press (no suffix rendered), 2 and above means "Logged {n}x". When the
+        // timer expires the flag flips false AND the counter resets to 0 in the
+        // same tick. See plans/rapid-click-count-plan.md.
         this._dailyAckActive = false;
         this._drinksAckActive = false;
+        this._dailyAckCount = 0;
+        this._drinksAckCount = 0;
         // Frozen button state held for the ACK intro window (ACK_INTRO_MS) so the
         // underlying state transition (e.g. idle to lockout) is hidden behind the
         // overlay by the time it commits. Captured at ACK-trigger time from the live
@@ -6672,12 +6849,24 @@ class AxDoseLoggerCard extends i {
             this._dailyFreezeTimer = undefined;
             this.requestUpdate();
         }, ACK_INTRO_MS);
-        this._dailyAckActive = true;
+        // Rapid successive clicks: if a flash is already active, increment the
+        // running counter (1st press showed "Logged", 2nd shows "Logged 2x" etc.)
+        // and reset the fade timer. If this is the first press in the window,
+        // initialise the counter to 1 and arm the flag. The counter and flag are
+        // cleared together when the timer fires so there is one source of truth.
+        if (this._dailyAckActive) {
+            this._dailyAckCount += 1;
+        }
+        else {
+            this._dailyAckCount = 1;
+            this._dailyAckActive = true;
+        }
         if (this._dailyAckTimer !== undefined) {
             window.clearTimeout(this._dailyAckTimer);
         }
         this._dailyAckTimer = window.setTimeout(() => {
             this._dailyAckActive = false;
+            this._dailyAckCount = 0;
             this._dailyAckTimer = undefined;
             this.requestUpdate();
         }, Math.max(500, duration));
@@ -6699,12 +6888,23 @@ class AxDoseLoggerCard extends i {
             this._drinksFreezeTimer = undefined;
             this.requestUpdate();
         }, ACK_INTRO_MS);
-        this._drinksAckActive = true;
+        // Rapid successive clicks: mirrors _triggerDailyAck. Each press while the
+        // flash is active increments the counter ("Logged 2x", "Logged 3x" …) and
+        // resets the fade timer; the first press initialises to 1 and arms the
+        // flag. The timer clears both together on expiry.
+        if (this._drinksAckActive) {
+            this._drinksAckCount += 1;
+        }
+        else {
+            this._drinksAckCount = 1;
+            this._drinksAckActive = true;
+        }
         if (this._drinksAckTimer !== undefined) {
             window.clearTimeout(this._drinksAckTimer);
         }
         this._drinksAckTimer = window.setTimeout(() => {
             this._drinksAckActive = false;
+            this._drinksAckCount = 0;
             this._drinksAckTimer = undefined;
             this.requestUpdate();
         }, Math.max(500, duration));
@@ -6903,6 +7103,9 @@ class AxDoseLoggerCard extends i {
         this._deviceInfoTarget = { deviceId, name };
         this._showDeviceInfo = true;
     }
+    showColorExplainerDialog() {
+        this._showColorExplainerDialog = true;
+    }
     showLogDrinkDialog(substance) {
         this._logDrinkSubstance = substance;
         this._showLogDrinkDialog = true;
@@ -7081,7 +7284,7 @@ class AxDoseLoggerCard extends i {
         return b `
       <ha-dialog
         open
-        width="small"
+        width="medium"
         @closed=${close}
       >
         <div slot="header" class="dialog-header">${targetName}</div>
@@ -7090,6 +7293,12 @@ class AxDoseLoggerCard extends i {
             <ha-icon icon="mdi:information-outline"></ha-icon>
             <span>${localize(this._lang, 'dialog.device_info.button')}</span>
           </button>
+          ${this.config?.show_color_indicator_explainer !== false
+            ? b `<button class="dialog-btn" aria-label=${localize(this._lang, 'dialog.device_info.color_indicators_aria')} @click=${() => { this.showColorExplainerDialog(); close(); }}>
+                <ha-icon icon="mdi:palette-outline"></ha-icon>
+                <span>${localize(this._lang, 'dialog.device_info.color_indicators')}</span>
+              </button>`
+            : A}
         </div>
       </ha-dialog>
     `;
@@ -7695,6 +7904,36 @@ class AxDoseLoggerCard extends i {
       </ha-dialog>
     `;
     }
+    // Medical Color Indicators explainer popup. ha-dialog + ha-markdown, mirroring
+    // the Sleep Disruption popup pattern. Reached via a button in the device-info
+    // dialog (when show_color_indicator_explainer is not false). Content is the
+    // indicator-color table + the Color Scheme interference note — the same facts
+    // documented in the README "⚠️ Color Scheme and Indicator Conflicts"
+    // subsection, surfaced in-card for discoverability.
+    _renderColorExplainerDialog() {
+        const close = () => { this._showColorExplainerDialog = false; };
+        return b `
+     <ha-dialog
+       open
+       width="medium"
+       @closed=${close}
+     >
+       <div slot="header" class="dialog-header">
+         <ha-icon icon="mdi:palette-outline"></ha-icon>
+         ${localize(this._lang, 'dialog.color_indicators.title')}
+       </div>
+       <div class="dialog-body">
+         <ha-markdown .content=${localize(this._lang, 'dialog.color_indicators.explainer')}></ha-markdown>
+       </div>
+       <div class="custom-action-bar">
+         <button class="dialog-btn" @click=${close}>
+           <ha-icon icon="mdi:close"></ha-icon>
+           <span>${localize(this._lang, 'dialog.color_indicators.close')}</span>
+         </button>
+       </div>
+     </ha-dialog>
+   `;
+    }
     _renderToolsDialog() {
         const dialog = this._toolsDialog;
         if (!dialog)
@@ -7924,10 +8163,10 @@ class AxDoseLoggerCard extends i {
         return b `
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
         <div class="card-content">
-          ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive}></ax-dose-daily-panel>` : A}
+          ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive} .ackCount=${this._dailyAckCount}></ax-dose-daily-panel>` : A}
           ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : A}
           ${this._activePane === 'stats' ? b `<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : A}
-          ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDrinksButtonState(entities)} .ackActive=${this._drinksAckActive}></ax-dose-drinks-panel>` : A}
+          ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDrinksButtonState(entities)} .ackActive=${this._drinksAckActive} .ackCount=${this._drinksAckCount}></ax-dose-drinks-panel>` : A}
           ${this._activePane === 'inventory' ? b `<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-inventory-panel>` : A}
           ${this._activePane === 'tools' ? b `<ax-dose-tools-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tools-panel>` : A}
           ${this._activePane === 'tracking' ? b `<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : A}
@@ -7937,6 +8176,7 @@ class AxDoseLoggerCard extends i {
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : A}
         ${this._showLogDrinkDialog ? this._renderLogDrinkDialog() : A}
         ${this._showSleepDisruptionDialog ? this._renderSleepDisruptionDialog() : A}
+        ${this._showColorExplainerDialog ? this._renderColorExplainerDialog() : A}
         ${this._toolsDialog ? this._renderToolsDialog() : A}
         ${this._overrideDialog ? this._renderOverrideDialog() : A}
         ${this._trackingOverrideDialog ? this._renderTrackingOverrideDialog() : A}
@@ -7989,6 +8229,7 @@ class AxDoseLoggerCard extends i {
         this._logDrinkSubstance = null;
         this._showSleepDisruptionDialog = false;
         this._sleepDisruptionSubstance = null;
+        this._showColorExplainerDialog = false;
         this._toolsDialog = null;
         this._overrideDialog = null;
         // Clear pending tracking flags so stale entries from a prior session
@@ -8026,6 +8267,19 @@ class AxDoseLoggerCard extends i {
         if (this._drinksFreezeTimer !== undefined) {
             window.clearTimeout(this._drinksFreezeTimer);
             this._drinksFreezeTimer = undefined;
+        }
+        // Cancel any pending ACK fade timers so they can't flip the ACK flag (and
+        // request a re-render) on a detached element. Hardening that falls out of
+        // the rapid-click counter work — the ACK timers were previously left to
+        // fire harmlessly on a detached element; now they are cancelled for
+        // cleanliness alongside the freeze timers.
+        if (this._dailyAckTimer !== undefined) {
+            window.clearTimeout(this._dailyAckTimer);
+            this._dailyAckTimer = undefined;
+        }
+        if (this._drinksAckTimer !== undefined) {
+            window.clearTimeout(this._drinksAckTimer);
+            this._drinksAckTimer = undefined;
         }
     }
     _startTickTimer() {
@@ -8086,9 +8340,23 @@ class AxDoseLoggerCard extends i {
             '_drinkLowPredictions',
             '_showSleepDisruptionDialog',
             '_sleepDisruptionSubstance',
+            '_showColorExplainerDialog',
             '_toolsDialog',
             '_overrideDialog',
             '_trackingOverrideDialog',
+            // ACK flash state — the fade-timer expiry sets _dailyAckActive = false
+            // and _dailyAckCount = 0, then calls requestUpdate(). Without these in
+            // the whitelist, shouldUpdate returns false (no hass change, no other
+            // whitelisted prop), the .ack-flash div is never removed from the DOM,
+            // and a rapid re-press with the same ackCount (1) reuses the stale
+            // keyed() instance — the CSS animation does not restart and the flash
+            // is invisible. Same for the drinks panel and the frozen-state cleanup.
+            '_dailyAckActive',
+            '_dailyAckCount',
+            '_drinksAckActive',
+            '_drinksAckCount',
+            '_dailyFrozenState',
+            '_drinksFrozenState',
         ]) {
             if (changedProps.has(key))
                 return true;
@@ -8280,7 +8548,7 @@ class AxDoseLoggerCard extends i {
 }
 AxDoseLoggerCard.GRAPHS_REFETCH_DEBOUNCE_MS = 500;
 // ── Styles ─────────────────────────────────
-AxDoseLoggerCard.styles = i$3 `
+AxDoseLoggerCard.styles = i$5 `
     :host {
       display: block;
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
@@ -8360,7 +8628,19 @@ AxDoseLoggerCard.styles = i$3 `
 
     .dialog-body--center {
       display: flex;
+      flex-direction: column;
       justify-content: center;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Device-info dialog: stacked buttons kept narrow (half-width) and
+       centered, since they no longer share a row. Scoped to
+       .dialog-body--center (used only by the device-info dialog) so the
+       full-width .dialog-btn in other dialogs is unaffected. */
+    .dialog-body--center .dialog-btn {
+      width: 50%;
+      box-sizing: border-box;
     }
 
     /* Sleep Disruption popup — live Disruption + ETA Low summary box
@@ -8573,10 +8853,19 @@ __decorate([
 ], AxDoseLoggerCard.prototype, "_sleepDisruptionSubstance", void 0);
 __decorate([
     r()
+], AxDoseLoggerCard.prototype, "_showColorExplainerDialog", void 0);
+__decorate([
+    r()
 ], AxDoseLoggerCard.prototype, "_dailyAckActive", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_drinksAckActive", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_dailyAckCount", void 0);
+__decorate([
+    r()
+], AxDoseLoggerCard.prototype, "_drinksAckCount", void 0);
 __decorate([
     r()
 ], AxDoseLoggerCard.prototype, "_dailyFrozenState", void 0);

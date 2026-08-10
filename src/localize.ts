@@ -152,6 +152,37 @@ const translations: Record<string, Record<string, string>> = {
     'dialog.device_info.aria': 'View device info',
     'dialog.refill.aria': 'Refill medication',
 
+    // ── Medical Color Indicators explainer popup (device-info dialog) ──
+    'dialog.device_info.color_indicators': 'Medical Color Indicators',
+    'dialog.device_info.color_indicators_aria': 'Open the medical color indicators explainer',
+    'dialog.color_indicators.title': 'Medical Color Indicators',
+    'dialog.color_indicators.close': 'Close',
+    'dialog.color_indicators.explainer': [
+      '### Button State Indicator Colors',
+      '',
+      'The Take Pill and Log Drink buttons use a fixed color matrix to encode the system\'s current status. Each color means a specific medical state:',
+      '',
+      '| Color | State | When active |',
+      '|-------|-------|-------------|',
+      '| **Red** | Limit Reached | Daily limit reached / cooldown active |',
+      '| **Blue** | Dose Due | Scheduled dose due (within the adherence grace window) |',
+      '| **Amber** | Overdue Warning | Overdue (past the adherence grace window) |',
+      '| **Green** | Logged Dose Indicator | Transient flash after a successful press |',
+      '',
+      'These indicator colors are **fixed** — they are not affected by the card\'s Color Scheme setting.',
+      '',
+      '### Color Scheme Conflict',
+      '',
+      'The idle button\'s background is tinted by your chosen **Color Scheme** accent. Four scheme colors match (or closely approximate) the four indicators above, so choosing one of them can make the *idle* button resemble an *active* medical state at a glance:',
+      '',
+      '- **Red** matches Limit Reached',
+      '- **Blue** matches Dose Due (exact)',
+      '- **Orange** matches Overdue Amber (near)',
+      '- **Green** matches Logged (exact)',
+      '',
+      'In the Color Scheme dropdown these four are listed last and marked with a trailing `*`. The active-state coloring still overrides correctly when a dose is actually due/overdue/limit-reached — this is a **readability** concern for the idle state, not a functional bug. Pick a non-starred color if you want the indicators to stay unambiguous.',
+    ].join('\n'),
+
     // ── Sleep Disruption dialog (Master Tracker) ──
     'dialog.sleep_disruption.title': 'Sleep Disruption',
     'dialog.sleep_disruption.close': 'Close',
@@ -263,6 +294,7 @@ const translations: Record<string, Record<string, string>> = {
     'config.graphs_panel': 'Graphs Tab',
     'config.stats_panel': 'Stats Tab',
     'config.settings_panel': 'Settings Tab',
+    'config.show_color_indicator_explainer': 'Color Explainer Button',
     'config.confirm_tool_actions': 'Confirm Tool Actions',
     'config.helper.confirm_tool_actions': 'Show a confirmation popup before running any Tools tab action. On by default.',
     'config.chips': 'Custom Boxes',
@@ -397,7 +429,7 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.drink_chips': 'Show as a box on the Drinks tab.',
     'config.helper.drink_chip': 'Show as a box on the Drinks tab.',
     'config.helper.drink_chip_label': "Leave empty to use the entity's name.",
-    'config.helper.color_scheme': 'Accent color for the card.',
+    'config.helper.color_scheme': 'Accent color for the card. *Press card title for more info on indicator colors and the starred colors.',
     'config.helper.name': 'Leave empty to use the device name.',
     'config.helper.chip_label': "Leave empty to use the entity's name.",
     'config.helper.chip': 'Show as a box on the Daily tab.',
@@ -413,6 +445,7 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.show_adherence_boxes': 'Show beneath the bar graph. Requires adherence sensors.',
     'config.helper.stats_3_columns': '3 columns instead of 2.',
     'config.helper.hide_nav_bar': 'Hide the tab navigation bar.',
+    'config.helper.show_color_indicator_explainer': 'Show a Medical Color Indicators button in the device-info popup.',
     // ── Button State Matrix helpers ──
     // Daily (Take Pill) per-state helpers. Terminology aligned with the
     // renamed labels (Limit Reached / Take Pill / Overdue Warning / Logged

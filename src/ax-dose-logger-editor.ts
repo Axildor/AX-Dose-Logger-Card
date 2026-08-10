@@ -175,16 +175,40 @@ export function uninstallEditorGridAlignment(): void {
 export function buildEditorForm(): { schema: any; computeLabel: any; computeHelper: any } {
   return {
     schema: [
+      // ── Row 1: Device | Name Override ──
+      // Device + Name share a 2-column row; color_scheme moved to its own
+      // full-width row below so its helper text has room to render on one
+      // line (the device picker renders fine in a grid — same width as the
+      // Top/Bottom Box device/entity pickers elsewhere in the editor).
       {
-        name: 'device_id',
-        required: true,
-        selector: {
-          device: {
-            filter: { integration: 'ax_dose_logger' },
+        type: 'grid',
+        name: '',
+        column_min_width: '200px',
+        schema: [
+          {
+            name: 'device_id',
+            required: true,
+            selector: {
+              device: {
+                filter: { integration: 'ax_dose_logger' },
+              },
+            },
           },
-        },
+          {
+            name: 'name',
+            selector: { text: {} },
+          },
+        ],
       },
-      // ── Row 1: Color Scheme | Name Override ──
+      // ── Row 2: Color Scheme | Default View ──
+      // Color Scheme shares a row with Default View; its one-line helper
+      // ("*Press card title for more info...") points to the in-card
+      // Medical Color Indicators popup (opened via the device-info dialog
+      // when the Color Explainer Button toggle is ON). The four colliding
+      // colors are listed last and marked with ` *`. Option `value` strings
+      // are unchanged, so reordering needs no config migration. See plans/
+      // color-scheme-indicator-conflict-plan.md +
+      // color-indicators-explainer-popup-plan.md.
       {
         type: 'grid',
         name: '',
@@ -196,11 +220,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               select: {
                 options: [
                   { value: 'default', label: localize('en', 'color.default') },
-                  { value: 'blue', label: localize('en', 'color.blue') },
-                  { value: 'red', label: localize('en', 'color.red') },
-                  { value: 'green', label: localize('en', 'color.green') },
                   { value: 'yellow', label: localize('en', 'color.yellow') },
-                  { value: 'orange', label: localize('en', 'color.orange') },
                   { value: 'purple', label: localize('en', 'color.purple') },
                   { value: 'pink', label: localize('en', 'color.pink') },
                   { value: 'teal', label: localize('en', 'color.teal') },
@@ -209,22 +229,15 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   { value: 'slate', label: localize('en', 'color.slate') },
                   { value: 'gold', label: localize('en', 'color.gold') },
                   { value: 'grey', label: localize('en', 'color.grey') },
+                  // Indicator-conflicting colors (see helper text):
+                  { value: 'red', label: localize('en', 'color.red') + ' *' },
+                  { value: 'blue', label: localize('en', 'color.blue') + ' *' },
+                  { value: 'orange', label: localize('en', 'color.orange') + ' *' },
+                  { value: 'green', label: localize('en', 'color.green') + ' *' },
                 ],
               },
             },
           },
-          {
-            name: 'name',
-            selector: { text: {} },
-          },
-        ],
-      },
-      // ── Row 2: Default View | Hide Navigation Bar ──
-      {
-        type: 'grid',
-        name: '',
-        column_min_width: '200px',
-        schema: [
           {
             name: 'default_view',
             selector: {
@@ -241,13 +254,26 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               },
             },
           },
+        ],
+      },
+      // ── Row 3: Color Explainer Button | Hide Navigation Bar ──
+      {
+        type: 'grid',
+        name: '',
+        column_min_width: '200px',
+        schema: [
+          {
+            name: 'show_color_indicator_explainer',
+            default: true,
+            selector: { boolean: {} },
+          },
           {
             name: 'hide_nav_bar',
             selector: { boolean: {} },
           },
         ],
       },
-      // ── Row 3: Large Text | Bold Text ──
+      // ── Row 4: Large Text | Bold Text ──
       {
         type: 'grid',
         name: '',

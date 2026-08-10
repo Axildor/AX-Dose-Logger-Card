@@ -2,188 +2,6 @@
 
 > ℹ️ **Older history (lines 2-2635 of the pre-truncation file) is archived in [`memory-bank/old/progress-archive.md`](memory-bank/old/progress-archive.md:1).** The sections below are the ~16 most recent feature completions; read the archive only if you need older context.
 
-## Custom "Chips" → "Boxes" Naming Convention Rename (2026-08-08)
-
-### Goal
-Rename the user-facing **"Custom Chips"** feature labels to **"Custom Boxes"** in the card's visual editor (Daily tab + Drinks tab settings) so the editor labels match what actually renders. The `chip_1`..`chip_4` / `drink_chip_1`..`drink_chip_4` custom-chip entities render as box-style tiles (primary-tinted background, uppercase label, column layout — the same visual language as the Graphs-panel Day Avg Boxes), not small pill-style chips; the old "Chip N" / "Custom Chips" labels contradicted the rendered output and violated user expectation. Both tabs renamed together (user-confirmed).
-
-### Planning
-- [x] Read frontend memory-bank (activeContext, progress, projectstructure) for context
-- [x] Search all "chip" usages across src/ + README.md to build a complete change inventory
-- [x] Confirm scope with user: both Daily + Drinks tabs renamed; Graphs-panel timeframe chips + effectiveness tracker chips out of scope (genuinely render as small pill-style buttons, no user-facing config label)
-- [x] Write architecture plan → plans/custom-chips-to-boxes-rename-plan.md (values-only rename parallel to the completed Panel→Tab rename; internal config keys / CSS classes / TS identifiers untouched so existing saved configs keep working with zero migration)
-
-### Implementation
-- [x] src/localize.ts:230 — Drinks-tab chip translation *values* (keys unchanged): `config.drink_chips` `Custom Chips` → `Custom Boxes`; `config.drink_chip_1`..`drink_chip_4` + `_label` + `_icon` `Chip N (optional)`/`Chip N Label`/`Chip N Icon` → `Box N` variants; comment reworded (`Drink chip field labels` → `Drink box field labels`)
-- [x] src/localize.ts:268 — Daily-tab chip translation *values* (keys unchanged): `config.chips` `Custom Chips` → `Custom Boxes`; `config.chip_1_box`..`chip_4_box` `Chip N` → `Box N` (also reused by the `drink_chip_N_box` expandable titles per the existing comment, so Drinks sub-headers update automatically); `config.chip_1`..`chip_4` + `_label` + `_icon` → `Box N` variants; comments reworded (`Chip box expandable titles` → `Box expandable titles`; `Chip field labels` → `Box field labels`)
-- [x] src/localize.ts:353 — 4 helper strings reworded: `config.helper.drink_chips` / `config.helper.drink_chip` `Show as a chip on the Drinks tab` → `Show as a box on the Drinks tab`; `config.helper.chip` `Show as a chip on the Daily tab` → `Show as a box on the Daily tab`; `config.helper.chip_icon` `Override the chip icon` → `Override the box icon`; `config.helper.chip_show_icon` `Display an icon on this chip... the chip box grows taller... make chips larger` → `Display an icon on this box... the box grows taller... make boxes larger`; comment reworded (`Chip override helpers` → `Box override helpers`). Generic action labels (Tap/Hold/Double Tap Action), Show Icon, and chip_label/drink_chip_label helpers left untouched (no "chip" word).
-- [x] src/ax-dose-logger-editor.ts:352 — Daily `chips` expandable `title: 'Custom Chips'` → `'Custom Boxes'`
-- [x] src/ax-dose-logger-editor.ts:702 — Drinks `drink_chips` expandable `title: 'Custom Chips'` → `'Custom Boxes'`
-- [x] src/ax-dose-logger-editor.ts:564 — reworded one stale code comment (`Custom Chips (4× entity +` → `Custom Boxes (4× entity +`) to avoid leaving a stale feature reference next to the renamed feature
-- [x] README.md — screenshot comment (`custom chips` → `custom boxes`); Quick Start step 3; Visual Editor description (`Custom Chips with per-chip collapsable menus` → `Custom Boxes with per-box collapsable menus`, ×2); Daily Features bullet; Drinks Features bullet; full config-options table (14 description cells reworded across the `drink_chip_*` and `chip_*` rows)
-- [x] dist/ax-dose-logger-card.js — rebuilt via yarn run build
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.0s)
-- [x] Dist grep confirms `Custom Boxes` (5 occurrences), `Custom Chips` (0 occurrences), `Box 1`..`Box 4` (all present), `Show as a box on the Daily tab` (1), `Show as a box on the Drinks tab` (1)
-- [x] README grep confirms no remaining user-facing "Custom Chips"/"per-chip"/"each chip"/"Tapping a chip"/"chip box"/"make chips" references (config key names like `chip_1` correctly stay)
-- [x] No backend / coordinator / store / config-flow / types changes (frontend strings-only)
-- [x] No projectstructure.md change (no files added/renamed/deleted)
-
-### Key decisions
-1. **Values-only rename, keys untouched** — exactly mirrors the completed ["Panel/pane → Tab/tab"](plans/unify-category-naming-plan.md) precedent. Internal config keys (`chip_1`, `chips`, `drink_chips`, `chip_1_box`) are persistence identifiers invisible to end users; changing them would force a config migration with no user benefit. The user's goal is editor-UI expectation matching, which is purely a translation-value concern.
-2. **Graphs-panel timeframe chips + effectiveness tracker chips stay "chips"** — those genuinely render as small pill-style buttons and have no user-facing config label, so "chip" is accurate. The user's request is specifically about the "Custom Chips" feature that renders as boxes.
-3. **Internal CSS class names + TS identifiers untouched** — `.chip`, `ChipConfig`, `_getChipEntities()`, `handleChipAction`, etc. are internal API surface; renaming is a broad no-user-benefit refactor with regression risk. Same principle as the Panel→Tab rename leaving `_activePane`, `pane-btn`, `*-panel.ts` untouched.
-4. **`config.chip_N_show_icon` / action labels stay generic** — these values (`Show Icon`, `Tap Action`, `Hold Action`, `Double Tap Action`) contain no "chip" word, so they need no change. Keeps the diff minimal.
-5. **Both tabs renamed together** — user-confirmed. Both Daily and Drinks custom-chip features render identically as boxes; renaming only one would leave a cross-card inconsistency.
-6. **Editor `title` is a literal, not a localize key** — per the established pattern (Top Box key decision #10). The two `title: 'Custom Chips'` literal edits are the user-visible change; the localize `config.chips` / `config.drink_chips` value edits are for consistency/future-proofing.
-7. **One stale code comment reworded** — line 564 of ax-dose-logger-editor.ts was the only remaining "Custom Chips" literal after the user-facing edits; reworded to `Custom Boxes` for consistency. Other internal comments referencing config keys / CSS classes / identifiers left as-is (they reference unchanged internal names).
-8. **No backend change** — the feature is entirely frontend (editor labels + README). Frontend-only, like the Panel→Tab rename.
-
-## Box Override Field Relabel + Drinks Box Rename to Top/Bottom Box (2026-08-08)
-
-### Planning
-- [x] Read memory-bank context (frontend activeContext, progress, projectstructure)
-- [x] Read daily-panel.ts, drinks-panel.ts (rendered box structure)
-- [x] Read ax-dose-logger-editor.ts (Top Box, Bottom Box, Custom Boxes, Drinks In Body Box, Disruption Box expandables + computeLabel/computeHelper)
-- [x] Read localize.ts (current field labels + helpers)
-- [x] Audit for cross-tab inconsistencies: found Drinks In Body Box / Disruption Box headers + icon/label/entity fields use stale product-name prefixes; Custom Boxes icon/label fields are label-suppressed (Box N Icon/Label values never render); Bottom Box entity helper missing the Days Left override note
-- [x] Confirm scope with user: Top/Bottom Box icon/label → Override Icon/Override Label; Drinks boxes → Top Box/Bottom Box; entity-picker fields → Override Entity (all 4 boxes); Custom Boxes un-suppress icon/label; append Days Left note to pills_left_entity helper
-- [x] Write architecture plan → plans/box-icon-label-override-relabel-plan.md
-
-### Implementation
-- [x] src/localize.ts: relabel all 4 box override fields to Override Entity/Override Icon/Override Label (keys unchanged) — Daily Top Box (safe_to_take_*), Daily Bottom Box (pills_left_*), Drinks Top Box (in_body_*), Drinks Bottom Box (disruption_*)
-- [x] src/localize.ts: rename Drinks box headers — config.in_body_box 'In Body Box' → 'Top Box'; config.disruption_box 'Disruption Box' → 'Bottom Box'
-- [x] src/localize.ts: append 'Overridden by the Days Left toggle.' to config.helper.pills_left_entity (mirrors Top Box helper's Amount in body toggle note)
-- [x] src/localize.ts: reword config.helper.in_body_icon 'Icon on the In Body box' → 'Icon on the box' (matches the already-generic disruption_icon/safe_to_take_icon wording)
-- [x] src/ax-dose-logger-editor.ts: change two editor expandable title literals — line 591 'In Body Box' → 'Top Box'; line 640 'Disruption Box' → 'Bottom Box'
-- [x] src/ax-dose-logger-editor.ts: computeLabel — drop _icon/_label clauses from chip + drink_chip suppression blocks so Box N Icon/Box N Label render; keep chip_N/drink_chip_N entity-picker suppressed (Box N (optional) redundant inside Box N expandable); update the two comment blocks
-- [x] src/ax-dose-logger-editor.ts: reword the stale // ── Drinks Panel ── comment block (In Body Box/Disruption Box → Top Box (In Body)/Bottom Box (Disruption)) so the bundled dist carries no stale feature references
-- [x] README.md: line 83 visual editor description — Drinks In Body Box, Disruption Box → Top Box, Bottom Box
-- [x] README.md: line 160 — 'The In Body Box and Disruption Box are each fully overridable...' → 'The Drinks tab's Top Box and Bottom Box are each fully overridable...'
-- [x] README.md: Drinks config-options table rows 218-230 — use Top Box (In Body)/Bottom Box (Disruption) parentheticals + Override Icon/Label/Entity wording; entity rows retain default-sensor semantic
-- [x] README.md: Daily config-options table rows 202-208 — use Top Box (Safe to Take)/Bottom Box (Pills Left) parentheticals + Override Icon/Label/Entity wording; pills_left_entity row now carries the 'Overridden by the Days Left toggle.' note
-- [x] Leave README line 155 (rendered-card label description: In Body on top, Disruption on bottom) as-is — describes rendered default labels, not editor headers
-
-### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.2s)
-- [x] Dist grep confirms new strings present: Override Icon (4), Override Label (4), Override Entity (4), Box 1 Icon (2), Box 4 Icon (2), Overridden by the Days Left toggle (1)
-- [x] Dist grep confirms all stale strings absent: In Body Box (0), Disruption Box (0), Safe to Take Icon/Label/Entity (0), Pills Left Icon/Label/Entity (0), In Body Icon/Label/Entity (0), Disruption Icon/Label/Entity (0)
-- [x] No backend change (frontend-only — editor labels + helper text + README)
-- [x] No config migration (keys unchanged; only translation values + editor title literals + computeLabel suppression block)
-- [x] No projectstructure.md change (no files added/renamed/deleted)
-- [x] activeContext.md updated (new Current Status, prior archived per truncation rule)
-- [x] progress.md updated (this section; oldest section archived to memory-bank/old/progress-archive.md to stay under ~400 lines)
-
-### Follow-on Adjustment — Custom Box Entity-Picker Label Suppression + Icon/Label Same-Line (2026-08-08)
-
-#### Reported by user
-After the box relabel task, under each Custom Box (Daily + Drinks) the entity picker still showed a humanized "Chip N" / "Drinks chip N" label above it, and the Box icon + Box label pickers appeared stacked rather than side-by-side like the Top/Bottom Box.
-
-#### Root cause
-- The entity-picker schema nodes (`chip_1`..`chip_4`, `drink_chip_1`..`drink_chip_4`) had no inline `label` field and relied on `computeLabel` returning `''` to suppress the label. In the user's HA version, ha-form humanizes the schema `name` (`chip_1` → "Chip 1", `drink_chip_1` → "Drinks chip 1") when `computeLabel` returns `''` — so the humanize fallback rendered the stale "Chip N" text.
-- The Custom Box icon+label grids were already structurally identical to the Top Box grid (type:'grid', name:'', column_min_width:'200px', icon+label pickers) — the stacked appearance was a side-effect of the unsuppressed "Chip N" entity label disrupting the visual rhythm above the grid.
-
-#### Implementation
-- [x] src/ax-dose-logger-editor.ts: added inline `label: ''` directly on each of the 8 entity-picker schema nodes (chip_1..chip_4 at ~374/422/471/520; drink_chip_1..drink_chip_4 at ~724/773/822/871). The inline `label: ''` reliably suppresses the label the same way the show_icon boolean field's inline `label: localize(...)` works (an inline label overrides ha-form's humanize fallback; `computeLabel` returning '' does not). Kept the computeLabel suppression block as defense-in-depth.
-- [x] No grid structure change needed — the icon+label grids were already byte-identical to the Top Box grid; removing the unsuppressed entity label lets the grid render side-by-side like the Top/Bottom Box.
-
-#### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.1s)
-- [x] Dist grep confirms inline `label: ''` present on all 8 entity pickers (count = 8), grids present (count = 19), Box 1 Icon present (count = 2)
-- [x] No backend change (frontend-only — editor schema label override)
-- [x] No config migration (keys unchanged; inline label is a schema-node presentation attribute, not persisted)
-- [x] No projectstructure.md change
-- [x] activeContext.md updated (follow-on note added to the box relabel Current Status)
-- [x] progress.md updated (this section)
-
-### Follow-on Fix v2 — Non-Breaking-Space Label + 180px Grid (2026-08-08)
-
-#### Reported by user (after v1 follow-on)
-The v1 inline `label: ''` did NOT suppress the entity-picker label — ha-form still rendered "Chip N" / "Drinks chip N" above the entity selector. And the Box N Icon + Box N Label pickers were still stacked instead of side-by-side.
-
-#### Root cause
-- **Label:** ha-form treats an empty-string `label` (inline `label: ''` OR `computeLabel` returning `''`) as falsy → falls back to humanizing the schema `name` (`chip_1` → "Chip 1", `drink_chip_1` → "Drinks chip 1"). Both the `computeLabel` `return ''` AND inline `label: ''` attempts failed for the same reason.
-- **Grid stacking:** the Custom Box icon+label grids were structurally identical to the Top Box grid BUT nested 3 levels deep (panel → chips expandable → chip_N_box expandable → grid), so the available width is narrower than the 2-level-deep Top Box grid. The `column_min_width: '200px'` (same as Top Box) forced a single-column wrap.
-
-#### Implementation
-- [x] src/ax-dose-logger-editor.ts: changed inline `label: ''` → `label: '\u00A0'` (non-breaking space) on all 8 entity-picker schema nodes (chip_1..chip_4 + drink_chip_1..drink_chip_4). A non-empty whitespace string is truthy → overrides ha-form's humanize fallback while rendering as effectively blank (the known-working HA-form label-suppression trick; empty string fails, whitespace succeeds).
-- [x] src/ax-dose-logger-editor.ts: reduced column_min_width from '200px' → '180px' on the 8 Custom Box icon+label grids only (Daily chip_1..chip_4 grids at ~384/434/484/534; Drinks drink_chip_1..drink_chip_4 grids at ~735/785/835/885). User-confirmed value (180px). The Top/Bottom Box grids (1 level shallower) keep '200px'.
-
-#### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.1s)
-- [x] Dist grep confirms: `label: '\u00A0'` present on all 8 entity pickers (count = 8); `column_min_width: '180px'` on the 8 Custom Box grids (count = 8); `column_min_width: '200px'` remains on the 10 Top/Bottom Box + other grids (count = 10)
-- [x] No backend change (frontend-only — editor schema label override + grid column_min_width)
-- [x] No config migration (keys unchanged; inline label + column_min_width are schema-node presentation attributes, not persisted)
-- [x] No projectstructure.md change
-- [x] activeContext.md updated (follow-on note corrected to reflect v2 final fix)
-- [x] progress.md updated (this section)
-
-### Follow-on Fix v3 — "Settings" Label for Custom Box Entity Picker (2026-08-08)
-
-#### Reported by user (after v2 follow-on)
-The v2 non-breaking-space inline `label: '\u00A0'` STILL did not suppress the entity-picker label — ha-form still rendered "Chip N" / "Drinks chip N" above the entity selector. (The grid 180px fix from v2 DID work — boxes now render side-by-side.)
-
-#### Root cause (definitive)
-ha-form treats a falsy/empty `computeLabel` return (empty string `''`, undefined, null) as "no label provided" and falls back to humanizing the schema `name` (`chip_1` → "Chip 1", `drink_chip_1` → "Drinks chip N"). The inline schema `label` field is IGNORED when a `computeLabel` callback is provided to ha-form — so inline `label: ''` and `label: '\u00A0'` had no effect. The ONLY way to override the humanize fallback is to make `computeLabel` return a non-empty string.
-
-#### Implementation (user suggestion: label as "Settings")
-- [x] src/localize.ts: added `'config.box_settings': 'Settings'` key (neutral label for the Custom Box entity picker — the "Box N" expandable header already conveys identity; "Settings" groups the entity picker + the icon/label overrides below it).
-- [x] src/ax-dose-logger-editor.ts: changed the two `computeLabel` `return ''` blocks (chip_1..chip_4 + drink_chip_1..drink_chip_4) to `return localize(lang, 'config.box_settings')` ("Settings"). Non-empty string overrides ha-form's humanize fallback cleanly. Updated the two comment blocks to document the definitive root cause (empty computeLabel → humanize) and the "Settings" rationale.
-- [x] src/ax-dose-logger-editor.ts: removed the redundant inline `label: '\u00A0'` from all 8 entity-picker schema nodes (computeLabel takes precedence over the inline label, so the inline label was dead weight from the v2 attempt).
-
-#### Verification
-- [x] yarn run build — clean (exit 0, no warnings, dist/ax-dose-logger-card.js created in 4.4s)
-- [x] Dist grep confirms: inline `label: '\u00A0'` removed (count = 0); `config.box_settings` key present (count = 3 — localize definition + 2 computeLabel returns); `'Settings'` value present (count = 1); `column_min_width: '180px'` on the 8 Custom Box grids still in place (count = 8) from v2
-- [x] No backend change (frontend-only — editor computeLabel + localize key)
-- [x] No config migration (keys unchanged; computeLabel return value + inline label removal are runtime presentation, not persisted)
-- [x] No projectstructure.md change
-- [x] activeContext.md updated (follow-on note corrected to reflect v3 final fix — "Settings" label, definitive root cause)
-- [x] progress.md updated (this section)
-
-## Button State Matrix (Prosumer UI) — Take Pill / Log Drink (2026-08-09)
-**Feature**: 5-state color matrix (Lockout / Idle / Execution Requested / Latency Warning / ACK Packet) on the Daily "Take Pill" and Drinks "Log Drink" buttons, with per-state 7-option visual-style dropdown + icon-pulse toggle + configurable ACK flash duration. Frontend-only. Architecture plan: [`plans/button-state-matrix-plan.md`](plans/button-state-matrix-plan.md).
-
-- [x] Architecture plan written + approved (overdue-anchored latency 9.1A + ::after CSS ack text 9.2A)
-- [x] `src/types.ts` — `ButtonStateStyle` union (7 options) + 13 new config fields on `AxDoseLoggerCardConfig`
-- [x] `src/helpers.ts` — `ButtonState` type + `ButtonStateInput` + pure `resolveButtonState()` (precedence: ack → lockout → latency → execution → idle)
-- [x] `src/ax-dose-logger-card.ts` — `_resolveGraceHours()` (reads `grace_hours` from adherence sensors, fallback 1.0h); `_computeDailyButtonState()` + `_computeDrinksButtonState()`; `_dailyAckActive`/`_drinksAckActive` reactive flags + `_triggerDailyAck()`/`_triggerDrinksAck()` (non-blocking setTimeout + requestUpdate); ACK triggers wired into `_handleTakePill` (direct + override-dialog confirm) + `_logDrink`; `buttonState`/`ackActive` props passed to panels in `_renderPane*`; public accessors `computeDailyButtonState`/`computeDrinksButtonState`
-- [x] `src/components/daily-panel.ts` — `buttonState`/`ackActive` props; `_takeButtonClasses()`; replaced `.safe`/`.danger` + `isLimitReached`/`safeCount` locals with `this.buttonState === 'lockout'`; CSS state-color vars + 7 style options + rotating-glow `::before` + icon-pulse + ACK `::after` flash
-- [x] `src/components/drinks-panel.ts` — mirror (lockout + ack only — drinks are PRN with no schedule)
-- [x] `src/ax-dose-logger-editor.ts` — `_buttonStyleOptions()` helper; two new "Button" expandables (Daily: 4 state-style + 4 pulse + ack-duration; Drinks: lockout + ack only); computeLabel/computeHelper fall through to new localize keys
-- [x] `src/localize.ts` — ~24 new strings (config.button, 14 config labels, 7 button_style option labels, button.ack_text, 14 helper texts)
-- [x] `README.md` — Daily "Take Pill" bullet updated + dedicated "🎛️ Button State Matrix" section (state table, grace/latency explanation, 7 options, pulse, ack duration, Daily vs Drinks)
-- [x] No backend change (frontend-only — backend already exposes `grace_hours`/`overdue`/`pills_safe_to_take`/`amountLast24h.remaining`)
-- [x] No config migration (all 13 new fields optional with documented defaults; existing configs render as today)
-- [x] No projectstructure.md change (no files added/renamed/deleted)
-- [x] `yarn run build` clean (exit 0, 3.9s); dist grep confirms 23 occurrences of new keys
-- [x] activeContext.md updated (new Current Status; prior 2 contexts kept; Two-Line Height Lock archived to old/)
-- [x] progress.md updated (this section)
-
-## Button State Matrix — Visual Fixes (2026-08-09)
-**Feature**: Fixed three visual bugs in the Button State Matrix shipped the same day: (1) border style options expanded the button, (2) rotating border glow was a pulsing halo instead of a trailing line, (3) ACK animation merged text with the underlying button + left a green "Take Pill" lingering for 2-10s after an override press. Frontend-only. Architecture plan: [`plans/button-state-matrix-visual-fixes-plan.md`](plans/button-state-matrix-visual-fixes-plan.md).
-
-### Checklist
-- [x] Step 1: Context grounding — read frontend memory-bank (activeContext, progress), daily-panel.ts + drinks-panel.ts CSS (border/glow/ack rules + _takeButtonClasses/_logDrinkButtonClasses), helpers.ts resolveButtonState, container _triggerDailyAck/_triggerDrinksAck + _computeDailyButtonState/_computeDrinksButtonState
-- [x] Step 2: Architecture plan — plans/button-state-matrix-visual-fixes-plan.md (root cause for each bug, fix approach, steps, key decisions)
-- [x] Step 3: User confirmation — plan approved (45° solid-arc default + ack-as-pure-overlay + inset shadow); proceed to Code mode
-- [x] Step 4: src/helpers.ts — resolveButtonState: removed `if (input.ackActive) return 'ack';` line + explanatory comment (ack is now a pure overlay driven by the panel's ackActive flag; 'ack' stays in the union for type compat but is never returned)
-- [x] Step 5: src/components/daily-panel.ts — (a) Option 3 border: `border: 2px solid` → `box-shadow: inset 0 0 0 2px` (×4 colors); (b) rotating-glow ::before conic-gradient → solid-arc `color 0deg, color 45deg, transparent 45deg, transparent 360deg` (×4 colors); (c) _takeButtonClasses removed the `state === 'ack'` branch, idle early-return emits ack-flash when active, appended `if (this.ackActive) classes.push('ack-flash')` after style/pulse composition; (d) button template `style=` condition `this.buttonState === 'ack'` → `this.ackActive`; (e) ack ::after rule rewritten — gate `.ack-flash::after` (was `.state-ack.full-green::after`), added `background: var(--btn-green)` + `color: #fff` (opaque surface covers underlying text) + `border-radius: inherit` + `z-index: 2`
-- [x] Step 6: src/components/drinks-panel.ts — mirror of daily-panel: (a) border → inset shadow (×2 colors: red/green); (b) rotating-glow → solid-arc (×2 colors); (c) _logDrinkButtonClasses ack branch removed + idle early-return emits ack-flash + ack-flash appended after style/pulse; (d) button `style=` condition → `this.ackActive`; (e) ack ::after rewrite (`.ack-flash::after` + opaque green surface)
-- [x] Step 7: Build fix — first build emitted TS parse warnings because the CSS comments contained backticks (`` `border` `` / `` `.ack-flash` ``), which lit's `css` tagged-template parses as substitutions; removed all backticks from the CSS comments in both panels. Second build clean (exit 0, 3.8s, no warnings)
-- [x] Step 8: Verification — yarn run build clean (exit 0, 3.8s); dist grep confirms new CSS present (inset 0 0 0 2px=6, ack-flash=9, transparent 45deg=6, this.ackActive ?=4) and old patterns absent (border: 2px solid=0, transparent 35%=0, state-ack.full-green=0, ackActive) return 'ack'=0)
-- [x] Step 9: Update memory-bank — activeContext.md (new Current Status: Button State Matrix Visual Fixes; prior Button State Matrix + Box Relabel kept as Previous Context), progress.md (this section). No projectstructure.md change (no files added/renamed/deleted). No README change (bug fixes to visual rendering, not new end-user behavior/config).
-
-### Key decisions
-1. **Inset box-shadow for borders (no-grow)** — `box-shadow: inset 0 0 0 2px` paints the colored ring inside the existing padding box so the button's outer dimensions never change. Standard CSS technique; works under `overflow: hidden` (shadows aren't clipped by overflow). The `icon_border` option composes `icon-${color}` + `border-${color}`, so it picks up the inset shadow automatically.
-2. **Solid-arc conic gradient for the trailing line** — 45° colored arc on a transparent gradient is the modern-UI trailing-line idiom (Stripe/GitHub loaders). The existing `::before` mask + rotate infrastructure stays; only the gradient value changes. 45° is a tunable default.
-3. **Ack = pure overlay, not a button state (core fix for bug 3b)** — `resolveButtonState()` no longer returns `'ack'`; the panel's `ackActive` flag drives a dedicated `.ack-flash` overlay class. The button keeps its true state underneath the flash, so there is no "wrong color lingering" gap between the ack timer expiring and the backend state arriving. The `ack-style` config option is kept in the editor but becomes effectively a no-op for the overlay surface (solid green for legibility) — accepted trade-off to minimize editor churn.
-4. **Opaque green overlay surface (fix for bug 3a)** — `background: var(--btn-green)` + `color: #fff` + `border-radius: inherit` fully covers the underlying button text, then fades to reveal the true state. `z-index: 2` places it above the rotating-glow `::before` (z-index 0) and the button content.
-5. **`ButtonState` union keeps `'ack'`** — removing it would touch the editor schema + types + localize for no functional benefit; the value stays in the union, the resolver simply never returns it.
-6. **`this.ackActive` drives both the class and the inline CSS vars** — the button's `style=` condition changed from `this.buttonState === 'ack'` to `this.ackActive` so `--ack-duration`/`--ack-text` are present whenever the overlay is active (the resolver no longer returns `'ack'`, so the old condition would never fire).
-7. **No backticks in lit `css` template comments** — the first build failed TS parsing because the CSS comments contained backticks, which lit's `css` tagged-template literal parses as substitution placeholders. Removed all backticks from CSS comments in both panels; build then clean.
-8. **No backend / config-flow / editor / types / localize / README / projectstructure change** — pure frontend CSS + one resolver line + one panel-template condition. No new config, no migration. Bug fixes to visual rendering, not new end-user behavior.
-
 ## Apple Intelligence Border Glow (Comet Sweep) (2026-08-09)
 **Feature**: Replaced the "Rotating Border Glow" button style's hard-edged 45° solid-arc conic gradient with a smooth Apple Intelligence / Siri-style "comet sweep" — a bright white-tipped head fading into a transparent tail that travels the masked border ring. Also fixed the ring being half-clipped by the button's `overflow: hidden`. Frontend-only. Architecture plan: [`plans/apple-intelligence-border-glow-plan.md`](plans/apple-intelligence-border-glow-plan.md).
 
@@ -463,3 +281,141 @@ When a successful Take Pill / Log Drink press flips the underlying button into a
 4. **No README change** — the `Last: … • Next: …` sub-line format is not documented in the card README; this is a display refinement of an existing element, not new end-user behavior or a config surface.
 
 **Scope:** Frontend only. Files: `src/components/daily-panel.ts`, `dist/ax-dose-logger-card.js` (rebuilt). No backend, no `types.ts`, no `ax-dose-logger-editor.ts`, no `localize.ts`, no CSS, no config keys, no migration, no `projectstructure.md` change.
+
+## Color-Scheme Indicator Conflict Signage (2026-08-09)
+**Feature**: Surface a visual conflict between the user-configurable card accent (color_scheme) and the four hardcoded medical button-state indicators. The idle Take Pill / Log Drink button's background is tinted by `--primary-color` ([`daily-panel.ts:441`](src/components/daily-panel.ts:441)), and four scheme colors match (or approximate) the four indicator colors, so picking one of them can make the idle button resemble an active medical state at a glance. Frontend-only, no behavior change. Architecture plan: [`plans/color-scheme-indicator-conflict-plan.md`](plans/color-scheme-indicator-conflict-plan.md).
+
+### Planning
+- [x] Read frontend memory-bank (activeContext, progress, projectstructure) for context
+- [x] Locate color_scheme dropdown ([`ax-dose-logger-editor.ts:197`](src/ax-dose-logger-editor.ts:197)) + scheme hex table ([`helpers.ts:78`](src/helpers.ts:78)) + indicator token definitions ([`daily-panel.ts:422`](src/components/daily-panel.ts:422))
+- [x] Confirm the four colliding colors: Red (`#e53935`≈`#db4437` Limit), Blue (`#03a9f4`=`#03a9f4` Dose Due, exact), Orange (`#fb8c00`≈`#f5a623` Overdue Amber, near), Green (`#43a047`=`#43a047` Logged, exact)
+- [x] Push back on device-info-dialog explainer placement; user confirmed editor helper text + README is preferred (co-located with the choice, no runtime clutter); Orange stays flagged per user
+
+### Implementation
+- [x] [`src/ax-dose-logger-editor.ts`](src/ax-dose-logger-editor.ts:177) — (a) reordered color_scheme dropdown: non-colliding hues first (default, yellow, purple, pink, teal, brown, coral, slate, gold, grey), then the four colliding colors last (Red, Blue, Orange, Green) each with a trailing ` *` appended via `localize('en', 'color.X') + ' *'` (option `value` strings unchanged → no config migration); (b) restructured the top of the schema into two rows after user feedback that the long helper cluttered the editor: Row 1 = 2-column grid of `device_id` | `name` (Device | Name Override, device keeps `required: true` inside the grid); Row 2 = `color_scheme` alone on its own full-width row so the helper has room to render on one line. Added an explanatory code comment block.
+- [x] [`src/localize.ts`](src/localize.ts:400) — set `config.helper.color_scheme` to the user's exact one-line wording: `'Accent color for the card. Colors with * match the medical button-state indicators and can blur the idle/active read — for more information see the README Button State Matrix.'` (the long paragraph version was reverted after user feedback that it cluttered ~40% of the top settings area; HA's schema helper renders as plain text so the README is referenced by name, not as a clickable link).
+- [x] [`README.md`](README.md:81) — Quick Start step 3 now references the starred-colors note; appended a new "⚠️ Color Scheme and Indicator Conflicts" subsection right after the Button State Matrix section listing the four collisions with hex values and the `*` marker convention.
+
+### Verification
+- [x] `yarn run build` — clean (exit 0, dist/ax-dose-logger-card.js created in 19.4s)
+- [x] Dist grep confirms all four starred labels present (`color.red') + ' *'`, `color.blue') + ' *'`, `color.orange') + ' *'`, `color.green') + ' *'` — count = 1 each)
+- [x] Dist grep confirms the expanded helper text present ("match the medical button-state indicators" — count = 1)
+- [x] No backend / coordinator / store / config-flow / types changes (frontend strings + editor option order only)
+- [x] No config migration (option `value` strings unchanged; only menu order + display labels + helper text changed)
+- [x] No projectstructure.md change (no files added/renamed/deleted; primary responsibilities unchanged)
+- [x] activeContext.md updated (new Current Status; prior archived per truncation rule)
+- [x] progress.md updated (this section; 2 oldest sections archived to memory-bank/old/progress-archive.md to stay near the ~400-line target)
+
+### Key decisions
+1. **Explainer in editor helper text, not the device-info dialog** — the device-info dialog (opened by pressing the drug title) is for device navigation, opened rarely and not at the moment of color choice; HA's standard pattern for field-level guidance is the `helper` text co-located with the field — visible exactly when picking the color, silent once configured, no recurring visual noise. User confirmed this placement.
+2. **Orange stays flagged** — `#fb8c00` (orange) is close enough to `#f5a623` (amber overdue) to confuse the at-a-glance read; flagging it is the conservative, safety-leaning choice. User confirmed.
+3. **`*` suffix appended in the editor, not in localize.ts** — keeps the i18n map clean (the asterisk is a UI annotation, not a translatable string); a future localized build isn't forced to translate the marker.
+4. **Reorder, don't remove** — the four colliding colors remain valid choices (some users may want the accent to match a specific indicator deliberately); the signage warns at the point of choice without restricting the option set.
+5. **No functional behavior change** — active-state classes still apply their own indicator colors when active; only the idle tint readability is affected, and only cosmetically. Documented as a readability concern, not a bug.
+
+## Medical Color Indicators Explainer Popup + Toggle (2026-08-10)
+**Feature**: Added an in-card, ha-dialog + ha-markdown explainer of the medical button-state indicator colors and the Color Scheme interference, reached via a secondary button in the device-info popup. Gated by a top-level config toggle `show_color_indicator_explainer` (default ON) so the button disappears entirely once learned. Frontend-only, no behavior change. Architecture plan: [`plans/color-indicators-explainer-popup-plan.md`](plans/color-indicators-explainer-popup-plan.md).
+
+### Motivation
+The prior signage task (starred dropdown colors + one-line helper pointing to the README) left no easily-accessible in-card explainer — the README is canonical but not discoverable at runtime. The user wanted an explainer easy to find but out of the way when learned. Reusing the established [`_renderSleepDisruptionDialog()`](src/ax-dose-logger-card.ts:1905) ha-dialog + `<ha-markdown>` popup pattern keeps it version-stable (no DOM injection) and consistent with existing card UX. The trigger lives in the device-info dialog (opened by pressing the drug title — the natural "tell me about this med" surface), not the editor, preserving the editor's compact layout.
+
+### Implementation
+- [x] [`src/types.ts`](src/types.ts:61) — added `show_color_indicator_explainer?: boolean;` to `AxDoseLoggerCardConfig` + `showColorExplainerDialog(): void;` to the `CardController` interface (near `showDeviceInfo`).
+- [x] [`src/ax-dose-logger-editor.ts`](src/ax-dose-logger-editor.ts:203) — top-level settings restructured into rows: Row 2 = **Color Scheme | Default View** (2-column grid); Row 3 = **Color Explainer Button | Hide Navigation Bar** (2-column grid; `show_color_indicator_explainer` `default: true` moved up beside Hide Nav Bar); Row 4 = Large Text | Bold Text. Color Scheme dropdown ordering unchanged.
+- [x] [`src/localize.ts`](src/localize.ts) — `config.show_color_indicator_explainer` label = "Color Explainer Button"; `config.helper.show_color_indicator_explainer` helper = "Show a Medical Color Indicators button in the device-info popup." (default-on note removed per user request); `config.helper.color_scheme` reworded to "Accent color for the card. *Press card title for more info on indicator colors and the starred colors."; added dialog keys `dialog.device_info.color_indicators` ("Medical Color Indicators"), `dialog.device_info.color_indicators_aria`, `dialog.color_indicators.title`, `dialog.color_indicators.close`, and `dialog.color_indicators.explainer` (joined multi-line markdown: indicator-color table + fixed-vs-tinted distinction + Color Scheme interference list with hex values + non-starred recommendation — mirrors the README "⚠️ Color Scheme and Indicator Conflicts" subsection).
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts:1318) — `_renderDeviceInfoDialog()` widened from `width="small"` → `width="medium"` + `.dialog-body--center` CSS changed to `flex-direction: column; align-items: center; gap: 12px;` so the two stacked buttons no longer touch + added scoped `.dialog-body--center .dialog-btn { width: 50%; box-sizing: border-box; }` so the stacked device-info buttons are half-width and centered (global `.dialog-btn` in other dialogs stays full-width).
+- [x] [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — (1) `@state() private _showColorExplainerDialog: boolean = false;`; (2) `public showColorExplainerDialog(): void` accessor; (3) `_showColorExplainerDialog` added to the `updated()` reactive-property whitelist; (4) reset to `false` in the disconnect cleanup block; (5) new `_renderColorExplainerDialog()` renderer (ha-dialog + `<ha-markdown .content>` + close button, mirroring the Sleep Disruption popup); (6) `_renderDeviceInfoDialog()` renders a second `.dialog-btn` (icon `mdi:palette-outline`, label `dialog.device_info.color_indicators`) below "To Device info" when `config.show_color_indicator_explainer !== false` — clicking it opens the explainer and closes the device-info dialog; (7) render call added to the main render.
+- [x] [`README.md`](README.md:148) — added a one-line note in the "⚠️ Color Scheme and Indicator Conflicts" subsection pointing to the in-card popup + fixed a missing blank line before the ACK-flash layout paragraph.
+
+### Verification
+- [x] `yarn run build` — clean (exit 0, dist/ax-dose-logger-card.js created in 3.3s)
+- [x] Dist grep confirms: `show_color_indicator_explainer` (count = 6), explainer markdown "Button State Indicator Colors" (count = 1), device-info button label `dialog.device_info.color_indicators` (count = 4), `showColorExplainerDialog` accessor (count = 9), `_renderColorExplainerDialog` renderer (count = 2)
+- [x] No backend / coordinator / store / config-flow changes (frontend dialog + config field only)
+- [x] No config migration (new optional boolean with documented default; existing configs render as today → default ON → button visible, via the negative-false check `!== false`)
+- [x] No projectstructure.md change (no files added/renamed/deleted; primary responsibilities unchanged)
+- [x] activeContext.md updated (new Current Status; prior Color-Scheme Signage + Hide Next:now kept as Previous Context; oldest Button State Matrix section archived to memory-bank/old/progress-archive.md)
+- [x] progress.md updated (this section; oldest section archived to memory-bank/old/progress-archive.md to stay near the ~400-line target)
+
+### Key decisions
+1. **Reuse the ha-dialog + ha-markdown popup pattern** — same as the Sleep Disruption popup; version-stable, no DOM injection, consistent card UX. Markdown content lives in `localize.ts` as a joined multi-line string.
+2. **Trigger in the device-info dialog, not the editor** — preserves the editor's compact layout (the long helper was the problem last round); the device-info dialog is the natural "tell me about this med" surface.
+3. **Toggle defaults ON** — discoverability for new users; turning it OFF hides the button entirely (no runtime clutter once learned). Negative-false check preserves existing configs without the field (default ON → button visible).
+4. **Markdown mirrors the README subsection** — single conceptual source of facts (README stays canonical; popup reuses the same indicator-color table + interference list for in-card convenience).
+5. **No migration / no functional behavior change** — new optional boolean + a new dialog; existing configs render as today. The indicator colors themselves are unchanged.
+
+---
+
+## Rapid Successive-Click Counter on ACK Flash (2026-08-10)
+
+**Feature:** The green "Logged" flash on the Take Pill and Log Drink buttons now visually tracks rapid back-to-back clicks. When the user taps again while the flash is still active, the text instantly updates to `Logged 2x`, `Logged 3x`, etc. and the fade timer resets; the first press shows the bare `Logged` (no `1x`). In the Big-tickmark layout (no text) a small green `Nx` badge appears below the tick when the count reaches 2 or more. Frontend-only, both buttons for parity. Architecture plan: [`plans/rapid-click-count-plan.md`](plans/rapid-click-count-plan.md).
+
+### Planning
+- [x] Step 1: Context grounding — read frontend memory-bank (activeContext + progress), [`daily-panel.ts`](src/components/daily-panel.ts), [`drinks-panel.ts`](src/components/drinks-panel.ts), [`ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) ACK state machine (`_triggerDailyAck` / `_triggerDrinksAck` / `disconnectedCallback` / render props), [`helpers.ts`](src/helpers.ts) (`ACK_INTRO_MS`, `ackActive`), [`localize.ts`](src/localize.ts) (`button.ack_text`)
+- [x] Step 2: Wrote architecture plan → [`plans/rapid-click-count-plan.md`](plans/rapid-click-count-plan.md) (state model, sequence diagram, panel render changes, CSS, disconnect hardening)
+- [x] Step 3: User confirmed scope — (a) both Take Pill + Log Drink buttons for parity; (b) `big` layout gets a small `Nx` badge below the tickmark when count ≥ 2 (not textless)
+- [x] Step 4: User approved the plan and switched to Code mode
+
+### Implementation
+- [x] Step 5: Container state — added `@state() _dailyAckCount: number = 0` + `@state() _drinksAckCount: number = 0` (zero ⟺ inactive, 1 ⟺ first press, 2+ ⟺ `Logged {n}x`); documented the rapid-click lifecycle in the field-group comment
+- [x] Step 6: Rewrote [`_triggerDailyAck()`](src/ax-dose-logger-card.ts:854) — increment-or-init: if `_dailyAckActive` true, `_dailyAckCount += 1`; else init to 1 + arm flag. Fade timer always cleared + re-armed (covers first + subsequent). On expiry both flag and counter reset together
+- [x] Step 7: Rewrote [`_triggerDrinksAck()`](src/ax-dose-logger-card.ts:885) — mirror of `_triggerDailyAck` with `_drinksAckCount`
+- [x] Step 8: Container render props — added `.ackCount=${this._dailyAckCount}` to the daily-panel render site and `.ackCount=${this._drinksAckCount}` to the drinks-panel render site
+- [x] Step 9: Container disconnect — extended [`disconnectedCallback()`](src/ax-dose-logger-card.ts:2415) to cancel `_dailyAckTimer` / `_drinksAckTimer` alongside the existing freeze-timer cancellation (hardening; ACK timers were previously left to fire harmlessly on a detached element)
+- [x] Step 10: Daily panel — added `@property ackCount: number = 0`; added `_ackLabelText()` helper returning `Logged` at count 1 and `Logged {n}x` at count ≥ 2; rewrote the ACK overlay render block to call `_ackLabelText()` for top/inline and render `<span class="ack-count-badge">Nx</span>` for big when count ≥ 2; added `.ack-count-badge` CSS scoped under `.ack-flash.ack-big`
+- [x] Step 11: Drinks panel — mirror of the daily panel (prop, helper, render block, CSS under `.log-drink-btn`)
+- [x] Step 12: Fixed CSS-comment backtick issue — the `.ack-count-badge` CSS comments used backticks (`` `big` ``) inside the `css` tagged template, which Lit's CSS compiler interpreted as template-literal interpolation and emitted TS1005 errors in drinks-panel.ts. Removed the backticks from the comments in both panels
+
+### Verification
+- [x] Step 13: `yarn run build` — exit 0, 3.8s, no TS errors (after the backtick fix)
+- [x] Step 14: Dist grep — `grep -c 'ackCount\|_dailyAckCount\|_drinksAckCount\|ack-count-badge\|_ackLabelText' dist/ax-dose-logger-card.js` = 29 matches (all new logic compiled in)
+
+### Documentation
+- [x] Step 15: [`README.md`](README.md) — added a "Rapid successive clicks" paragraph at the end of the Logged Dose Indicator section (text suffix on top/inline, `Nx` badge on big, counter resets on fade, pure visual tally)
+- [x] Step 16: `memory-bank/activeContext.md` — new Current Status; prior Color Indicators Explainer + Color-Scheme Signage kept as Previous Context
+- [x] Step 17: `memory-bank/progress.md` — this section
+- [x] Step 18: No `projectstructure.md` change (no files added/renamed/deleted; only in-place edits to 3 source files + new plan doc)
+
+### Key decisions
+1. **Counter coupled to the ACK flag lifecycle** — `_dailyAckCount === 0` iff inactive, so one source of truth clears itself on timer expiry. No second timer, no reset-on-expire edge case. Existing single-timer architecture preserved; only the bookkeeping inside it changes.
+2. **Both buttons for parity** — Take Pill and Log Drink share an identical ACK-flash state machine; the counter logic is mirrored on both.
+3. **`big` layout gets an `Nx` badge (user-confirmed)** — no text to append the suffix to, so a small green `Nx` badge renders below the tick when count ≥ 2. Satisfies "all the styles should have the 2x, 3x, 4x indicators always on" across all three ACK layouts.
+4. **Suffix built by interpolation, no new localize key** — `${base} ${count}x` off the existing `button.ack_text` (`"Logged"`). Matches the user's verbatim examples; a `button.ack_count_suffix` placeholder key can replace the literal `x` later if i18n needs it.
+5. **No new config option / no editor-schema change** — the counter is always-on behaviour. The fade duration (`ack_duration_ms`, default 3000), freeze window (`ACK_INTRO_MS`, 240ms), and layout (`ack_layout`) are unchanged.
+6. **Disconnect hardening** — the ACK fade timers are now cancelled in `disconnectedCallback` alongside the existing freeze-timer cancellation; previously they fired `requestUpdate` on a detached element (harmless but unclean).
+7. **CSS comment backtick fix** — backticks inside a `css` tagged template are interpreted as interpolation by Lit's CSS compiler; removed from the new comments in both panels. (The daily panel compiled clean on the first pass despite the same comment; the drinks-panel build surfaced the TS1005; both fixed for consistency.)
+8. **No backend / coordinator / store / config-flow / migration change** — each tap already fires `hass.callService('button','press')`; the counter is a pure UI affordance (running tally over the ACK window), not a new backend log.
+
+## keyed() Arrow-Function Bug Fix (2026-08-10)
+
+**Bug:** The fade-timer-reset feature uses Lit's `keyed()` directive to recreate the `.ack-flash` DOM subtree on each count change (restarting the CSS animation). The initial implementation passed an arrow function `keyed(this.ackCount, () => html\`...\`)` as the second argument, but `keyed()` expects a `TemplateResult` directly — `keyed(key, html\`...\`)`, not a function returning one. Lit rendered the arrow function's source code as a string on the button (visible as `() => b\`<div class="ack-flash...`).
+
+### Root cause
+- `keyed(key, value)` — `value` must be a `TemplateResult` (the direct result of `html\`...\``), NOT a function returning it. Passing `() => html\`...\`` causes Lit to coerce the function to a string, rendering its source code as visible text.
+
+### Checklist
+- [x] Step 1: Read both render blocks ([`daily-panel.ts:239`](src/components/daily-panel.ts:239), [`drinks-panel.ts:255`](src/components/drinks-panel.ts:255)) to confirm the `() =>` wrapper
+- [x] Step 2: Removed the `() =>` wrapper in both panels — `keyed(this.ackCount, html\`...\`)` instead of `keyed(this.ackCount, () => html\`...\`)`
+- [x] Step 3: `yarn run build` — exit 0, 3.7s, no TS errors
+- [x] Step 4: Dist grep — `grep -c '()=>b\`<div class="ack-flash' dist/ax-dose-logger-card.js` = 0 (bug pattern gone); `grep -c 'ack-count-badge'` = 4 (badge logic intact)
+
+### Key decisions
+1. **`keyed()` takes a TemplateResult, not a factory function** — unlike React's `key` prop or some render-prop patterns, Lit's `keyed(key, value)` expects the rendered content directly. The key change triggers a DOM teardown + recreate, so the `html\`...\`` is evaluated fresh each render anyway; wrapping it in a function defeats the purpose and gets stringified.
+2. **No CSS or state-machine change needed** — the bug was purely in the render-block argument shape; the `.ack-repeat` CSS class, the counter state machine, and the timer-reset logic were all correct.
+
+## shouldUpdate Whitelist — Invisible First Flash Fix (2026-08-10)
+
+**Bug:** The first "Logged" flash sometimes failed to render visually if the button was pressed right after the fade animation finished, but the click was registered (subsequent clicks showed "2x").
+
+### Root cause
+- The ACK state properties (`_dailyAckActive`, `_dailyAckCount`, `_drinksAckActive`, `_drinksAckCount`, `_dailyFrozenState`, `_drinksFrozenState`) were **not in the [`shouldUpdate`](src/ax-dose-logger-card.ts:2458) whitelist**. When the fade timer expired and set `_dailyAckActive = false` + `_dailyAckCount = 0` + called `requestUpdate()`, `shouldUpdate` returned `false` (no `hass` change, no whitelisted prop changed) — the `.ack-flash` div was never removed from the DOM. A rapid re-press with `ackCount = 1` (same key as the first press) reused the stale `keyed()` instance; the CSS animation did not restart and the flash was invisible. The second press incremented to `ackCount = 2` (different key), so `keyed()` recreated the DOM and the animation played — hence "2x" was visible but "1x" was not.
+
+### Checklist
+- [x] Step 1: Read [`shouldUpdate`](src/ax-dose-logger-card.ts:2458) + [`_relevantStateChanged`](src/ax-dose-logger-card.ts:2521) — confirmed ACK props not whitelisted
+- [x] Step 2: Added `_dailyAckActive`, `_dailyAckCount`, `_drinksAckActive`, `_drinksAckCount`, `_dailyFrozenState`, `_drinksFrozenState` to the `shouldUpdate` whitelist with explanatory comment
+- [x] Step 3: `yarn run build` — exit 0, 3.8s, no TS errors
+- [x] Step 4: Dist grep — `grep -c '_dailyAckActive\|_drinksAckActive\|_dailyAckCount\|_drinksAckCount\|_dailyFrozenState\|_drinksFrozenState' dist/ax-dose-logger-card.js` = 44 (up from 29; whitelist entries compiled in)
+
+### Key decisions
+1. **All six ACK/frozen-state props whitelisted** — the timer-expiry `requestUpdate()` now passes `shouldUpdate` because `_dailyAckActive` (and `_dailyAckCount`) are in the whitelist. The render fires, `ackActive` goes `false`, the `keyed()` block renders `nothing`, and the `.ack-flash` div is removed from the DOM. The next press creates a fresh element with a new CSS animation.
+2. **Frozen-state props also whitelisted** — `_dailyFrozenState` / `_drinksFrozenState` are set to `null` by the `ACK_INTRO_MS` (240ms) freeze timer's `requestUpdate()`. Without whitelisting, that cleanup render was also suppressed (harmless because the frozen state is only read during the freeze window, but unclean — and now consistent with the ACK timer cleanup).
+3. **No panel-level change needed** — the bug was purely in the container's `shouldUpdate` gate; the panel render blocks, `keyed()` usage, CSS, and state machine were all correct.

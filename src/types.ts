@@ -59,6 +59,11 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   big_text?: boolean;
   hide_nav_bar?: boolean;
   bold_text?: boolean;
+  /** Show a "Medical Color Indicators" explainer button in the device-info
+   *  popup. Default ON so new users can learn the indicator colors; turn OFF
+   *  to hide the button entirely once learned. Configured via the top-level
+   *  settings in the visual editor. */
+  show_color_indicator_explainer?: boolean;
   /** Show a confirmation popup before running any Tools panel action.
    *  Default ON (preserved via the negative-false check in the container).
    *  When set to false, Tools panel buttons fire their service call
@@ -455,6 +460,10 @@ export interface CardController {
   showDeviceInfo(): void;
   /** Open the device-info dialog targeted at a specific device (Inventory panel averages-box click). */
   showDeviceInfoFor(deviceId: string, name: string): void;
+  /** Open the Medical Color Indicators explainer popup (ha-dialog +
+   *  ha-markdown). Reached via a button in the device-info dialog when
+   *  `show_color_indicator_explainer` is not false. */
+  showColorExplainerDialog(): void;
   /** Open the shared tools confirmation dialog directly. */
   openToolsDialog(title: string, descriptor: string, onConfirm: () => void): void;
   /** Run a Tools panel action. Respects the `confirm_tool_actions` config:
