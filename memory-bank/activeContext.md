@@ -1,4 +1,25 @@
 ## Current Status
+**Complete**: HACS Foundational File Architecture (2026-08-11) — generated the foundational HACS-compliance file set for the frontend card repository so it meets the HACS default-repository inclusion standards for a **plugin** category repository. Three artefacts: (1) **NEW** [`.github/workflows/hacs.yaml`](.github/workflows/hacs.yaml) — a GitHub Actions CI/CD pipeline that triggers on `push` + `pull_request` to `main`, runs on `ubuntu-latest`, and executes `hacs/action@main` with `category: plugin` (HACS validation of the `hacs.json` schema, README presence, and filename reference). Uses `actions/checkout@v4` (v3 is deprecated since 2024-Q4). (2) **UPDATED** [`hacs.json`](hacs.json) — added the required `"render_readme": true` key (second position, governs HACS store-page README rendering) alongside the existing `name`, `filename`, `homeassistant`, `hacs` keys. (3) **NO CHANGE** to [`README.md`](README.md) — the existing 340-line production README already satisfies every HACS documentation requirement (integration overview, HACS install, manual install, 60-row configuration variables table); replacing it with a stripped template would be a regression. No backend changes (plugin-only repo; no Hassfest/Ruff workflows). Architecture plan: [`plans/hacs-foundational-architecture-plan.md`](plans/hacs-foundational-architecture-plan.md).
+
+**What Was Changed:**
+- [`.github/workflows/hacs.yaml`](.github/workflows/hacs.yaml) — NEW file. `name: HACS Validation`; `on: push/pull_request` to `main`; single `hacs` job on `ubuntu-latest`; two steps: `actions/checkout@v4` + `hacs/action@main` with `category: plugin`.
+- [`hacs.json`](hacs.json) — inserted `"render_readme": true` as the second key (between `name` and `filename`). Other keys unchanged (`filename: "ax-dose-logger-card.js"` matches the [`rollup.config.js`](rollup.config.js) output basename; `homeassistant: "2026.3.2"`, `hacs: "2.0.5"`).
+
+**Files Modified:** [`.github/workflows/hacs.yaml`](.github/workflows/hacs.yaml) (NEW), [`hacs.json`](hacs.json) (1 key added), [`plans/hacs-foundational-architecture-plan.md`](plans/hacs-foundational-architecture-plan.md) (NEW — this task's plan doc). No `README.md` change (already HACS-compliant). No `dist/` change (no source code touched). No `package.json`/`rollup.config.js`/`tsconfig.json` change.
+
+**Key Design Decisions:**
+1. **`category: plugin` (not `integration`)** — the repo is a Lovelace custom card (frontend), so the HACS action must validate against the plugin schema, not the integration schema. This is the single mandatory argument for a card repository's HACS workflow.
+2. **`hacs/action@main` pinned to `main`** — per the task spec and HACS community convention for plugin repositories; the action validates `hacs.json` structure, README presence, and the `filename` reference against the plugin schema.
+3. **`actions/checkout@v4`** — v3 is deprecated since 2024-Q4; v4 is the current stable checkout action. No `permissions:` block needed — `hacs/action` runs read-only validation; the default `GITHUB_TOKEN` read scope suffices.
+4. **`render_readme: true`** — required by the task; tells HACS to render the repo `README.md` on the HACS store page instead of a bare description. Placed as the second key (high in the object) since it governs store presentation.
+5. **README left untouched** — HACS only requires *presence* of a README with the repo name and install instructions; the existing doc already exceeds that bar (340 lines, full overview + HACS/manual install + 60-row config table). Replacing it with a stripped template would regress the repository. The user explicitly approved keeping the existing README.
+6. **No backend workflows** — this is strictly a plugin repository; Hassfest/Ruff belong in the backend repo (`/workspaces/Home-Assistant-Pill-Logger/`), not here.
+
+**Verification:** `python3 -m json.tool hacs.json` → VALID JSON; `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/hacs.yaml'))"` → VALID YAML; `grep render_readme hacs.json` → line 3 present; `grep 'category: plugin' .github/workflows/hacs.yaml` → line 18 present. No `yarn run build` needed (no `src/` changes — no compilation step affected).
+
+### Previous Context — archived on 2026-08-11 (Memory Leak Audit Round 2)
+
+**Previous Current Status:**
 **Complete**: Memory Leak & Best-Practices Audit (Round 2) — All 6 Findings Fixed (2026-08-11) — reviewed the entire frontend `src/` tree for memory leaks, HA guideline violations, and Lit anti-patterns. Cross-referenced the two prior audit plans against current source: confirmed 25 of 32 prior findings already fixed. Identified 6 new/remaining findings (N1–N6) and fixed all of them. The highest-impact fix is **N1**: `delayedAction()` was a plain function called inline in `render()` at 28 call sites — each call created a new closure on every render, causing `@click` listener re-binding churn + a stale-timer double-fire bug (a re-render within the 110ms delay replaced the closure, so the old timer fired against stale entity state, and rapid clicks bypassed the `clearTimeout` dedup → `button.press` could fire twice on a medical logger). Rewrote it as a Lit `AsyncDirective` (`DelayedActionDirective`) with stable wrapper identity (Lit memoizes the directive instance per binding position) + auto-cleanup via `disconnected()`. Architecture plan: [`plans/card-memory-leak-best-practices-audit-2.md`](plans/card-memory-leak-best-practices-audit-2.md).
 
 **What Was Changed:**
@@ -21,40 +42,15 @@
 
 **Verification:** `yarn run build` clean (exit 0, 4.8s). Dist grep: `DelayedActionDirective` + `_formStyleRefcount` + `_connected` = 15 matches in dist.
 
-### Previous Context — archived on 2026-08-11 (Memory Leak Audit Round 2)
+### Previous Context — archived on 2026-08-11 (Full Button + Icon Style Override Fix)
 
 **Previous Current Status:**
 **Complete**: Full Button + Icon Style Override Fix (2026-08-11) — fixed a CSS cascade bug where the **Full Button** Style only rendered correctly when the **Icon Style** was *None* or *Pulse Only*. When the user selected Full Button + *Colored* or *Colored + Pulse*, the button's state-color background + text were erased and replaced with the theme-tinted idle look — so Full Button appeared broken for those two Icon Style options. Root cause: a CSS specificity tie broken by source order. `_takeButtonClasses()` / `_logDrinkButtonClasses()` emit BOTH `full-{color}` AND `icon-{color}` classes when Style=full + Icon Style=color/color_pulse; the `.icon-{color}` selector block set `background-color`/`background-image`/`color` with equal specificity (0,2,0) to `.full-{color}` and was declared LATER in source order → won the cascade → erased the Full Button state-color tint. The `icon-{color}` background block was a leftover from the legacy pre-separation `icon` composite style; after the Icon Style Dropdown Separation (2026-08-10), every Style option (full/border/ring/none/glow) already emits its own background rule, making the `icon-{color}` background block always redundant. Its sole remaining job — recoloring the `<ha-icon>` child via `> ha-icon { color }` — was unaffected. Architecture plan: [`plans/full-button-icon-style-override-fix-plan.md`](plans/full-button-icon-style-override-fix-plan.md).
 
+### Previous Context — archived on 2026-08-11 (Color Explainer On-Time Window Text Update)
+
 **Previous Current Status:**
 **Complete**: Color Explainer — On-Time Window Text Update (2026-08-11) — updated the in-card Medical Color Indicators explainer popup + two visual-editor button-style helper strings in [`src/localize.ts`](src/localize.ts) to use the post-migration "on-time window" terminology. The popup's Blue/Amber table rows and two `config.helper.take_button_*_style` editor strings still said "adherence grace window" (the pre-2026-08-11 term) and described the boundary as the whole window instead of the half-window transition. The README Button State Matrix was already corrected during the On-Time Window — Overdue-Gate Fix + Hours→Minutes Migration; the explainer popup + editor helpers were missed. Architecture plan: [`plans/color-explainer-on-time-window-update-plan.md`](plans/color-explainer-on-time-window-update-plan.md).
-
-**Scope:** IN — text-only edits to the `dialog.color_indicators.explainer` markdown array (Blue row, Amber row, + 1 new explanatory paragraph) and two `config.helper.take_button_*_style` strings in [`src/localize.ts`](src/localize.ts). OUT — no backend, no types.ts, no editor, no config keys, no migration, no projectstructure.md change, no README change (already correct), no CSS/behavior change.
-
-**What Was Changed:**
-- [`src/localize.ts`](src/localize.ts:171) — `dialog.color_indicators.explainer` Blue row: "within the adherence grace window" → "within the first half of the on-time window".
-- [`src/localize.ts`](src/localize.ts:172) — Amber row: "past the adherence grace window" → "past half the on-time window".
-- [`src/localize.ts`](src/localize.ts:177) — added explanatory paragraph after the "fixed colors" line defining the on-time window, the half-window transition, and the all-scheduled-meds applicability.
-- [`src/localize.ts`](src/localize.ts:466) — `config.helper.take_button_execution_style`: "within the adherence grace window" → "within the first half of the on-time window".
-- [`src/localize.ts`](src/localize.ts:468) — `config.helper.take_button_latency_style`: "past the adherence grace window" → "past half the on-time window".
-- [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt (exit 0, 5.4s).
-
-**Key Design Decisions:** (1) terminology alignment with the 2026-08-11 On-Time Window migration; (2) half-window boundary wording mirrors the README Button State Matrix + helpers.ts resolveButtonState() logic; (3) added explanatory paragraph so the popup is self-contained; (4) editor helpers updated for full consistency; (5) no README change (already correct).
-
-**Verification:** `yarn run build` clean (exit 0, 5.4s). Dist grep: `adherence grace window` =0 (fully purged); `first half of the on-time window` =2; `past half the on-time window` =2; `on-time buffer you configured` =1.
-
-### Prior status — archived on 2026-08-11 (Color Explainer text update)
-
-**Previous Current Status:**
-**Complete**: Ambilight Glow Radius Halving (2026-08-11) — halved the spatial extent of the Ambilight Glow effect on the Take Pill and Log Drink buttons so it radiates out half as far. The glow radius is produced by two cooperating CSS values on each `.glow-backdrop`: the physical spill (`inset`) and the Gaussian diffusion (`filter:blur`). Both were halved together to preserve the ambilight falloff ratio (vibrant edge → quick falloff) at half the spatial extent.
-
-**What Was Changed:**
-- [`src/components/daily-panel.ts`](src/components/daily-panel.ts) — `.take-pill-wrap .glow-backdrop`: `inset: -18px` → `inset: -9px`; `border-radius: calc(var(--ha-card-border-radius, 12px) + 18px)` → `... + 9px`; `filter: blur(16px)` → `blur(8px)`.
-- [`src/components/drinks-panel.ts`](src/components/drinks-panel.ts) — `.log-drink-wrap .glow-backdrop`: same three property edits.
-- [`src/ax-dose-logger-card.ts`](src/ax-dose-logger-card.ts) — `.pane-selector` comment: "18px+16px glow diffusion" → "9px+8px glow diffusion" (comment-only).
-- [`dist/ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) — rebuilt (exit 0, 5.3s).
-
-**Key Design Decisions:** (1) halve BOTH `inset` AND `blur` together — halving only one distorts the falloff ratio; (2) halve the `border-radius` extension too so the rounded diffusion stays proportional; (3) comments updated alongside CSS; (4) render pipeline otherwise untouched.
 
 ---
 
