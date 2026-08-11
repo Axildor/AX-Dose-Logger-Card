@@ -1,0 +1,45 @@
+name: Release
+
+# Builds the card on every tag push, then attaches the compiled
+# `dist/ax-dose-logger-card.js` to the matching GitHub Release.
+#
+# Why this exists:
+#   HACS plugins must ship the compiled JS as a GitHub Release asset
+#   (the repo's `dist/` is intentionally gitignored).  Without an asset
+#   attached to the release, HACS reports:
+#     "Repository structure for <tag> is not compliant"
+#   This workflow automates that step so it can never be missed.
+#
+# The asset filename is preserved as `ax-dose-logger-card.js` to match
+# the `filename` declared in `hacs.json`.
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build card
+        run: yarn run build
+
+      - name: Attach ax-dose-logger-card.js to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ax-dose-logger-card.js

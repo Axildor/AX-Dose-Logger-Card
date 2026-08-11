@@ -39,6 +39,7 @@ The card requires the integration to be installed and configured first (see [Pre
   - [Stats (Drinks)](#-stats-drinks)
   - [Tools (Drinks)](#-tools-drinks)
 - [Configuration Options](#configuration-options-not-needed-for-reference-only)
+- [Releasing](#releasing)
 - [Full Documentation](#full-documentation)
 - [License](#license)
 
@@ -68,10 +69,36 @@ This card requires the **AX Dose Logger** integration to be installed and config
 
 ### Manual
 
-1. Download [`ax-dose-logger-card.js`](dist/ax-dose-logger-card.js) from this repository
+1. Download [`ax-dose-logger-card.js`](https://github.com/Axildor/AX-Dose-Logger-Card/releases) from the [latest release](https://github.com/Axildor/AX-Dose-Logger-Card/releases)
 2. Place it in your Home Assistant `www/` directory
 3. Add it as a dashboard resource (Settings → Dashboards → Resources → Add resource)
 4. URL: `/local/ax-dose-logger-card.js`, Type: JavaScript module
+
+---
+
+## Releasing
+
+This repository is a **HACS plugin**, not an integration. HACS expects the compiled
+card JavaScript to be shipped as a **GitHub Release asset** — the `dist/` directory
+is intentionally gitignored and never committed. If a release has no attached
+`ax-dose-logger-card.js`, HACS reports *"Repository structure for \<tag\> is not
+compliant"*.
+
+Releases are automated by the [`release.yaml`](.github/workflows/release.yaml)
+workflow: pushing a tag builds the card in CI and attaches
+`dist/ax-dose-logger-card.js` to the matching GitHub Release.
+
+```bash
+yarn install
+yarn run build
+git tag 1.0.1
+git push --tags   # triggers release.yaml → auto-attached JS asset
+```
+
+To attach the JS to an **existing** release (e.g. an older release created before
+the workflow existed), build locally and upload `dist/ax-dose-logger-card.js` via
+*Release → Edit → Attach binaries*. The asset filename must be exactly
+`ax-dose-logger-card.js` to match the `filename` declared in [`hacs.json`](hacs.json).
 
 ---
 
