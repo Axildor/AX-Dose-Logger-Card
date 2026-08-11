@@ -1,8 +1,12 @@
+[![GitHub Release](https://img.shields.io/github/v/release/Axildor/AX-Dose-Logger?style=flat-square)](https://github.com/Axildor/AX-Dose-Logger/releases)
+[![HACS Status](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
+[![Lint Status](https://img.shields.io/github/actions/workflow/status/Axildor/AX-Dose-Logger/lint.yml?branch=main&label=Lint&style=flat-square)](https://github.com/Axildor/AX-Dose-Logger/actions/workflows/lint.yml)
+[![Validate Status](https://img.shields.io/github/actions/workflow/status/Axildor/AX-Dose-Logger/validate.yml?branch=main&label=Validate&style=flat-square)](https://github.com/Axildor/AX-Dose-Logger/actions/workflows/validate.yml)
+[![Buy me a tea](https://img.shields.io/badge/Buy_me_a_tea-☕-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/axildor)
 # 💊 AX Dose Logger Card
 
 A custom Lovelace dashboard card for the [AX Dose Logger](https://github.com/Axildor/AX-Dose-Logger) Home Assistant integration — surfacing medications and drinks (caffeine & alcohol) with no template YAML and no Mushroom/Card-Mod dependencies.
 
-[![Buy me a tea](https://img.shields.io/badge/Buy_me_a_tea-☕-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/axildor)
 
 <!-- SCREENSHOT: Card showing the Daily tab — medication name, Take Pill button with next-dose countdown, pills safe to take, last dose, inventory count, custom boxes -->
 
