@@ -1,0 +1,23 @@
+# artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+.yarn/cache
+.yarn/install-state.gz
+.yarn/build-state.yml
+*.log
+
+
+# misc
+.vscode
+.DS_Store
+Thumbs.db
+coverage
+*.lcov
+
+
+# AI / local dev tools — not for distribution
+memory-bank/
+plans/
+.roo/
+UNIVERSAL_PROMPT.md
