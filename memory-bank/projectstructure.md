@@ -13,6 +13,7 @@
 ├── src/
 │   ├── ax-dose-logger-card.ts   # Main source — card class, getConfigForm() schema, CSS, registrations
 │   ├── ax-dose-logger-editor.ts # Visual editor (getConfigForm schema + computeLabel/computeHelper)
+│   ├── delayed-action.ts    # delayedAction(cb) helper — wraps @click in setTimeout(110ms) so <ha-ripple> renders before the Lit re-render truncates it
 │   ├── helpers.ts            # Shared state helpers (getState/getAttr/formatInteger/computeNextDose/...)
 │   ├── localize.ts           # Localization helper — localize() function + English translation map
 │   ├── types.ts              # Shared types (AxDoseLoggerCardConfig, ResolvedEntities, CardController, DrinkInfo)

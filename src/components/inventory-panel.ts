@@ -12,6 +12,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CardController, ResolvedEntities, AxDoseLoggerHass, DrinkInfo } from '../types.js';
 import { localize } from '../localize.js';
+import { delayedAction } from '../delayed-action.js';
 
 @customElement('ax-dose-inventory-panel')
 export class AxDoseInventoryPanel extends LitElement {
@@ -96,9 +97,10 @@ export class AxDoseInventoryPanel extends LitElement {
           role=${canRefill ? 'button' : nothing}
           tabindex=${canRefill ? '0' : nothing}
           aria-label=${localize(this._lang, 'dialog.refill.aria')}
-          @click=${canRefill && d.addStockEntityId ? () => c.showRefillDialogFor(d.addStockEntityId, d.name) : null}
+          @click=${canRefill && d.addStockEntityId ? delayedAction(() => c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
           @keydown=${canRefill ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => d.addStockEntityId && c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
         >
+          ${canRefill ? html`<ha-ripple></ha-ripple>` : nothing}
           <div class="stat-pill-header">
             <ha-icon icon="${substanceIcon}"></ha-icon>
             <div class="stat-text">
@@ -116,10 +118,11 @@ export class AxDoseInventoryPanel extends LitElement {
         <div class="avg-cell"
              role="button" tabindex="0"
              aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${() => c.showDeviceInfoFor(d.deviceId, d.name)}
+             @click=${delayedAction(() => c.showDeviceInfoFor(d.deviceId, d.name))}
              @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showDeviceInfoFor(d.deviceId, d.name))}
         >
-          <div class="avg-line">
+           <ha-ripple></ha-ripple>
+           <div class="avg-line">
             <span class="avg-label">${localize(this._lang, 'inventory.avg_7_day')}</span>
             <span class="avg-value">${avg7Display}</span>
           </div>
@@ -135,6 +138,11 @@ export class AxDoseInventoryPanel extends LitElement {
   static styles = css`
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     /* ── Container parity with the Stats pane (.pane-stats) ── */
     .pane-inventory {
@@ -184,6 +192,10 @@ export class AxDoseInventoryPanel extends LitElement {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       border-radius: 10px;
       transition: background 0.15s ease;
+      /* position:relative + overflow:hidden clip the ha-ripple surface to the
+         box's rounded border (MdRipple geometry requirement). */
+      position: relative;
+      overflow: hidden;
     }
     .stat-pill.clickable {
       cursor: pointer;
@@ -266,6 +278,9 @@ export class AxDoseInventoryPanel extends LitElement {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       cursor: pointer;
       transition: background 0.15s ease;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
     }
     .avg-cell:hover {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);

@@ -11,6 +11,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CardController, ResolvedEntities, AxDoseLoggerHass } from '../types.js';
 import { localize } from '../localize.js';
+import { delayedAction } from '../delayed-action.js';
 
 @customElement('ax-dose-stats-panel')
 export class AxDoseStatsPanel extends LitElement {
@@ -144,9 +145,10 @@ export class AxDoseStatsPanel extends LitElement {
               class="stat-cell ${row.entityId ? 'clickable' : ''}"
               role=${row.entityId ? 'button' : nothing}
               tabindex=${row.entityId ? '0' : nothing}
-              @click=${row.entityId ? () => this.controller.openMoreInfo(row.entityId!) : undefined}
+              @click=${row.entityId ? delayedAction(() => this.controller.openMoreInfo(row.entityId!)) : undefined}
               @keydown=${row.entityId ? (ev: KeyboardEvent) => this.controller.onStatCellKeydown(ev, row.entityId!) : undefined}
             >
+              ${row.entityId ? html`<ha-ripple></ha-ripple>` : nothing}
               <div class="stat-cell-header">
                 <ha-icon icon="${row.icon}"></ha-icon>
                 <span class="stat-cell-label">${row.label}</span>
@@ -162,6 +164,11 @@ export class AxDoseStatsPanel extends LitElement {
   static styles = css`
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     .pane-stats {
       display: flex;
@@ -186,6 +193,9 @@ export class AxDoseStatsPanel extends LitElement {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       border-radius: 10px;
       transition: background 0.15s ease;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
     }
 
     .stat-cell.clickable {

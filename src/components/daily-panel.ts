@@ -10,10 +10,11 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { ActionConfig } from 'custom-card-helpers';
-import type { CardController, ResolvedEntities, AxDoseLoggerHass, ButtonStateStyle, AckLayout, GlowSpeed } from '../types.js';
+import type { CardController, ResolvedEntities, AxDoseLoggerHass, ButtonStateStyle, IconStyle, AckLayout, RingSpeed } from '../types.js';
 import type { ButtonState } from '../helpers.js';
 import { localize } from '../localize.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { delayedAction } from '../delayed-action.js';
 
 @customElement('ax-dose-daily-panel')
 export class AxDoseDailyPanel extends LitElement {
@@ -32,7 +33,7 @@ export class AxDoseDailyPanel extends LitElement {
   // ── Button State Matrix (Prosumer UI) ──
   // Resolved ButtonState from the container's _computeDailyButtonState(). The
   // panel maps it to a CSS class string using the per-state style option +
-  // pulse toggle from the card config. 'idle' renders no state class (theme
+  // icon style option from the card config. 'idle' renders no state class
   // default). See plans/button-state-matrix-plan.md.
   @property({ attribute: false }) buttonState: ButtonState = 'idle';
   // Transient ACK flag from the container (mirrors buttonState==='ack' but
@@ -52,55 +53,107 @@ export class AxDoseDailyPanel extends LitElement {
   /**
    * Build the CSS class string for the Take Pill button from the resolved
    * ButtonState + the per-state style option + pulse toggle in the card
-   * config. Maps the 7 style options (full / icon / border / icon_border /
-   * none / glow / icon_glow) onto state-color class pairs. The 'idle' state
-   * renders only the base button (no color override). Returns the full
-   * class list including the base 'take-pill-btn'.
+   * config. Maps the 4 style options (full / border / none / ring) + 4
+   * icon style options (none / color / color_pulse / pulse) onto
+   * state-color class pairs. The 'auto' sentinel resolves to the per-state
+   * default at runtime. The 'idle' state renders only the base button (no
+   * color override). Returns the full class list including the base
+   * 'take-pill-btn'.
    */
   private _takeButtonClasses(): string {
     const state = this.buttonState;
     const cfg = this.controller.config;
-    // State → color token + configured style option + pulse toggle.
+    // Per-state defaults (used when value is 'auto' or undefined).
+    const STATE_DEFAULTS = {
+      lockout:   { style: 'full' as ButtonStateStyle,  iconStyle: 'none' as IconStyle },
+      execution: { style: 'none' as ButtonStateStyle,  iconStyle: 'color' as IconStyle },
+      latency:   { style: 'border' as ButtonStateStyle, iconStyle: 'color_pulse' as IconStyle },
+    };
+    // State → color token + configured style + icon_style (auto resolves).
     let style: ButtonStateStyle = 'none';
-    let pulse = false;
-    if (state === 'lockout') {
-      style = cfg?.take_button_lockout_style ?? 'full';
-      pulse = cfg?.take_button_lockout_pulse ?? false;
+    let iconStyle: IconStyle = 'none';
+    if (state === 'lockout' || state === 'limit_24h') {
+      // limit_24h inherits ALL lockout style config (same red color, same
+      // CSS classes, same take_button_lockout_style/_icon_style fields).
+      // Only the label + override dialog text differ.
+      const d = STATE_DEFAULTS.lockout;
+      style = cfg?.take_button_lockout_style ?? d.style;
+      if (style === 'auto') style = d.style;
+      iconStyle = cfg?.take_button_lockout_icon_style ?? d.iconStyle;
+      if (iconStyle === 'auto') iconStyle = d.iconStyle;
     } else if (state === 'execution') {
-      style = cfg?.take_button_execution_style ?? 'icon';
-      pulse = cfg?.take_button_execution_pulse ?? false;
+      const d = STATE_DEFAULTS.execution;
+      style = cfg?.take_button_execution_style ?? d.style;
+      if (style === 'auto') style = d.style;
+      iconStyle = cfg?.take_button_execution_icon_style ?? d.iconStyle;
+      if (iconStyle === 'auto') iconStyle = d.iconStyle;
     } else if (state === 'latency') {
-      style = cfg?.take_button_latency_style ?? 'icon_border';
-      pulse = cfg?.take_button_latency_pulse ?? true;
+      const d = STATE_DEFAULTS.latency;
+      style = cfg?.take_button_latency_style ?? d.style;
+      if (style === 'auto') style = d.style;
+      iconStyle = cfg?.take_button_latency_icon_style ?? d.iconStyle;
+      if (iconStyle === 'auto') iconStyle = d.iconStyle;
     } else {
       // idle — no color, no style option (theme default).
       return this.ackActive ? 'take-pill-btn ack-flash' : 'take-pill-btn';
     }
     // State → color name.
-    const color = state === 'lockout' ? 'red'
+    const color = (state === 'lockout' || state === 'limit_24h') ? 'red'
       : state === 'execution' ? 'blue'
       : state === 'latency' ? 'amber'
       : 'green'; // ack
-    // Style option → class fragments.
+    // Style option → class fragments (5 options; auto already resolved).
     const classes: string[] = ['take-pill-btn', `state-${state}`];
     if (style === 'full') classes.push(`full-${color}`);
-    if (style === 'icon' || style === 'icon_border' || style === 'icon_glow') classes.push(`icon-${color}`);
-    if (style === 'border' || style === 'icon_border') classes.push(`border-${color}`);
-    if (style === 'glow' || style === 'icon_glow') classes.push(`glow-${color}`);
+    if (style === 'border') classes.push(`border-${color}`);
+    if (style === 'ring') classes.push(`ring-${color}`);
+    if (style === 'glow') classes.push(`style-none`);  // glow renders on the wrapper backdrop, not the button face
     if (style === 'none') classes.push(`style-none`);
-    if (pulse) classes.push('pulse');
+    // Icon Style option → class fragments (2x2 matrix; auto resolved).
+    if (iconStyle === 'color' || iconStyle === 'color_pulse') classes.push(`icon-${color}`);
+    if (iconStyle === 'color_pulse' || iconStyle === 'pulse') classes.push('pulse');
     // ACK overlay is a pure flash layered on top of the true state — it does
-    // not recolor the button, so the real state stays correct underneath.
+    //    not recolor the button, so the real state stays correct underneath.
     if (this.ackActive) classes.push('ack-flash');
     return classes.join(' ');
   }
 
-  /** Resolve the rotating border-glow animation duration (CSS string) from the
-   *  per-button glow_speed config. 'medium' (4s) is the default. See plans/
-   *  glow-speed-and-ack-style-plan.md. */
-  private _glowDuration(): string {
-    const speed: GlowSpeed = this.controller.config?.take_button_glow_speed ?? 'medium';
+  /** Resolve the rotating ring animation duration (CSS string) from the
+   *  per-button ring_speed config. 'medium' (4s) is the default. Shared by
+   *  the ring sweep and the ambilight glow breathing animation. See plans/
+   *  ambilight-glow-style-plan.md. */
+  private _ringDuration(): string {
+    const speed: RingSpeed = this.controller.config?.take_button_ring_speed ?? 'medium';
     return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+  }
+
+  /** Resolve the wrapper class for the ambilight glow backdrop. Returns ''
+   *  when the resolved style is not 'glow' (backdrop hidden, no GPU layer).
+   *  The glow-{color} class goes on the WRAPPER (not the button) because the
+   *  button has overflow:hidden which would clip the bleeding backdrop. See
+   *  plans/architecture-rollback-z-axis-stacking-plan.md. */
+  private _takeGlowWrapClass(): string {
+    const state = this.buttonState;
+    const cfg = this.controller.config;
+    // Re-resolve the style using the same defaults as _takeButtonClasses.
+    let style: ButtonStateStyle = 'none';
+    if (state === 'lockout' || state === 'limit_24h') {
+      style = cfg?.take_button_lockout_style ?? 'full';
+      if (style === 'auto') style = 'full';
+    } else if (state === 'execution') {
+      style = cfg?.take_button_execution_style ?? 'none';
+      if (style === 'auto') style = 'none';
+    } else if (state === 'latency') {
+      style = cfg?.take_button_latency_style ?? 'border';
+      if (style === 'auto') style = 'border';
+    } else {
+      return ''; // idle — no glow
+    }
+    if (style !== 'glow') return '';
+    const color = (state === 'lockout' || state === 'limit_24h') ? 'red'
+      : state === 'execution' ? 'blue'
+      : state === 'latency' ? 'amber' : 'green';
+    return `glow-${color}`;
   }
 
   /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
@@ -212,25 +265,33 @@ export class AxDoseDailyPanel extends LitElement {
         <div class="med-name"
              role="button" tabindex="0"
              aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${() => c.showDeviceInfo()}
+             @click=${delayedAction(() => c.showDeviceInfo())}
              @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showDeviceInfo())}
-        >${c.getMedName(e)}</div>
+        ><ha-ripple></ha-ripple>${c.getMedName(e)}</div>
 
         <div class="daily-main">
-          <button
-            class=${this._takeButtonClasses()}
-            style=${[
-              `--glow-duration: ${this._glowDuration()}`,
-              this.ackActive ? `--ack-duration: ${this.controller.config?.take_button_ack_duration_ms ?? 3000}ms` : '',
-            ].filter(Boolean).join('; ')}
-            aria-label=${this.buttonState === 'lockout'
-              ? localize(this._lang, 'aria.take_pill_limit')
-              : (c.config?.take_pill_label || localize(this._lang, 'aria.take_pill_safe'))}
-            @click=${() => c.handleTakePill(e)}
+          <div class="take-pill-wrap${this._takeGlowWrapClass() ? ' ' + this._takeGlowWrapClass() : ''}"
+               style=${`--ring-duration: ${this._ringDuration()}`}
           >
-            <div class="glow-track"></div>
-            <ha-icon icon="${this.buttonState === 'lockout' ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
-            <span class="take-label">${this.buttonState === 'lockout' ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
+            <div class="glow-backdrop"></div>
+            <button
+              class=${this._takeButtonClasses()}
+              style=${this.ackActive ? `--ack-duration: ${this.controller.config?.take_button_ack_duration_ms ?? 3000}ms` : ''}
+              aria-label=${this.buttonState === 'lockout'
+                ? localize(this._lang, 'aria.take_pill_limit')
+                : this.buttonState === 'limit_24h'
+                ? localize(this._lang, 'aria.take_pill_24h_limit')
+                : (c.config?.take_pill_label || localize(this._lang, 'aria.take_pill_safe'))}
+              @click=${delayedAction(() => c.handleTakePill(e))}
+            >
+              <div class="ring-track"></div>
+              <ha-ripple></ha-ripple>
+            <ha-icon icon="${(this.buttonState === 'lockout' || this.buttonState === 'limit_24h') ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
+            <span class="take-label">${this.buttonState === 'lockout'
+              ? localize(this._lang, 'daily.limit_reached')
+              : this.buttonState === 'limit_24h'
+              ? localize(this._lang, 'daily.24h_limit_reached')
+              : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
               ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
               : (nextDose !== 'Unavailable' && nextDose !== 'now'
@@ -246,18 +307,20 @@ export class AxDoseDailyPanel extends LitElement {
                     : nothing)}
               </div>
             `) : nothing}
-          </button>
+            </button>
+          </div>
 
           <div class="stats-column">
             <div class="stat-pill ${safeBoxClickable ? 'clickable' : ''}"
                  role="button"
                  tabindex=${safeBoxClickable ? '0' : nothing}
                  aria-label=${c.config?.safe_to_take_label || topDefaultLabel}
-                 @click=${safeBoxClickable ? (ev: MouseEvent) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity) : null}
+                 @click=${safeBoxClickable ? delayedAction((ev: MouseEvent) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @keydown=${safeBoxClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleSafeBoxAction(null, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleSafeBoxAction(null, 'hold', safeBoxActionConfig, displayEntity); } : null}
                  @dblclick=${hasDblClick ? () => c.handleSafeBoxAction(null, 'double_tap', safeBoxActionConfig, displayEntity) : null}>
-              <ha-icon icon="${c.config?.safe_to_take_icon || topDefaultIcon}"></ha-icon>
+              ${safeBoxClickable ? html`<ha-ripple></ha-ripple>` : nothing}
+               <ha-icon icon="${c.config?.safe_to_take_icon || topDefaultIcon}"></ha-icon>
               <span class="stat-label">${c.config?.safe_to_take_label || topDefaultLabel}</span>
               <span class="stat-value">${displayIsUnknown
                 ? localize(this._lang, 'daily.na')
@@ -282,11 +345,12 @@ export class AxDoseDailyPanel extends LitElement {
                  role="button"
                  tabindex=${pillsLeftClickable ? '0' : nothing}
                  aria-label=${c.config?.pills_left_label || pillsLeftDefaultLabel}
-                 @click=${pillsLeftClickable ? (ev: MouseEvent) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback) : null}
+                 @click=${pillsLeftClickable ? delayedAction((ev: MouseEvent) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
                  @keydown=${pillsLeftClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handlePillsLeftBoxAction(null, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
                  @contextmenu=${plHasHold ? (ev: Event) => { ev.preventDefault(); c.handlePillsLeftBoxAction(null, 'hold', pillsLeftActionConfig, pillsLeftDisplayEntity); } : null}
                  @dblclick=${plHasDblClick ? () => c.handlePillsLeftBoxAction(null, 'double_tap', pillsLeftActionConfig, pillsLeftDisplayEntity) : null}>
-              <ha-icon icon="${c.config?.pills_left_icon || pillsLeftDefaultIcon}"></ha-icon>
+              ${pillsLeftClickable ? html`<ha-ripple></ha-ripple>` : nothing}
+               <ha-icon icon="${c.config?.pills_left_icon || pillsLeftDefaultIcon}"></ha-icon>
               <span class="stat-label">${c.config?.pills_left_label || pillsLeftDefaultLabel}</span>
               <span class="stat-value">${pillsLeftUnknown
                 ? localize(this._lang, 'daily.na')
@@ -344,13 +408,14 @@ export class AxDoseDailyPanel extends LitElement {
                       role="button"
                       tabindex="0"
                       aria-label=${chipName}
-                      @click=${(ev: MouseEvent) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId)}
+                      @click=${delayedAction((ev: MouseEvent) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
                       @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleChipAction(null, 'tap', chipActionCfg, chip.entityId))}
                       @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
                       @dblclick=${hasDblClick ? () => c.handleChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
-                      ${chip.showIcon
-                        ? html`<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
-                        : nothing}
+                      <ha-ripple></ha-ripple>
+                       ${chip.showIcon
+                         ? html`<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
+                         : nothing}
                       <span class="chip-name">${chipName}</span>
                       <span class="chip-value">${chipValue}</span>
                     </div>
@@ -369,6 +434,12 @@ export class AxDoseDailyPanel extends LitElement {
        --pill-font-weight-boost is 1.5 (on) or 1 (off), injected on <ha-card>. */
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). Per-element overrides below
+         set the ripple colour to the element's own identity colour. */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     .pane-daily {
       display: flex;
@@ -382,6 +453,11 @@ export class AxDoseDailyPanel extends LitElement {
       color: var(--primary-text-color, #222);
       text-align: center;
       cursor: pointer;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--ha-card-border-radius, 12px);
+      z-index: 1;  /* global z-axis protection — glow bleeds behind title (Patch 1, belt-and-suspenders) */
     }
 
     .daily-main {
@@ -393,6 +469,23 @@ export class AxDoseDailyPanel extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      flex: 1;
+      position: relative;  /* global z-axis protection — glow bleeds behind stats (Patch 1, belt-and-suspenders) */
+      z-index: 1;
+    }
+
+    /* Wrapper for the ambilight glow backdrop. Becomes the .daily-main flex
+       child (replaces the button's flex role). isolation:isolate + z-index:0
+       spawn a localized z-axis boundary so the backdrop's z-index:-1 can't
+       bleed behind the card background. NO overflow:hidden — the backdrop
+       must bleed freely beyond the button (the button keeps its own
+       overflow:hidden for ring-track/ripple clipping). See plans/
+       architecture-rollback-z-axis-stacking-plan.md. */
+    .take-pill-wrap {
+      position: relative;
+      z-index: 0;
+      isolation: isolate;
+      display: flex;
       flex: 1;
     }
 
@@ -407,10 +500,11 @@ export class AxDoseDailyPanel extends LitElement {
       border-radius: var(--ha-card-border-radius, 12px);
       font-family: inherit;
       cursor: pointer;
-      transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+      transition: background 0.2s, box-shadow 0.2s;
       position: relative;
       overflow: hidden;
       flex: 1;
+      z-index: 1;  /* stack above the .glow-backdrop (z-index:-1) */
       /* Reserve the full two-line-sub-text button height permanently. The
          button's justify-content: center distributes the reserved height as
          symmetric top/bottom padding around the icon + take-label + sub-text
@@ -426,15 +520,35 @@ export class AxDoseDailyPanel extends LitElement {
       min-height: 8em;
     }
 
-    .take-pill-btn:active {
-      transform: scale(0.96);
+    /* :active scale transform removed — ha-ripple provides the press feedback
+       (Material Design radiating circle), so the physical compression is
+       redundant and can fight the ripple's layout. */
+    /* ha-ripple sits above the .ring-track (z-index 0) AND above the
+       .ack-flash overlay (z-index 2) so the native ripple keeps radiating
+       over the opaque green "Logged" surface after an ACK press. The
+       ripple fires at pointerdown (t=0) and animates ~300ms; the green
+       overlay mounts ~110ms later (delayedAction), so raising the ripple
+       to z-index 3 lets the user see press feedback even when their
+       finger covers the Nx text. Matches Mushroom template-card
+       layering (ripple renders over content). */
+    .take-pill-btn > ha-ripple {
+      z-index: 3;
     }
+    /* State-coloured ripples — the press feedback colour matches the button's
+       current medical state (richer than Mushroom's single colour, fits the
+       Button State Matrix). The ACK state uses a light tint so the ripple
+       reads on the opaque dark-green overlay surface (#212c22). */
+    .take-pill-btn.state-lockout { --ha-ripple-color: var(--btn-red); }
+    .take-pill-btn.state-limit_24h { --ha-ripple-color: var(--btn-red); }
+    .take-pill-btn.state-execution { --ha-ripple-color: var(--btn-blue); }
+    .take-pill-btn.state-latency { --ha-ripple-color: var(--btn-amber); }
+    .take-pill-btn.ack-flash { --ha-ripple-color: #ffffff; }
 
     /* ── Button State Matrix (Prosumer UI) ──
        Replaces the prior binary .safe/.danger classes with a 5-state, 7-style-
        option system. The default (idle / no state class) keeps the original
        theme-tinted look. Each colored state composes a state-color class
-       (e.g. .full-red, .icon-blue, .border-amber, .glow-green) from the panel's
+       (e.g. .full-red, .icon-blue, .border-amber, .ring-green) from the panel's
        _takeButtonClasses() helper. See plans/button-state-matrix-plan.md. */
 
     /* State color tokens (CSS vars so the rules below stay generic). */
@@ -455,44 +569,45 @@ export class AxDoseDailyPanel extends LitElement {
       --btn-green-soft: #212c22;
     }
 
-    /* Base idle state (no state class) — original theme-tinted safe look. */
-    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack) {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    /* Base idle state (no state class) — original theme-tinted safe look.
+       Gradient-stack surface: opaque --card-background-color base wall blocks
+       the ambilight backlight; flat rgba(...,0.12) tint layer (linear-gradient
+       with identical stops = flat color) restores the perceptual tint. See
+       plans/gradient-stacking-material-synthesis-plan.md. */
+    .take-pill-btn:not(.state-lockout):not(.state-limit_24h):not(.state-execution):not(.state-latency):not(.state-ack) {
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
-    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack):hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    .take-pill-btn:not(.state-lockout):not(.state-limit_24h):not(.state-execution):not(.state-latency):not(.state-ack):hover {
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.2), rgba(var(--rgb-primary-color, 3, 169, 244), 0.2));
     }
 
-    /* Option 1 — Full Button (per color). */
-    .take-pill-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
-    .take-pill-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
-    .take-pill-btn.full-blue   { background: rgba(var(--rgb-btn-blue), 0.12); color: var(--btn-blue); }
-    .take-pill-btn.full-blue:hover   { background: rgba(var(--rgb-btn-blue), 0.2); }
-    .take-pill-btn.full-amber  { background: rgba(var(--rgb-btn-amber), 0.12);color: var(--btn-amber); }
-    .take-pill-btn.full-amber:hover  { background: rgba(var(--rgb-btn-amber), 0.2); }
-    .take-pill-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
-    .take-pill-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+    /* Option 1 — Full Button (per color). Gradient-stack surface: opaque
+       --card-background-color base wall blocks the ambilight backlight; flat
+       rgba(var(--rgb-btn-*),0.12) tint layer restores the identity-color tint.
+       See plans/gradient-stacking-material-synthesis-plan.md. */
+    .take-pill-btn.full-red    { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.12), rgba(var(--rgb-btn-red), 0.12));    color: var(--btn-red); }
+    .take-pill-btn.full-red:hover    { background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.2), rgba(var(--rgb-btn-red), 0.2)); }
+    .take-pill-btn.full-blue   { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-blue), 0.12), rgba(var(--rgb-btn-blue), 0.12));   color: var(--btn-blue); }
+    .take-pill-btn.full-blue:hover   { background-image: linear-gradient(rgba(var(--rgb-btn-blue), 0.2), rgba(var(--rgb-btn-blue), 0.2)); }
+    .take-pill-btn.full-amber  { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-amber), 0.12), rgba(var(--rgb-btn-amber), 0.12));  color: var(--btn-amber); }
+    .take-pill-btn.full-amber:hover  { background-image: linear-gradient(rgba(var(--rgb-btn-amber), 0.2), rgba(var(--rgb-btn-amber), 0.2)); }
+    .take-pill-btn.full-green { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.12), rgba(var(--rgb-btn-green), 0.12)); color: var(--btn-green); }
+    .take-pill-btn.full-green:hover { background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.2), rgba(var(--rgb-btn-green), 0.2)); }
 
-    /* Option 2 — Icon only (button bg stays theme default, icon recolored).
-       The > child combinator scopes the recolor to the button's OWN icon
-       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
-       so it keeps its own color from .ack-flash. See plans/
-       ack-clarity-and-softening-plan.md (Issue 1). */
+    /* Option 2 — Icon recolor only (Icon Style: color / color_pulse). The >
+       child combinator scopes the recolor to the button's OWN icon only — the
+       nested ACK tick is excluded so it keeps its own color. Do NOT set
+       background/color here: every Style option emits its own bg rule with
+       equal specificity, and a bg here would tie with .full-{color} and win
+       by source order, erasing the Full Button tint (bug: Full Button only
+       worked with Icon Style None or Pulse Only). See plans/
+       full-button-icon-style-override-fix-plan.md. */
     .take-pill-btn.icon-red > ha-icon    { color: var(--btn-red); }
     .take-pill-btn.icon-blue > ha-icon   { color: var(--btn-blue); }
     .take-pill-btn.icon-amber > ha-icon  { color: var(--btn-amber); }
     .take-pill-btn.icon-green > ha-icon  { color: var(--btn-green); }
-    /* Icon-only states still use the theme default bg so they read as "safe". */
-    .take-pill-btn.icon-red, .take-pill-btn.icon-blue,
-    .take-pill-btn.icon-amber, .take-pill-btn.icon-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      color: var(--primary-color, #03a9f4);
-    }
-    .take-pill-btn.icon-red:hover, .take-pill-btn.icon-blue:hover,
-    .take-pill-btn.icon-amber:hover, .take-pill-btn.icon-green:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-    }
 
     /* Option 3 — Border only (inset box-shadow so the button does not grow;
        a real border would add 2px to the outer size on each side). */
@@ -502,31 +617,33 @@ export class AxDoseDailyPanel extends LitElement {
     .take-pill-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
     .take-pill-btn.border-red, .take-pill-btn.border-blue,
     .take-pill-btn.border-amber, .take-pill-btn.border-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
 
-    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+    /* Option 6 — Rotating Ring (Apple Intelligence perimeter sweep).
        TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
        cannot share one element — oversizing moves the mask's content-box ring
        off the button, where overflow:hidden clips it away → nothing renders).
-       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       Layer 1 .ring-track: button-sized (inset 0), holds the mask that carves
        the 2px ring on the button edge + overflow:hidden to clip the rotating
-       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       child to the rounded perimeter. Layer 2 .ring-track::before: oversized
        (inset -150%) rotating gradient source; the track's mask carves the ring
        from this rotating gradient. transform animates without @property. */
-    @keyframes ax-btn-glow-sweep { to { transform: rotate(360deg); } }
-    .take-pill-btn.glow-red, .take-pill-btn.glow-blue,
-    .take-pill-btn.glow-amber, .take-pill-btn.glow-green {
+    @keyframes ax-btn-ring-sweep { to { transform: rotate(360deg); } }
+    .take-pill-btn.ring-red, .take-pill-btn.ring-blue,
+    .take-pill-btn.ring-amber, .take-pill-btn.ring-green {
       position: relative;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
        exactly on the button edge. padding:2px defines the ring thickness;
        border-radius:inherit follows the rounded corners; overflow:hidden clips
        the rotating child to the perimeter. */
-    .take-pill-btn .glow-track {
+    .take-pill-btn .ring-track {
       position: absolute;
       inset: 0;
       padding: 2px;
@@ -545,24 +662,82 @@ export class AxDoseDailyPanel extends LitElement {
        (button-sized) so its rotating square always covers the track at every
        angle (no corner gaps). The track's mask carves the 2px ring from this
        rotating gradient. */
-    .take-pill-btn .glow-track::before {
+    .take-pill-btn .ring-track::before {
       content: '';
       position: absolute;
       inset: -150%;
-      animation: ax-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+      animation: ax-btn-ring-sweep var(--ring-duration, 2.2s) linear infinite;
     }
     /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
        153deg = 50% of the line) so the state color stays unambiguous; a
        white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
        crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
-    .take-pill-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .take-pill-btn.glow-blue .glow-track::before   { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-blue)   76.5deg, var(--btn-blue)   229.5deg, color-mix(in srgb, var(--btn-blue)   60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .take-pill-btn.glow-amber .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-amber)  76.5deg, var(--btn-amber)  229.5deg, color-mix(in srgb, var(--btn-amber)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .take-pill-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-red .ring-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-blue .ring-track::before   { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-blue)   76.5deg, var(--btn-blue)   229.5deg, color-mix(in srgb, var(--btn-blue)   60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-amber .ring-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-amber)  76.5deg, var(--btn-amber)  229.5deg, color-mix(in srgb, var(--btn-amber)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-green .ring-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
 
-    /* Option 5 — No change (theme default, no color override). */
+    /* Option 6 — Ambilight Glow (GPU-composited diffused backlight + breathing).
+       A dedicated .glow-backdrop div sits behind the button (inside the
+       .take-pill-wrap wrapper) and bleeds outward (inset:-9px) with a STATIC
+       filter:blur(8px) that produces the ambilight falloff (vibrant edge,
+       quickly diffusing). The breathing animation animates OPACITY only
+       (compositor-only property → GPU layer, zero CPU repaint — safe for
+       tablet SOCs). will-change is sandboxed inside the active glow selector
+       below so inactive (non-glow) states revert to will-change:auto and
+       release the GPU compositor layer + VRAM. The button face stays
+       theme-tinted (style-none) — the glow is purely an outer light.
+       Z-axis: the wrapper has isolation:isolate + z-index:0, so the
+       backdrop's z-index:-1 renders behind the wrapper baseline but in
+       front of the card background. The 9px diffusion bleeds outside the
+       wrapper but stays behind adjacent siblings (z-index:1). See plans/
+       architecture-rollback-z-axis-stacking-plan.md. */
+   .take-pill-wrap .glow-backdrop {
+     position: absolute;
+     inset: -9px;
+     z-index: -1;
+     border-radius: calc(var(--ha-card-border-radius, 12px) + 9px);
+     background: var(--glow-color, transparent);
+     filter: blur(8px);
+     opacity: 0;
+      pointer-events: none;
+      /* will-change OMITTED from the base class — sandboxed inside the active
+         .glow-{color} .glow-backdrop selector so non-glow states revert to
+         will-change:auto and flush the VRAM footprint (no GPU layer pinned). */
+      /* No animation here — gated to the active glow selector below. */
+    }
+    /* Per-color activation: the wrapper's glow-{color} class sets the color
+       token consumed by the backdrop's background. */
+    .take-pill-wrap.glow-red    { --glow-color: rgba(var(--rgb-btn-red), 0.85); }
+    .take-pill-wrap.glow-blue   { --glow-color: rgba(var(--rgb-btn-blue), 0.85); }
+    .take-pill-wrap.glow-amber  { --glow-color: rgba(var(--rgb-btn-amber), 0.85); }
+    .take-pill-wrap.glow-green  { --glow-color: rgba(var(--rgb-btn-green), 0.85); }
+    /* Active-glow selector: animation + will-change scoped here ONLY. When no
+       glow-{color} class is on the wrapper, these rules do not apply → the
+       backdrop is opacity:0 with no animation and no will-change → zero GPU
+       layer cost (VRAM-safe). */
+    .take-pill-wrap.glow-red .glow-backdrop,
+    .take-pill-wrap.glow-blue .glow-backdrop,
+    .take-pill-wrap.glow-amber .glow-backdrop,
+    .take-pill-wrap.glow-green .glow-backdrop {
+      opacity: 0.6;
+      will-change: opacity;
+      animation: ax-btn-glow-breathe var(--ring-duration, 4s) ease-in-out infinite;
+    }
+    /* Breathing keyframe — opacity only (GPU-composited). The static
+       filter:blur(8px) is rasterized once when the layer is created; the
+       keyframe just fades the pre-blurred layer in/out. No per-frame CPU work. */
+    @keyframes ax-btn-glow-breathe {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.85; }
+    }
+
+    /* Option 5 — No change (theme default, no color override). The surface
+       is still solidified (alpha-1.0) to occlude the ambilight backlight;
+       only the color identity is left at the theme default primary tint. */
     .take-pill-btn.style-none {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
 
@@ -701,10 +876,19 @@ export class AxDoseDailyPanel extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 6px 14px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.06) tint layer restores the
+         perceptual tint. The stat-pill is an adjacent UI surface on
+         .stats-column (z-index:1 sibling of .take-pill-wrap). See plans/
+         gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.06), rgba(var(--rgb-primary-color, 3, 169, 244), 0.06));
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
       flex: 1;
+      /* position:relative clips the ha-ripple surface (overflow:hidden
+         already present). */
+      position: relative;
     }
 
     .stat-pill ha-icon {
@@ -739,13 +923,15 @@ export class AxDoseDailyPanel extends LitElement {
     }
 
     .stat-pill.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .chips-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      position: relative;  /* global z-axis protection — glow bleeds behind chips (Patch 1, belt-and-suspenders) */
+      z-index: 1;
     }
 
     /* ── Chips — match the Graph panel Day Avg Boxes format (primary-tinted
@@ -761,9 +947,16 @@ export class AxDoseDailyPanel extends LitElement {
       align-items: center;
       gap: 2px;
       padding: 6px 4px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.05) tint layer restores the
+         perceptual tint. The chip row (.chips-row, z-index:1) sits below
+         .daily-main. See plans/gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.05), rgba(var(--rgb-primary-color, 3, 169, 244), 0.05));
       border-radius: 10px;
       overflow: hidden;
+      /* position:relative clips the ha-ripple surface. */
+      position: relative;
     }
 
     .chip.with-icon {
@@ -777,7 +970,7 @@ export class AxDoseDailyPanel extends LitElement {
     }
 
     .chip.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .chip-icon {

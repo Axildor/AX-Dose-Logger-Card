@@ -98,7 +98,7 @@ The card adapts its tabs to the selected device type:
 
 ### 📅 Daily
 
-- Take Pill button with next-dose countdown. The button follows a 5-state color matrix (see [Button State Matrix](#button-state-matrix) below) — it turns **red** at the pill limit (with an override confirmation dialog), **blue** when a scheduled dose is due, **amber** when overdue, briefly **green** ("Logged") after a successful press, and falls back to the theme default when idle.
+- Take Pill button with next-dose countdown. The button follows a 6-state color matrix (see [Button State Matrix](#button-state-matrix) below) — it turns **red** at the pill limit (with an override confirmation dialog), **red** with a "24H LIMIT REACHED" label when the 24h strength limit would be exceeded (with a reworded override dialog explaining the strength cap), **blue** when a scheduled dose is due, **amber** when overdue, briefly **green** ("Logged") after a successful press, and falls back to the theme default when idle.
 - Pills safe to take indicator
 - Last dose timestamp
 - Inventory count (double-tap to refill)
@@ -110,29 +110,39 @@ The **Top Box** and **Bottom Box** are each fully overridable via the visual edi
 
 ### 🎛️ Button State Matrix
 
-The Take Pill (Daily tab) and Log Drink (Drinks tab) buttons follow a 5-state color matrix so the button's appearance encodes the system's current status. Each colored state is independently configurable — pick how (and whether) the color is rendered, and whether the icon pulses.
+The Take Pill (Daily tab) and Log Drink (Drinks tab) buttons follow a 6-state color matrix so the button's appearance encodes the system's current status. Each colored state is independently configurable — pick how (and whether) the color is rendered via the **Style** dropdown, and independently pick the icon treatment via the **Icon Style** dropdown.
 
 | State | When active | Color | Daily default | Drinks |
 |-------|-------------|-------|---------------|--------|
-| **Limit Reached** | Daily limit reached / cooldown active | Red | Full Button | Full Button |
+| **Limit Reached** | Pill count limit reached / cooldown active | Red | Full Button | Full Button |
+| **24H Limit Reached** | 24h strength limit already exceeded or next dose would exceed it | Red (inherits Limit Reached style) | Full Button (shares Limit Reached config) | n/a |
 | **Idle** | No schedule due, no limit | Theme default | — (not configurable) | — |
-| **Take Pill** | Scheduled dose due (within the adherence grace window) | Blue | Icon Only | n/a (drinks have no schedule) |
-| **Overdue Warning** | Overdue (past the adherence grace window) | Amber | Icon and Border + pulse | n/a |
+| **Take Pill** | Scheduled dose due (within the first half of the on-time window) | Blue | No Color + Colored icon | n/a (drinks have no schedule) |
+| **Overdue Warning** | Overdue (past half the on-time window) | Amber | Border Only + Colored + Pulse icon | n/a |
 | **Logged Dose Indicator** | Transient flash on a successful press | Green | Top tick mark + "Logged" text (default layout) | Top tick mark + "Logged" text (default layout) |
 
-The overdue boundary is derived from the **adherence grace period** (the "on-time buffer" you configured for the medication) — the button is blue while a scheduled dose is still within its grace window and turns amber once the overdue clock starts.
+The **24H Limit Reached** state inherits all **Limit Reached** style config — same red color, same CSS, same `take_button_lockout_style` / `take_button_lockout_icon_style` editor fields. Only the button label ("24H LIMIT REACHED") and the override dialog text differ (the dialog explains it's the 24h strength cap, not the pill count, that is reached).
 
-**7 visual style options** are available per state (each state has its own dropdown):
+The overdue boundary is derived from the **On-Time Window** (the "on-time buffer" you configured for the medication, in minutes) — the button stays blue for the **first half** of the window (on-time, no rush) and turns amber at the **halfway point** (proactive heads-up that the window is closing). This applies to **all scheduled medications**, whether or not adherence tracking is enabled. It fixes a prior disconnect where the card warned "overdue" the instant a dose was due while the adherence system still considered it on-time.
 
-1. Full Button
-2. Icon Only
+**5 style options** are available per state (each state has its own Style dropdown), plus a **Default** sentinel that resolves to the per-state default at runtime:
+
+1. Default (resolves to the per-state default)
+2. Full Button
 3. Border Only
-4. Icon and Border
-5. No Change (theme default)
-6. Rotating Border Glow
-7. Icon and Rotating Border Glow
+4. No Color (theme-tinted background, no state color override)
+5. Rotating Ring
+6. Ambilight Glow — a soft, diffused colored light radiates outward from behind the button like an ambilight TV against a wall: vibrant at the edge, quickly diffusing, with a slow breathing pulse. The button face stays theme-tinted (the glow is an outer backlight; it does not recolor the button itself). GPU-composited (animates `opacity` only on a static `filter: blur` layer) so multiple breathing buttons don't lag tablet-class hardware.
 
-Each state also has its own **Icon Pulse** toggle (the Overdue Warning pulse is on by default; all others are off).
+Each state also has its own **Icon Style** dropdown (4 options plus a Default sentinel), controlling the icon independently from the Style dropdown:
+
+1. Default (resolves to the per-state default)
+2. None (no icon color, no pulse)
+3. Colored (icon colored, no pulse)
+4. Colored + Pulse (icon colored + pulse animation)
+5. Pulse Only (no icon color, pulse animation only)
+
+The 4 visual Icon Style options form a 2×2 matrix (color on/off × pulse on/off). The Overdue Warning icon style defaults to Colored + Pulse; all others default to None (or Colored for Take Pill).
 
 #### ⚠️ Color Scheme and Indicator Conflicts
 
@@ -157,11 +167,13 @@ The flash renders on a **dark green** surface (`#212C22`) with a bright-green ti
 
 Because the 240ms intro is a fade-in (the overlay starts semi-transparent), the card **freezes the resolved button state for that same 240ms** on a successful press — the post-press color change (e.g. the default color flipping to the Limit Reached red when the dose hits the daily limit) is held until the overlay reaches full opacity, so it commits behind the now-opaque green and is never visible as a flash. The freeze releases automatically once the intro completes.
 
-The **Logged Animation Duration** controls how long the flash appears (default 3000ms, configurable 500–10000ms). The **Rotating Glow Speed** dropdown (Slow / Medium / Fast) controls the speed of the rotating border-glow animation used by options 6 and 7; default is Medium (4s per rotation). The glow line sweeps ~85% of the button perimeter (a small transparent gap lets the bright comet head remain visible as it travels). Note: because the glow rotates a gradient around the button's rounded-rect perimeter, the sweep appears to speed up at the corners — this is inherent to the technique and accepted.
+The **Logged Animation Duration** controls how long the flash appears (default 3000ms, configurable 500–10000ms). The **Glow / Ring Speed** dropdown (Slow / Medium / Fast) controls the cadence of both the rotating ring (used by the Rotating Ring style option) and the breathing pulse (used by the Ambilight Glow style option); default is Medium (4s per cycle). The ring line sweeps ~85% of the button perimeter (a small transparent gap lets the bright comet head remain visible as it travels). Note: because the ring rotates a gradient around the button's rounded-rect perimeter, the sweep appears to speed up at the corners — this is inherent to the technique and accepted.
 
 **Rapid successive clicks:** if you tap the button again while the green "Logged" flash is still visible, the text instantly updates to reflect the running total — `Logged 2x`, `Logged 3x`, and so on — and the fade timer resets so each press gets the full duration. The first press shows the bare `Logged` (no `1x`). In the **Big tick mark** layout (no text) a small `Nx` badge appears below the tick when the count reaches 2 or more. The counter resets to zero once the flash fades out, so the next press starts a fresh `Logged`. This is a visual tally only — each tap fires a real dose log on the backend.
 
-These options live in the visual editor under the **Daily Tab → Button** and **Drinks Tab → Button** expandables. Inside each Button expandable, the aspect fields are a flat list where each style dropdown is paired side-by-side with its Icon Pulse toggle in a grid row, so it is visually obvious which toggle belongs to which dropdown. Every dropdown renders as a single dropdown box (not a stack of radio buttons) and is pre-populated with its default value (e.g. the Logged Animation Duration shows 3000 instead of blank). The Drinks submenu only offers Limit Reached and Logged Dose Indicator (drinks are PRN/as-needed with no schedule, so Take Pill and Overdue Warning never apply). The Idle state has no color and is intentionally not shown in the editor.
+**Press ripple (ha-ripple):** every clickable element in the card — except the tab navigation bar and the Graphs tab state toggles (timeframe chips, carousel arrows, effectiveness tabs) — uses Home Assistant's native `<ha-ripple>` web component for Material Design press feedback, giving 1:1 parity with Lovelace Mushroom cards. A smooth radiating circle ripples out from the exact tap point on press, and a subtle hover tint signals the element is interactive before you tap. The Take Pill button's ripple colour matches its current medical state (red on Limit Reached, amber on Overdue, blue on Take Pill, green during the Logged flash); danger actions (Undo Dose, Reset History, etc.) ripple red. The ACK buttons keep their `Nx` rapid-click counter alongside the ripple.
+
+These options live in the visual editor under the **Daily Tab → Button** and **Drinks Tab → Button** expandables. Inside each Button expandable, the aspect fields are a flat list where each Style dropdown is paired side-by-side with its Icon Style dropdown in a grid row, so it is visually obvious which dropdown belongs to which aspect. Every dropdown renders as a single dropdown box (not a stack of radio buttons) and is pre-populated with its default value (Default). The Drinks submenu only offers Limit Reached and Logged Dose Indicator (drinks are PRN/as-needed with no schedule, so Take Pill and Overdue Warning never apply). The Idle state has no color and is intentionally not shown in the editor.
 
 ### 📊 Graphs
 

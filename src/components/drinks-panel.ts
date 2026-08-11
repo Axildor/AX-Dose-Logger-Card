@@ -19,8 +19,9 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { delayedAction } from '../delayed-action.js';
 import type { ActionConfig } from 'custom-card-helpers';
-import type { CardController, ResolvedEntities, AxDoseLoggerHass, ButtonStateStyle, AckLayout, GlowSpeed } from '../types.js';
+import type { CardController, ResolvedEntities, AxDoseLoggerHass, ButtonStateStyle, IconStyle, AckLayout, RingSpeed } from '../types.js';
 import type { ButtonState } from '../helpers.js';
 import { localize } from '../localize.js';
 
@@ -50,18 +51,26 @@ export class AxDoseDrinksPanel extends LitElement {
 
   /**
    * Build the CSS class string for the Log Drink button from the resolved
-   * ButtonState + the per-state style option + pulse toggle. Mirrors the
+   * ButtonState + the per-state style + icon_style options. Mirrors the
    * Daily panel's _takeButtonClasses but only handles lockout + ack (the two
-   * states possible for PRN drinks). 'idle' renders only the base button.
+   * states possible for PRN drinks). 'auto' resolves to the per-state default
+   * at runtime. 'idle' renders only the base button.
    */
   private _logDrinkButtonClasses(): string {
     const state = this.buttonState;
     const cfg = this.controller.config;
+    // Per-state default (used when value is 'auto' or undefined).
+    const STATE_DEFAULTS = {
+      lockout: { style: 'full' as ButtonStateStyle, iconStyle: 'none' as IconStyle },
+    };
     let style: ButtonStateStyle = 'none';
-    let pulse = false;
+    let iconStyle: IconStyle = 'none';
     if (state === 'lockout') {
-      style = cfg?.drink_button_lockout_style ?? 'full';
-      pulse = cfg?.drink_button_lockout_pulse ?? false;
+      const d = STATE_DEFAULTS.lockout;
+      style = cfg?.drink_button_lockout_style ?? d.style;
+      if (style === 'auto') style = d.style;
+      iconStyle = cfg?.drink_button_lockout_icon_style ?? d.iconStyle;
+      if (iconStyle === 'auto') iconStyle = d.iconStyle;
     } else {
       // idle — no color, no style option (theme default).
       return this.ackActive ? 'log-drink-btn ack-flash' : 'log-drink-btn';
@@ -69,23 +78,43 @@ export class AxDoseDrinksPanel extends LitElement {
     const color = state === 'lockout' ? 'red' : 'green';
     const classes: string[] = ['log-drink-btn', `state-${state}`];
     if (style === 'full') classes.push(`full-${color}`);
-    if (style === 'icon' || style === 'icon_border' || style === 'icon_glow') classes.push(`icon-${color}`);
-    if (style === 'border' || style === 'icon_border') classes.push(`border-${color}`);
-    if (style === 'glow' || style === 'icon_glow') classes.push(`glow-${color}`);
+    if (style === 'border') classes.push(`border-${color}`);
+    if (style === 'ring') classes.push(`ring-${color}`);
+    if (style === 'glow') classes.push(`style-none`);  // glow renders on the wrapper backdrop, not the button face
     if (style === 'none') classes.push('style-none');
-    if (pulse) classes.push('pulse');
+    if (iconStyle === 'color' || iconStyle === 'color_pulse') classes.push(`icon-${color}`);
+    if (iconStyle === 'color_pulse' || iconStyle === 'pulse') classes.push('pulse');
     // ACK overlay is a pure flash layered on top of the true state — it does
-    // not recolor the button, so the real state stays correct underneath.
+    //    not recolor the button, so the real state stays correct underneath.
     if (this.ackActive) classes.push('ack-flash');
     return classes.join(' ');
   }
 
-  /** Resolve the rotating border-glow animation duration (CSS string) from the
-   *  per-button glow_speed config. 'medium' (4s) is the default. Mirrors
-   *  daily-panel._glowDuration. */
-  private _glowDuration(): string {
-    const speed: GlowSpeed = this.controller.config?.drink_button_glow_speed ?? 'medium';
+  /** Resolve the rotating ring animation duration (CSS string) from the
+   *  per-button ring_speed config. 'medium' (4s) is the default. Shared by
+   *  the ring sweep and the ambilight glow breathing. Mirrors daily-panel. */
+  private _ringDuration(): string {
+    const speed: RingSpeed = this.controller.config?.drink_button_ring_speed ?? 'medium';
     return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+  }
+
+  /** Resolve the wrapper class for the ambilight glow backdrop. Returns ''
+   *  when the resolved style is not 'glow' (backdrop hidden, no GPU layer).
+   *  Mirrors daily-panel._takeGlowWrapClass. See plans/
+   *  architecture-rollback-z-axis-stacking-plan.md. */
+  private _logDrinkGlowWrapClass(): string {
+    const state = this.buttonState;
+    const cfg = this.controller.config;
+    let style: ButtonStateStyle = 'none';
+    if (state === 'lockout') {
+      style = cfg?.drink_button_lockout_style ?? 'full';
+      if (style === 'auto') style = 'full';
+    } else {
+      return ''; // idle — no glow
+    }
+    if (style !== 'glow') return '';
+    const color = state === 'lockout' ? 'red' : 'green';
+    return `glow-${color}`;
   }
 
   /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
@@ -233,22 +262,24 @@ export class AxDoseDrinksPanel extends LitElement {
         <div class="drinks-title"
              role="button" tabindex="0"
              aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${() => c.showDeviceInfo()}
+             @click=${delayedAction(() => c.showDeviceInfo())}
              @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showDeviceInfo())}
-        >${substanceLabel}</div>
+        ><ha-ripple></ha-ripple>${substanceLabel}</div>
 
         <div class="daily-main">
-          <button
-            class=${this._logDrinkButtonClasses()}
-            style=${[
-              `--glow-duration: ${this._glowDuration()}`,
-              this.ackActive ? `--ack-duration: ${this.controller.config?.drink_button_ack_duration_ms ?? 3000}ms` : '',
-            ].filter(Boolean).join('; ')}
-            aria-label=${logDrinkLabel}
-            ?disabled=${!substance}
-            @click=${() => substance && c.showLogDrinkDialog(substance)}
+          <div class="log-drink-wrap${this._logDrinkGlowWrapClass() ? ' ' + this._logDrinkGlowWrapClass() : ''}"
+               style=${`--ring-duration: ${this._ringDuration()}`}
           >
-            <div class="glow-track"></div>
+            <div class="glow-backdrop"></div>
+            <button
+              class=${this._logDrinkButtonClasses()}
+              style=${this.ackActive ? `--ack-duration: ${this.controller.config?.drink_button_ack_duration_ms ?? 3000}ms` : ''}
+              aria-label=${logDrinkLabel}
+              ?disabled=${!substance}
+              @click=${delayedAction(() => substance && c.showLogDrinkDialog(substance))}
+            >
+              <div class="ring-track"></div>
+              <ha-ripple ?disabled=${!substance}></ha-ripple>
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
             <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
@@ -262,18 +293,20 @@ export class AxDoseDrinksPanel extends LitElement {
                     : nothing)}
               </div>
             `) : nothing}
-          </button>
+            </button>
+          </div>
 
           <div class="stats-column">
             <div class="stat-pill ${inBodyClickable ? 'clickable' : ''}"
                  role="button"
                  tabindex=${inBodyClickable ? '0' : nothing}
                  aria-label=${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}
-                 @click=${inBodyClickable ? (ev: MouseEvent) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity) : null}
+                 @click=${inBodyClickable ? delayedAction((ev: MouseEvent) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
                  @keydown=${inBodyClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleInBodyBoxAction(null, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
                  @contextmenu=${ibHasHold ? (ev: Event) => { ev.preventDefault(); c.handleInBodyBoxAction(null, 'hold', inBodyActionConfig, inBodyDisplayEntity); } : null}
                  @dblclick=${ibHasDblClick ? () => c.handleInBodyBoxAction(null, 'double_tap', inBodyActionConfig, inBodyDisplayEntity) : null}>
-              <ha-icon icon="${cfg?.in_body_icon || 'mdi:chart-bell-curve'}"></ha-icon>
+              ${inBodyClickable ? html`<ha-ripple></ha-ripple>` : nothing}
+               <ha-icon icon="${cfg?.in_body_icon || 'mdi:chart-bell-curve'}"></ha-icon>
               <span class="stat-label">${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}</span>
               <span class="stat-value">${inBodyValue}</span>
             </div>
@@ -281,11 +314,12 @@ export class AxDoseDrinksPanel extends LitElement {
                  role="button"
                  tabindex=${disruptionClickable ? '0' : nothing}
                  aria-label=${cfg?.disruption_label || disruptionDefaultLabel}
-                 @click=${disruptionClickable ? (ev: MouseEvent) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback) : null}
+                 @click=${disruptionClickable ? delayedAction((ev: MouseEvent) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
                  @keydown=${disruptionClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleDisruptionBoxAction(null, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
                  @contextmenu=${dHasHold ? (ev: Event) => { ev.preventDefault(); c.handleDisruptionBoxAction(null, 'hold', disruptionActionConfig, disruptionDisplayEntity); } : null}
                  @dblclick=${dHasDblClick ? () => c.handleDisruptionBoxAction(null, 'double_tap', disruptionActionConfig, disruptionDisplayEntity) : null}>
-              <ha-icon icon="${cfg?.disruption_icon || disruptionDefaultIcon}"></ha-icon>
+              ${disruptionClickable ? html`<ha-ripple></ha-ripple>` : nothing}
+               <ha-icon icon="${cfg?.disruption_icon || disruptionDefaultIcon}"></ha-icon>
               <span class="stat-label">${cfg?.disruption_label || disruptionDefaultLabel}</span>
               <span class="stat-value">${disruptionValue}</span>
             </div>
@@ -333,13 +367,14 @@ export class AxDoseDrinksPanel extends LitElement {
                       role="button"
                       tabindex="0"
                       aria-label=${chipName}
-                      @click=${(ev: MouseEvent) => c.handleDrinkChipAction(ev, 'tap', chipActionCfg, chip.entityId)}
+                      @click=${delayedAction((ev: MouseEvent) => c.handleDrinkChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
                       @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleDrinkChipAction(null, 'tap', chipActionCfg, chip.entityId))}
                       @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleDrinkChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
                       @dblclick=${hasDblClick ? () => c.handleDrinkChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
-                      ${chip.showIcon
-                        ? html`<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
-                        : nothing}
+                      <ha-ripple></ha-ripple>
+                       ${chip.showIcon
+                         ? html`<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
+                         : nothing}
                       <span class="chip-name">${chipName}</span>
                       <span class="chip-value">${chipValue}</span>
                     </div>
@@ -355,6 +390,11 @@ export class AxDoseDrinksPanel extends LitElement {
   static styles = css`
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     .pane-drinks {
       display: flex;
@@ -368,6 +408,11 @@ export class AxDoseDrinksPanel extends LitElement {
       color: var(--primary-text-color, #222);
       text-align: center;
       cursor: pointer;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--ha-card-border-radius, 12px);
+      z-index: 1;  /* global z-axis protection — glow bleeds behind title (Patch 1, belt-and-suspenders) */
     }
 
     /* ── .daily-main / .stats-column — verbatim from daily-panel.ts ── */
@@ -380,6 +425,20 @@ export class AxDoseDrinksPanel extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      flex: 1;
+      position: relative;  /* global z-axis protection — glow bleeds behind stats (Patch 1, belt-and-suspenders) */
+      z-index: 1;
+    }
+
+    /* Wrapper for the ambilight glow backdrop. Becomes the .daily-main flex
+       child (replaces the button's flex role). isolation:isolate + z-index:0
+       spawn a localized z-axis boundary. Mirrors daily-panel .take-pill-wrap.
+       See plans/architecture-rollback-z-axis-stacking-plan.md. */
+    .log-drink-wrap {
+      position: relative;
+      z-index: 0;
+      isolation: isolate;
+      display: flex;
       flex: 1;
     }
 
@@ -395,10 +454,11 @@ export class AxDoseDrinksPanel extends LitElement {
       border-radius: var(--ha-card-border-radius, 12px);
       font-family: inherit;
       cursor: pointer;
-      transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+      transition: background 0.2s, box-shadow 0.2s;
       position: relative;
       overflow: hidden;
       flex: 1;
+      z-index: 1;  /* stack above the .glow-backdrop (z-index:-1) */
       /* Reserve the full two-line-sub-text button height permanently (mirrors
          daily-panel.ts .take-pill-btn). justify-content: center distributes
          the reserved height as symmetric top/bottom padding so the
@@ -408,13 +468,30 @@ export class AxDoseDrinksPanel extends LitElement {
       min-height: 8em;
     }
 
-    .log-drink-btn:active {
-      transform: scale(0.96);
+    /* :active scale transform removed — ha-ripple provides the press feedback
+       (Material Design radiating circle), so the physical compression is
+       redundant and can fight the ripple's layout. */
+    /* ha-ripple sits above the .ring-track (z-index 0) AND above the
+       .ack-flash overlay (z-index 2) so the native ripple keeps radiating
+       over the opaque green "Logged" surface after an ACK press. The
+       ripple fires at pointerdown (t=0) and animates ~300ms; the green
+       overlay mounts ~110ms later (delayedAction), so raising the ripple
+       to z-index 3 lets the user see press feedback even when their
+       finger covers the Nx text. Matches Mushroom template-card
+       layering (ripple renders over content). */
+    .log-drink-btn > ha-ripple {
+      z-index: 3;
     }
+    /* State-coloured ripples — the press feedback colour matches the button's
+       current medical state (richer than Mushroom's single colour, fits the
+       Button State Matrix). The ACK state uses a light tint so the ripple
+       reads on the opaque dark-green overlay surface (#212c22). */
+    .log-drink-btn.state-lockout { --ha-ripple-color: var(--btn-red); }
+    .log-drink-btn.ack-flash { --ha-ripple-color: #ffffff; }
 
     /* ── Button State Matrix (Prosumer UI) — Drinks ──
        Only lockout + ack are possible for PRN drinks. Mirrors the Daily
-       panel's CSS structure (full / icon / border / glow / pulse / ack).
+       panel's CSS structure (full / border / none / ring / icon / pulse / ack).
        The default (idle / no state class) keeps the original theme-tinted
        safe look. See plans/button-state-matrix-plan.md §1.2. */
     :host {
@@ -430,65 +507,72 @@ export class AxDoseDrinksPanel extends LitElement {
       --btn-green-soft: #212c22;
     }
 
-    /* Base idle (no state class) — original theme-tinted safe look. */
+    /* Base idle (no state class) — original theme-tinted safe look.
+       Gradient-stack surface: opaque --card-background-color base wall blocks
+       the ambilight backlight; flat rgba(...,0.12) tint layer (linear-gradient
+       with identical stops = flat color) restores the perceptual tint. See
+       plans/gradient-stacking-material-synthesis-plan.md. */
     .log-drink-btn:not(.state-lockout):not(.state-ack) {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     .log-drink-btn:not(.state-lockout):not(.state-ack):hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.2), rgba(var(--rgb-primary-color, 3, 169, 244), 0.2));
     }
 
-    /* Option 1 — Full Button (red lockout / green ack). */
-    .log-drink-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
-    .log-drink-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
-    .log-drink-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
-    .log-drink-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+    /* Option 1 — Full Button (red lockout / green ack). Gradient-stack
+       surface: opaque --card-background-color base wall blocks the ambilight
+       backlight; flat rgba(var(--rgb-btn-*),0.12) tint layer restores the
+       identity-color tint. See plans/
+       gradient-stacking-material-synthesis-plan.md. */
+    .log-drink-btn.full-red    { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.12), rgba(var(--rgb-btn-red), 0.12));    color: var(--btn-red); }
+    .log-drink-btn.full-red:hover    { background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.2), rgba(var(--rgb-btn-red), 0.2)); }
+    .log-drink-btn.full-green { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.12), rgba(var(--rgb-btn-green), 0.12)); color: var(--btn-green); }
+    .log-drink-btn.full-green:hover { background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.2), rgba(var(--rgb-btn-green), 0.2)); }
 
-    /* Option 2 — Icon only (theme bg, recolored icon).
-       The > child combinator scopes the recolor to the button's OWN icon
-       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
-       so it keeps its own color from .ack-flash. See plans/
-       ack-clarity-and-softening-plan.md (Issue 1). */
+    /* Option 2 — Icon recolor only (Icon Style: color / color_pulse). The >
+       child combinator scopes the recolor to the button's OWN icon only — the
+       nested ACK tick is excluded so it keeps its own color. Do NOT set
+       background/color here: every Style option emits its own bg rule with
+       equal specificity, and a bg here would tie with .full-{color} and win
+       by source order, erasing the Full Button tint (bug: Full Button only
+       worked with Icon Style None or Pulse Only). See plans/
+       full-button-icon-style-override-fix-plan.md. */
     .log-drink-btn.icon-red > ha-icon    { color: var(--btn-red); }
     .log-drink-btn.icon-green > ha-icon  { color: var(--btn-green); }
-    .log-drink-btn.icon-red, .log-drink-btn.icon-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      color: var(--primary-color, #03a9f4);
-    }
-    .log-drink-btn.icon-red:hover, .log-drink-btn.icon-green:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-    }
 
     /* Option 3 — Border only (inset box-shadow so the button does not grow;
        a real border would add 2px to the outer size on each side). */
     .log-drink-btn.border-red, .log-drink-btn.border-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     .log-drink-btn.border-red    { box-shadow: inset 0 0 0 2px var(--btn-red); }
     .log-drink-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
 
-    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+    /* Option 6 — Rotating Ring (Apple Intelligence perimeter sweep).
        TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
        cannot share one element — oversizing moves the mask's content-box ring
        off the button, where overflow:hidden clips it away → nothing renders).
-       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       Layer 1 .ring-track: button-sized (inset 0), holds the mask that carves
        the 2px ring on the button edge + overflow:hidden to clip the rotating
-       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       child to the rounded perimeter. Layer 2 .ring-track::before: oversized
        (inset -150%) rotating gradient source; the track's mask carves the ring
        from this rotating gradient. transform animates without @property. */
-    @keyframes ax-drink-btn-glow-sweep { to { transform: rotate(360deg); } }
-    .log-drink-btn.glow-red, .log-drink-btn.glow-green {
+    @keyframes ax-drink-btn-ring-sweep { to { transform: rotate(360deg); } }
+    .log-drink-btn.ring-red, .log-drink-btn.ring-green {
       position: relative;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
        exactly on the button edge. padding:2px defines the ring thickness;
        border-radius:inherit follows the rounded corners; overflow:hidden clips
        the rotating child to the perimeter. */
-    .log-drink-btn .glow-track {
+    .log-drink-btn .ring-track {
       position: absolute;
       inset: 0;
       padding: 2px;
@@ -507,22 +591,62 @@ export class AxDoseDrinksPanel extends LitElement {
        (button-sized) so its rotating square always covers the track at every
        angle (no corner gaps). The track's mask carves the 2px ring from this
        rotating gradient. */
-    .log-drink-btn .glow-track::before {
+    .log-drink-btn .ring-track::before {
       content: '';
       position: absolute;
       inset: -150%;
-      animation: ax-drink-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+      animation: ax-drink-btn-ring-sweep var(--ring-duration, 2.2s) linear infinite;
     }
     /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
        153deg = 50% of the line) so the state color stays unambiguous; a
        white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
        crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
-    .log-drink-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .log-drink-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .log-drink-btn.ring-red .ring-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .log-drink-btn.ring-green .ring-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
 
-    /* Option 5 — No change (theme default). */
+    /* Option 6 — Ambilight Glow (GPU-composited diffused backlight + breathing).
+       Mirrors daily-panel: a .glow-backdrop div behind the button (inside the
+       .log-drink-wrap wrapper) bleeds outward (inset:-9px) with a STATIC
+       filter:blur(8px); the breathing animates OPACITY only (GPU-composited,
+       zero CPU repaint). will-change is sandboxed inside the active glow
+       selector so non-glow states release the GPU layer + VRAM. Z-axis: the
+       wrapper has isolation:isolate + z-index:0, so the backdrop's z-index:-1
+       renders behind the wrapper baseline but in front of the card
+       background. See plans/architecture-rollback-z-axis-stacking-plan.md. */
+    .log-drink-wrap .glow-backdrop {
+      position: absolute;
+      inset: -9px;
+      z-index: -1;
+      border-radius: calc(var(--ha-card-border-radius, 12px) + 9px);
+      background: var(--glow-color, transparent);
+      filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      /* will-change OMITTED here — sandboxed inside the active glow selector. */
+      /* No animation here — gated to the active glow selector below. */
+    }
+    .log-drink-wrap.glow-red    { --glow-color: rgba(var(--rgb-btn-red), 0.85); }
+    .log-drink-wrap.glow-green  { --glow-color: rgba(var(--rgb-btn-green), 0.85); }
+    .log-drink-wrap.glow-red .glow-backdrop,
+    .log-drink-wrap.glow-green .glow-backdrop {
+      opacity: 0.6;
+      will-change: opacity;
+      animation: ax-btn-glow-breathe var(--ring-duration, 4s) ease-in-out infinite;
+    }
+    /* Shared breathing keyframe (same name as daily-panel; Lit scopes CSS so
+       the two definitions don't conflict — both are identical opacity-only
+       keyframes). */
+    @keyframes ax-btn-glow-breathe {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.85; }
+    }
+
+    /* Option 5 — No change (theme default). The surface is still solidified
+       (alpha-1.0) to occlude the ambilight backlight; only the color
+       identity is left at the theme default primary tint. */
     .log-drink-btn.style-none {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
 
@@ -665,10 +789,18 @@ export class AxDoseDrinksPanel extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 6px 14px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.06) tint layer restores the
+         perceptual tint. The .stats-column at z-index:1 is a sibling of
+         .log-drink-wrap. See plans/
+         gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.06), rgba(var(--rgb-primary-color, 3, 169, 244), 0.06));
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
       flex: 1;
+      /* position:relative clips the ha-ripple surface. */
+      position: relative;
     }
 
     .stat-pill.clickable {
@@ -676,7 +808,7 @@ export class AxDoseDrinksPanel extends LitElement {
     }
 
     .stat-pill.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .stat-pill ha-icon {
@@ -706,11 +838,19 @@ export class AxDoseDrinksPanel extends LitElement {
       white-space: nowrap;
     }
 
-    /* ── Custom chips — verbatim from daily-panel.ts ── */
+    /* ── Custom chips — verbatim from daily-panel.ts ──
+       Z-axis dependency (Patch 1, belt-and-suspenders): z-index is a null
+       operation on static elements, so position:relative MUST accompany
+       z-index:1. Without this the 9px .glow-backdrop diffusion (inset:-9px,
+       bleeding beyond .daily-main) paints on top of the chips. The wrapper's
+       isolation:isolate floor (z-index:0) contains the backdrop at z-index:-1;
+       this lifts the chips above that floor. Mirrors daily-panel .chips-row. */
     .chips-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      position: relative;  /* global z-axis protection — glow bleeds behind chips */
+      z-index: 1;
     }
 
     /* ── Chips — match the Graph panel Day Avg Boxes format (primary-tinted
@@ -726,9 +866,16 @@ export class AxDoseDrinksPanel extends LitElement {
       align-items: center;
       gap: 2px;
       padding: 6px 4px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.05) tint layer restores the
+         perceptual tint. The .chips-row (z-index:1) sits below .daily-main.
+         See plans/gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.05), rgba(var(--rgb-primary-color, 3, 169, 244), 0.05));
       border-radius: 10px;
       overflow: hidden;
+      /* position:relative clips the ha-ripple surface. */
+      position: relative;
     }
 
     .chip.with-icon {
@@ -742,7 +889,7 @@ export class AxDoseDrinksPanel extends LitElement {
     }
 
     .chip.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .chip-icon {

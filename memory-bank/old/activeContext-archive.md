@@ -966,3 +966,58 @@ Fixed two remaining issues: (1) tick mark scale alignment — "0" was at ~0.5 po
 **Previous Current Status:**
 **Complete**: Logged Dose Indicator — Clarity, Softening, Press-Feel (2026-08-09) — three user-reported issues with the transient Logged Dose Indicator (ACK) overlay that flashes on the Take Pill / Log Drink buttons after a successful press. (1) red tick mark on limit-reached press (fixed via child-combinator scoping); (2) ack green too vibrant (final: dark green `#212C22` surface + bright green `#43A047` tick); (3) instant pop-in felt jarring (fixed via a fixed 240ms `ax-btn-ack-intro` scale+fade-in split from the hold/fade `ax-btn-ack-fade`).
 
+
+---
+
+### Previous Context — Color-Scheme Indicator Conflict Signage (2026-08-09) [archived 2026-08-10]
+**Previous Current Status:**
+**Complete**: Color-Scheme Indicator Conflict Signage (2026-08-09) — surfaced a visual conflict between the user-configurable card accent (color_scheme) and the four hardcoded medical button-state indicators. Reordered the color_scheme dropdown (non-colliding hues first, four colliding colors last each suffixed with ` *`) and added a one-line helper pointing to the README Button State Matrix section. See [`plans/color-scheme-indicator-conflict-plan.md`](plans/color-scheme-indicator-conflict-plan.md).
+
+### Archived from root activeContext.md on 2026-08-11 (24h Strength Limit Warning frontend phase)
+
+**Previous Current Status:**
+**Complete**: Ripple Timing — Delayed-Action (2026-08-10) — (condensed; see archive for full detail).
+
+**Previous Current Status:**
+**Complete**: Press Ripple — ha-ripple Migration (2026-08-10) — replaced the prior custom CSS background-pulse with Home Assistant's native `<ha-ripple>` web component, achieving 1:1 parity with Lovelace Mushroom card press feedback. Frontend-only. Architecture plan: `plans/consecutive-press-ripple-ha-ripple-plan.md`.
+
+---
+
+### Previous Context — archived on 2026-08-11 (Card-Root Glow — REJECTED)
+
+**Previous Current Status:**
+**Complete** (REJECTED by user): Card-Root Ambilight Glow Architecture — moved the backdrop from panel-level wrapper to `<ha-card>` so the glow rendered behind the entire card. User rejected: "Elevating the backdrop to `<ha-card>` destroys the local spatial mapping." Rolled back to v2 wrapper with z-axis routing.
+
+### Previous Context — archived on 2026-08-11 (Ambilight Glow v2)
+
+**Previous Current Status:**
+**Complete**: Ambilight Glow Style — GPU-Composited Backdrop + Breathing (2026-08-11) — added a **6th per-state Style option** "Ambilight Glow" to the button State Matrix. Dedicated `<div class="glow-backdrop">` sibling of the button inside `.take-pill-wrap` / `.log-drink-wrap` wrapper. Static `filter: blur(16px)` + opacity-only breathing animation. `will-change: opacity` sandboxed. `*_ring_speed` dropdown renamed "Glow / Ring Speed". Architecture plan: [`plans/ambilight-glow-style-plan.md`](plans/ambilight-glow-style-plan.md).
+
+### Previous Context — archived on 2026-08-11 (On-Time Window)
+
+**Previous Current Status:**
+**Complete**: On-Time Window — Overdue-Gate Fix + Hours→Minutes Migration. `_resolveGraceHours()` rewritten to prefer the Overdue sensor's `grace_minutes` attribute.
+
+### Previous Context — Icon Style Dropdown Separation (2026-08-10)
+**Previous Current Status:**
+**Complete**: Icon Style Dropdown Separation — split the per-state button Style dropdown and Icon Pulse toggle into two orthogonal dropdowns. 'auto' Default sentinel. Backward-compatible migration. Architecture plan: [`plans/icon-style-dropdown-separation-plan.md`](plans/icon-style-dropdown-separation-plan.md).
+
+### Previous Context — ACK Overlay Ripple Visibility (2026-08-10)
+**Previous Current Status:**
+**Complete**: ACK Overlay Ripple Visibility — fixed the green "Logged" overlay showing no `ha-ripple` press feedback. Pure CSS fix.
+
+### Previous Context — archived on 2026-08-11 (Z-Axis Dependency Fix)
+
+**Previous Current Status:**
+**Complete**: Z-Axis Dependency Fix & DOM Reordering (Belt-and-Suspenders) (2026-08-11) — audited the v2.1 z-axis implementation against the user's 5 architecture patches and closed the one remaining dependency gap. Audit found 4.9/5 patches already satisfied by the v2.1 rollback; the ONLY missing piece was Drinks `.chips-row` (lacked `position: relative; z-index: 1;`, so z-index was a null operation on the static chips → the 18px `.glow-backdrop` diffusion painted on top of them). Per user choice, ALL adjacent UI selectors were defensively re-tagged "Patch 1, belt-and-suspenders" in their inline comments. Architecture plan: [`plans/z-axis-dependency-fix-plan.md`](plans/z-axis-dependency-fix-plan.md).
+
+---
+
+### Previous Context — archived on 2026-08-11 (Gradient Stacking — Material Synthesis)
+
+**Previous Current Status:**
+**Complete**: Gradient Stacking — Material Synthesis (v2 Surface Patch) (2026-08-11) — replaced the failed `color-mix()` surface solidification with a universally-supported **gradient-stack** two-layer background structure on `.take-pill-btn`, `.log-drink-btn`, `.stat-pill`, and `.chip` (plus hover/active states) in [`daily-panel.ts`](src/components/daily-panel.ts) and [`drinks-panel.ts`](src/components/drinks-panel.ts). The `color-mix()` approach (prior task) produced **invisible elements** because HA's `--rgb-primary-color` is a raw RGB triplet (`3, 169, 244`), not a `<color>` value; `var(--rgb-primary-color, #03a9f4)` only falls back when the var is *undefined*, not when it resolves to an unparseable triplet → `color-mix()` received an invalid first operand → declaration discarded → no background. The gradient stack bypasses this: `background-color: var(--card-background-color, ...)` (opaque base wall) + `background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(...))` (flat translucent tint — identical stops = flat color) composites into a 100% opaque element that occludes the ambilight backlight, using the **exact `rgba()` syntax the component used prior to v2.1** (HA triplets are designed for `rgba()`). Architecture plan: [`plans/gradient-stacking-material-synthesis-plan.md`](plans/gradient-stacking-material-synthesis-plan.md).
+
+---
+
+> 📜 **Older history archived in [`memory-bank/old/activeContext-archive.md`](memory-bank/old/activeContext-archive.md:1)** — read it only if the truncated file above lacks context for the current task. The archive holds the full pre-truncation content (current status + prior-status blocks + earlier "Previous Context" sections back to the project's earliest work). Most recently archived: Alpha Channel Solidification (FAILED color-mix), Z-Axis Dependency Fix, Card-Root Glow (REJECTED), Ambilight Glow v2, On-Time Window, Icon Style Dropdown Separation, ACK Overlay Ripple Visibility.

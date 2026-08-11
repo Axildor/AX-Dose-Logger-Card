@@ -4,6 +4,7 @@ import type { PropertyValues } from 'lit';
 import type { LovelaceCard, ActionConfig } from 'custom-card-helpers';
 import { fireEvent, formatTime, formatDateTime, handleAction } from 'custom-card-helpers';
 import { localize } from './localize.js';
+import { delayedAction } from './delayed-action.js';
 import {
   formatInteger as formatIntegerHelper,
   toLocalDateKey as toLocalDateKeyHelper,
@@ -36,7 +37,80 @@ import type {
   DrinkInfo,
   ChipConfig,
   ButtonStateStyle,
+  IconStyle,
 } from './types.js';
+
+// ──────────────────────────────────────────────
+// Button State Matrix — config migration (old *_style + *_pulse -> new
+// *_style + *_icon_style, and *_glow_speed -> *_ring_speed). Runs in
+// setConfig() so existing user configs are migrated transparently.
+// Idempotent: a no-op once the new *_icon_style field is present.
+// See plans/icon-style-dropdown-separation-plan.md §5-6.
+// ──────────────────────────────────────────────
+function _migrateOneButtonState(raw: any, prefix: string): void {
+  const oldStyle = raw[`${prefix}_style`];
+  const oldPulse = raw[`${prefix}_pulse`];
+  // Skip if the new field is already present (post-migration) or neither old
+  // field exists.
+  if (raw[`${prefix}_icon_style`] !== undefined) return;
+  if (oldStyle === undefined && oldPulse === undefined) return;
+
+  // Detect legacy icon-composite style names (icon, icon_border, icon_glow).
+  const hasIcon = oldStyle === 'icon' || oldStyle === 'icon_border' || oldStyle === 'icon_glow';
+
+  // Modern styles (full, border, none, ring, glow, auto) with no legacy pulse
+  // field are already in the new format — skip migration. This is critical
+  // for idempotency: HA's visual editor omits the *_icon_style field when it
+  // is at its default ('auto'), so the earlier guard (line 55) does NOT fire
+  // after a style-only change. Without this guard, migration would re-run
+  // every time the user changes the style dropdown, injecting
+  // icon_style='none' into the stored config and causing the editor to show
+  // 'none' instead of 'auto'. By returning early for modern configs, we
+  // ensure only truly legacy configs (those with *_pulse or icon-composite
+  // style names) are migrated.
+  if (oldPulse === undefined && !hasIcon) return;
+
+  // Map old style -> new style (strip icon component from legacy names).
+  // NOTE: 'glow' is NO LONGER remapped — it is a valid ButtonStateStyle as of
+  // the Ambilight Glow feature. Legacy 'glow' (which meant the old rotating
+  // ring) is left as 'glow' so those users get the new Ambilight Glow style
+  // instead of a silent downgrade to 'ring'. The old ring is still available
+  // by explicitly selecting 'ring' in the editor.
+  const newStyle = oldStyle === 'icon' ? 'none'
+    : oldStyle === 'icon_border' ? 'border'
+    : oldStyle === 'icon_glow' ? 'ring'
+    : oldStyle;  // full, border, none, ring, glow unchanged
+
+  // Map old pulse + icon presence -> new icon_style.
+  let iconStyle: IconStyle;
+  if (hasIcon) {
+    iconStyle = oldPulse ? 'color_pulse' : 'color';
+  } else {
+    iconStyle = oldPulse ? 'pulse' : 'none';
+  }
+
+  raw[`${prefix}_style`] = newStyle;
+  raw[`${prefix}_icon_style`] = iconStyle;
+  delete raw[`${prefix}_pulse`];
+}
+
+function _migrateButtonStateConfig(raw: any): void {
+  // Daily — 3 states
+  _migrateOneButtonState(raw, 'take_button_lockout');
+  _migrateOneButtonState(raw, 'take_button_execution');
+  _migrateOneButtonState(raw, 'take_button_latency');
+  // Drinks — 1 state
+  _migrateOneButtonState(raw, 'drink_button_lockout');
+  // Ring speed rename (glow_speed -> ring_speed).
+  if (raw.take_button_glow_speed !== undefined && raw.take_button_ring_speed === undefined) {
+    raw.take_button_ring_speed = raw.take_button_glow_speed;
+    delete raw.take_button_glow_speed;
+  }
+  if (raw.drink_button_glow_speed !== undefined && raw.drink_button_ring_speed === undefined) {
+    raw.drink_button_ring_speed = raw.drink_button_glow_speed;
+    delete raw.drink_button_glow_speed;
+  }
+}
 
 // ──────────────────────────────────────────────
 // AxDoseLoggerCard — Main Card Class (Container)
@@ -140,8 +214,15 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // rolling safety window resets (window_expires_at attribute).
   @state() private _overrideDialog: {
     timeLabel: string;
-    bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed';
+    bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed'
+      | 'dialog.override.body_24h_exceeded' | 'dialog.override.body_24h_would_exceed';
     entities: ResolvedEntities;
+  } | null = null;
+  // Extra context for the 24h limit override dialog body placeholders
+  // (current amount, limit, next dose strength, projected total, unit).
+  // Only populated when bodyKey is a 24h_limit variant; null otherwise.
+  private _overrideDialogExtras: {
+    current: string; limit: string; next: string; projected: string; unit: string;
   } | null = null;
   // Tracking override warning dialog: when user tries to change a daily-locked
   // tracking value that has already been set today, this dialog asks for confirmation.
@@ -151,6 +232,15 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // the first set_value completes would read stale logged_today=false and bypass
   // the override dialog. Cleared in updated() once HA confirms logged_today=true.
   private _pendingTracking: Set<string> = new Set();
+
+  // Connection flag (N3 defense-in-depth): set true in connectedCallback,
+  // false in disconnectedCallback. Timer callbacks that mutate @state and
+  // call requestUpdate() check this flag before acting, so even if a
+  // setTimeout callback was already queued before disconnectedCallback's
+  // clearTimeout ran, it can't mutate state on a detached element. The
+  // existing clearTimeout calls in disconnectedCallback are the primary
+  // guard; this is belt-and-suspenders for the microtask-race edge case.
+  private _connected: boolean = false;
 
   // ── Render-performance optimization ─────────
   // _tick: bumped every 30s by a timer so time-relative panes (daily/stats)
@@ -199,6 +289,15 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // ── Configuration ──────────────────────────
 
   setConfig(config: AxDoseLoggerCardConfig) {
+    // Defensive shallow clone: HA's Lovelace editor may pass a frozen
+    // (Object.freeze) config object to setConfig, especially during live
+    // editing. The migration code below mutates the config in place, which
+    // would throw "Cannot assign to read only property" on a frozen object.
+    // Clone once at the entry point so all downstream code owns a writable
+    // copy. A shallow clone is sufficient — all nested button-state config
+    // lives at the top level (take_button_*, drink_button_*), and the only
+    // nested structure (chips[]) is handled separately below.
+    config = { ...(config as any) };
     // Backward compat: convert legacy chips[] array to flat chip_N fields
     const raw = config as any;
     if (Array.isArray(raw.chips)) {
@@ -210,6 +309,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       const { chips: _chips, ...rest } = raw;
       config = { ...rest, ...mapped };
     }
+    // Migrate old button-state config (7-style + pulse -> 4-style + 4-icon_style,
+    // glow_speed -> ring_speed). Idempotent. See plans/
+    // icon-style-dropdown-separation-plan.md §5-6.
+    _migrateButtonStateConfig(config as any);
     // HA contract: throw on invalid config so HA renders an error card with
     // the message. We check for null/undefined (key missing in YAML) but NOT
     // empty string — getStubConfig() returns { device_id: '' } when the card
@@ -279,7 +382,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       result.medicationName = this.hass.devices[deviceId].name!;
     }
 
-    // Iterate all entities to find those belonging to this device
+    // Iterate all entities to find those belonging to this device. This single
+    // pass handles both suffix-based medicine categorization AND master-tracker
+    // / granular-drink detection (N5: previously two separate loops over the
+    // same hass.entities object — merged since the result is cached and only
+    // runs on device-id or registry change, but the double iteration was a
+    // code-quality smell).
+    let isMaster = false;
+    let isGranularDrink = false;
     for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
       if (entityInfo.device_id !== deviceId) continue;
 
@@ -320,6 +430,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           result.daysLeftEst = false;
         }
         else if (entityId.endsWith('_strength')) result.strength = entityId;
+        else if (entityId.endsWith('_24h_limit_exceeded')) result.limit24hExceeded = entityId;
       } else if (entityId.startsWith('button.')) {
         if (entityId.endsWith('_take')) result.takeButton = entityId;
         else if (entityId.endsWith('_reset_history')) result.resetButton = entityId;
@@ -352,20 +463,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           result.metrics.push({ entityId, label, metricKey });
         }
       }
-    }
 
-    // ── Master Tracker (Caffeine/Alcohol) + granular drink detection ──
-    // Master tracker entities use different suffixes (drink_master_*,
-    // sleep_disruption, estimated_low_time) than medicine entities, so the
-    // suffix loop above does not populate ResolvedEntities for them.  Detect
-    // them by state attributes (`drink_master: True` for masters,
-    // `device_type: "drink"` for granular drinks) and populate the master
-    // fields.  Granular drink devices set deviceType='drink' so render() can
-    // show the redirect placeholder.
-    let isMaster = false;
-    let isGranularDrink = false;
-    for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
-      if (entityInfo.device_id !== deviceId) continue;
+      // ── Master Tracker (Caffeine/Alcohol) + granular drink detection ──
+      // Merged into the same single pass as the suffix categorization above
+      // (N5: previously a second Object.entries loop). Master tracker entities
+      // use different suffixes than medicine entities, so the suffix block
+      // above doesn't populate ResolvedEntities for them. Detect them by state
+      // attributes (`drink_master: True` for masters, `device_type: "drink"`
+      // for granular drinks) and populate the master fields. Granular drink
+      // devices set deviceType='drink' so render() can show the redirect
+      // placeholder.
       const drinkMaster = this._getAttr(entityId, 'drink_master');
       const dt = (this._getAttr(entityId, 'device_type') || '').toLowerCase();
       if (drinkMaster === true) {
@@ -665,6 +772,42 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     const safeState = this._getState(entities.pillsSafeToTake);
     const safeCount = parseInt(safeState, 10);
 
+    // 24h Strength Limit reached — show override dialog with 24h-specific
+    // text. This fires when the next dose would push the 24h strength sum
+    // over the daily_limit, or the limit is already exceeded. Checked
+    // before the pill-count lockout so the user sees the more specific
+    // 24h strength warning even when pills are still available.
+    if (entities.limit24hExceeded) {
+      const limitState = this._getState(entities.limit24hExceeded);
+      if (limitState === 'on') {
+        const currentAmount = this._getAttr(entities.limit24hExceeded, 'current_amount');
+        const dailyLimit = this._getAttr(entities.limit24hExceeded, 'daily_limit');
+        const nextStrength = this._getAttr(entities.limit24hExceeded, 'next_dose_strength');
+        const alreadyExceeded = this._getAttr(entities.limit24hExceeded, 'already_exceeded');
+        const unit = this._getAttr(entities.limit24hExceeded, 'unit_of_measurement') || 'mg';
+        const projected = (typeof currentAmount === 'number' ? currentAmount : 0)
+          + (typeof nextStrength === 'number' ? nextStrength : 0);
+        const timeLabel = `${currentAmount} / ${dailyLimit} ${unit}`;
+        const bodyKey = alreadyExceeded
+          ? 'dialog.override.body_24h_exceeded'
+          : 'dialog.override.body_24h_would_exceed';
+        this._overrideDialog = {
+          timeLabel,
+          bodyKey,
+          entities,
+        };
+        // Store extra context for the dialog body placeholders.
+        this._overrideDialogExtras = {
+          current: String(currentAmount),
+          limit: String(dailyLimit),
+          next: String(nextStrength),
+          projected: String(projected),
+          unit: String(unit),
+        };
+        return;
+      }
+    }
+
     if (!isNaN(safeCount) && safeCount <= 0) {
       // Pill limit reached: show the HA-native override confirmation dialog
       // instead of the synchronous browser confirm() box (#6). The actual
@@ -865,6 +1008,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       window.clearTimeout(this._dailyFreezeTimer);
     }
     this._dailyFreezeTimer = window.setTimeout(() => {
+      if (!this._connected) return; // N3: detached guard
       this._dailyFrozenState = null;
       this._dailyFreezeTimer = undefined;
       this.requestUpdate();
@@ -885,6 +1029,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       window.clearTimeout(this._dailyAckTimer);
     }
     this._dailyAckTimer = window.setTimeout(() => {
+      if (!this._connected) return; // N3: detached guard
       this._dailyAckActive = false;
       this._dailyAckCount = 0;
       this._dailyAckTimer = undefined;
@@ -905,6 +1050,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       window.clearTimeout(this._drinksFreezeTimer);
     }
     this._drinksFreezeTimer = window.setTimeout(() => {
+      if (!this._connected) return; // N3: detached guard
       this._drinksFrozenState = null;
       this._drinksFreezeTimer = undefined;
       this.requestUpdate();
@@ -924,6 +1070,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       window.clearTimeout(this._drinksAckTimer);
     }
     this._drinksAckTimer = window.setTimeout(() => {
+      if (!this._connected) return; // N3: detached guard
       this._drinksAckActive = false;
       this._drinksAckCount = 0;
       this._drinksAckTimer = undefined;
@@ -932,13 +1079,28 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   }
 
   /**
-   * Resolve the adherence grace period (on-time buffer) in hours from any
-   * resolved adherence sensor's `grace_hours` state attribute (the 7-day
-   * window is the tightest representative). Falls back to the backend default
-   * 1.0h when no adherence sensor exposes the attribute (matches
-   * config_flow.py:211). Powers the Button State Matrix latency boundary.
+   * Resolve the adherence grace period (on-time buffer) in hours. Powers the
+   * Button State Matrix latency boundary (overdue warning at half grace).
+   *
+   * Resolution order (fixes the bug where the card silently fell back to a
+   * hardcoded 1.0h when adherence tracking was off, ignoring the user's
+   * configured value):
+   *   1. The Overdue sensor's `grace_minutes` attribute — the Overdue sensor
+   *      is created for every scheduled medication (independent of
+   *      enable_adherence), so it is the reliable single source of truth.
+   *      Convert minutes -> hours for the internal ButtonStateInput contract.
+   *   2. The adherence sensors' `grace_hours` attribute (legacy path, when
+   *      the Overdue sensor somehow lacks grace_minutes — defensive).
+   *   3. The backend default 60 min (== 1.0h).
    */
   private _resolveGraceHours(entities: ResolvedEntities): number {
+    // 1. Prefer the Overdue sensor's grace_minutes (always present for
+    //    scheduled meds, regardless of whether adherence tracking is on).
+    if (entities.overdue) {
+      const gm = this._getAttr(entities.overdue, 'grace_minutes');
+      if (typeof gm === 'number' && gm > 0) return gm / 60;
+    }
+    // 2. Fall back to adherence sensors' grace_hours (legacy).
     const candidates = [
       entities.adherence7Days,
       entities.adherence14Days,
@@ -950,6 +1112,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       const gh = this._getAttr(eid, 'grace_hours');
       if (typeof gh === 'number' && gh > 0) return gh;
     }
+    // 3. Final fallback (matches the backend default 60 min).
     return 1.0;
   }
 
@@ -972,6 +1135,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     const safeCount = parseInt(safeState, 10);
     const isLockedOut = !isNaN(safeCount) && safeCount <= 0;
 
+    // 24h Strength Limit — reads the binary sensor (on when the next dose
+    // would push the 24h strength sum over the daily_limit, or the limit is
+    // already exceeded). Distinct from the pill-count lockout (isLockedOut)
+    // which reads pillsSafeToTake. Takes precedence after lockout but before
+    // latency/execution in the state machine.
+    let is24hLimitReached = false;
+    if (entities.limit24hExceeded) {
+      const limitState = this._getState(entities.limit24hExceeded);
+      is24hLimitReached = limitState === 'on';
+    }
+
     // Scheduled = tracking_type != as_needed. Defensive snake/title-case
     // normalization mirroring _handleTakePill.
     const tt = (this._getAttr(entities.nextDose, 'tracking_type') || '').toLowerCase();
@@ -987,6 +1161,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
     const input: ButtonStateInput = {
       isLockedOut,
+      is24hLimitReached,
       isScheduled,
       overdueSeconds,
       graceHours: this._resolveGraceHours(entities),
@@ -1020,6 +1195,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
     const input: ButtonStateInput = {
       isLockedOut,
+      is24hLimitReached: false, // drinks have no 24h strength limit
       isScheduled: false, // drinks have no schedule
       overdueSeconds: 0,
       graceHours: 1.0,
@@ -1352,12 +1528,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       >
         <div slot="header" class="dialog-header">${targetName}</div>
         <div class="dialog-body dialog-body--center">
-          <button class="dialog-btn" @click=${() => { this._navigateToDevice(targetDeviceId); close(); }}>
+          <button class="dialog-btn" @click=${delayedAction(() => { this._navigateToDevice(targetDeviceId); close(); })}>
+            <ha-ripple></ha-ripple>
             <ha-icon icon="mdi:information-outline"></ha-icon>
             <span>${localize(this._lang, 'dialog.device_info.button')}</span>
           </button>
           ${this.config?.show_color_indicator_explainer !== false
-            ? html`<button class="dialog-btn" aria-label=${localize(this._lang, 'dialog.device_info.color_indicators_aria')} @click=${() => { this.showColorExplainerDialog(); close(); }}>
+            ? html`<button class="dialog-btn" aria-label=${localize(this._lang, 'dialog.device_info.color_indicators_aria')} @click=${delayedAction(() => { this.showColorExplainerDialog(); close(); })}>
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:palette-outline"></ha-icon>
                 <span>${localize(this._lang, 'dialog.device_info.color_indicators')}</span>
               </button>`
@@ -1396,7 +1574,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           <button class="dialog-btn dialog-btn--muted" @click=${close}>
             ${localize(this._lang, 'dialog.cancel')}
           </button>
-          <button class="dialog-btn" @click=${() => this._handleRefill(entities)}>
+          <button class="dialog-btn" @click=${delayedAction(() => this._handleRefill(entities))}>
+            <ha-ripple></ha-ripple>
             ${localize(this._lang, 'dialog.refill.confirm')}
           </button>
         </div>
@@ -1457,8 +1636,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
                   <button
                     class="dialog-btn log-drink-btn"
                     ?disabled=${!d.logButtonEntityId}
-                    @click=${() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId)}
+                    @click=${delayedAction(() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId))}
                   >
+                    <ha-ripple ?disabled=${!d.logButtonEntityId}></ha-ripple>
                     <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
                     <span class="log-drink-name">${d.name}</span>
                     <span class="log-drink-low">${formatLow(d.logButtonEntityId)}</span>
@@ -1481,11 +1661,25 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   private _renderOverrideDialog() {
     const dlg = this._overrideDialog;
     if (!dlg) return nothing;
+    const extras = this._overrideDialogExtras;
+    // Build the placeholder map: always includes `time` (used by the
+    // pill-count lockout dialog). For 24h limit dialogs, also includes
+    // current/limit/next/projected/unit so the body text can show the
+    // specific numbers (e.g. "600 / 700 mg — next dose 200 mg → 800 mg").
+    const placeholders: Record<string, string> = { time: dlg.timeLabel };
+    if (extras) {
+      placeholders.current = extras.current;
+      placeholders.limit = extras.limit;
+      placeholders.next = extras.next;
+      placeholders.projected = extras.projected;
+      placeholders.unit = extras.unit;
+    }
+    const closeDialog = () => { this._overrideDialog = null; this._overrideDialogExtras = null; };
     return html`
       <ha-dialog
         open
         width="small"
-        @closed=${() => { this._overrideDialog = null; }}
+        @closed=${closeDialog}
       >
         <div slot="header" class="dialog-header dialog-header--warning">
           <ha-icon icon="mdi:alert"></ha-icon>
@@ -1493,16 +1687,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         </div>
         <div class="dialog-body">
           <div class="tools-dialog-descriptor">
-            ${localize(this._lang, dlg.bodyKey, { time: dlg.timeLabel })}
+            ${localize(this._lang, dlg.bodyKey, placeholders)}
           </div>
         </div>
         <div class="custom-action-bar">
           <button class="dialog-btn dialog-btn--muted"
-                  @click=${() => { this._overrideDialog = null; }}>
+                  @click=${closeDialog}>
             ${localize(this._lang, 'dialog.cancel')}
           </button>
           <button class="dialog-btn"
-                  @click=${() => {
+                  @click=${delayedAction(() => {
                     if (this.hass && dlg.entities.takeButton) {
                       this.hass.callService('button', 'press', {
                         entity_id: dlg.entities.takeButton,
@@ -1511,8 +1705,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
                       // successful dose log → trigger the ACK flash.
                       this._triggerDailyAck();
                     }
-                    this._overrideDialog = null;
-                  }}>
+                    closeDialog();
+                  })}>
+            <ha-ripple></ha-ripple>
             ${localize(this._lang, 'dialog.override.confirm')}
           </button>
         </div>
@@ -2087,7 +2282,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
             <ha-icon icon="mdi:close"></ha-icon>
             <span>${localize(this._lang, 'dialog.cancel')}</span>
           </button>
-          <button class="dialog-btn" @click=${onConfirm}>
+          <button class="dialog-btn" @click=${delayedAction(onConfirm)}>
+            <ha-ripple></ha-ripple>
             <ha-icon icon="mdi:check"></ha-icon>
             <span>${localize(this._lang, 'dialog.confirm')}</span>
           </button>
@@ -2160,7 +2356,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
             ${localize(this._lang, 'tracking.cancel')}
           </button>
           <button class="dialog-btn"
-                  @click=${() => {
+                  @click=${delayedAction(() => {
                     if (this.hass) {
                       this.hass.callService('ax_dose_logger', 'set_metric', {
                         entity_id: dlg.entityId,
@@ -2169,7 +2365,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
                       });
                     }
                     this._trackingOverrideDialog = null;
-                  }}>
+                  })}>
+            <ha-ripple></ha-ripple>
             ${localize(this._lang, 'tracking.override')}
           </button>
         </div>
@@ -2331,6 +2528,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   connectedCallback(): void {
     super.connectedCallback();
+    this._connected = true; // N3: guard timer callbacks from detached mutation
     // Reset to defaults on every connection. With ll-rebuild removed (#16),
     // the element is no longer destroyed/recreated on pane switch, so @state
     // survives naturally. The only time connectedCallback fires is on a
@@ -2378,6 +2576,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._showColorExplainerDialog = false;
     this._toolsDialog = null;
     this._overrideDialog = null;
+    this._overrideDialogExtras = null;
     // Clear pending tracking flags so stale entries from a prior session
     // (set_value calls that never got confirmed by HA before disconnect)
     // don't suppress the override dialog on the next tracking change.
@@ -2392,6 +2591,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._connected = false; // N3: guard timer callbacks from detached mutation
     this._stopTickTimer();
     // Invalidate any in-flight fetch so it can't write state to a detached
     // element. Bumping the token makes every pending _fetchAmountHistory /
@@ -2617,6 +2817,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         }
         this._graphsRefetchTimer = window.setTimeout(() => {
           this._graphsRefetchTimer = null;
+          if (!this._connected) return; // N3: detached guard
           // Re-resolve entities inside the timeout in case the device changed
           // during the debounce window (unlikely but defense-in-depth).
           const e = this._resolveEntities();
@@ -2695,6 +2896,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     :host {
       display: block;
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         on dialog action buttons (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
 
     *, *::before, *::after {
@@ -2720,6 +2926,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     .pane-selector {
       display: flex;
       border-top: 1px solid var(--divider-color, rgba(0,0,0,0.1));
+      /* Solidified opaque surface — the same alpha-channel transmission bug
+         that affected .stat-pill/.chip applies here at the card-root level:
+         .pane-selector is a sibling of .card-content (which contains the
+         .glow-backdrop), and the 9px+8px glow diffusion bleeds past the
+         bottom of .card-content into the nav bar's territory. With
+         background:none the glow was visible THROUGH the transparent nav bar
+         despite correct z-index:1 (z-index controls paint ORDER, opacity
+         controls paint BLENDING). An opaque background-color matching the
+         card bg fully occludes the backlight. See plans/
+         gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      position: relative;  /* global z-axis protection — glow bleeds behind nav bar (Patch 1, belt-and-suspenders) */
+      z-index: 1;
     }
 
     .pane-btn {
@@ -2856,6 +3075,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       font-family: inherit;
       cursor: pointer;
       transition: background 0.2s;
+      /* position:relative + overflow:hidden clip the ha-ripple surface to the
+         button's rounded border (MdRipple geometry requirement). */
+      position: relative;
+      overflow: hidden;
     }
 
     .dialog-btn:hover {

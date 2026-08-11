@@ -32,45 +32,45 @@ typeof SuppressedError === "function" ? SuppressedError : function (error, suppr
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const t$2=globalThis,e$3=t$2.ShadowRoot&&(void 0===t$2.ShadyCSS||t$2.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$4=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$3&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$4.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$4.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$5=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$3)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$2.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$3?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
+const t$3=globalThis,e$3=t$3.ShadowRoot&&(void 0===t$3.ShadyCSS||t$3.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$3=Symbol(),o$5=new WeakMap;let n$4 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$3)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$3&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$5.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$5.set(s,t));}return t}toString(){return this.cssText}};const r$6=t=>new n$4("string"==typeof t?t:t+"",void 0,s$3),i$5=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$4(o,t,s$3)},S$1=(s,o)=>{if(e$3)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$3.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$3=e$3?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$6(e)})(t):t;
 
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */const{is:i$4,defineProperty:e$2,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$3,getOwnPropertySymbols:o$3,getPrototypeOf:n$2}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$2=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$4(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$2(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$2(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$3(t),...o$3(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$2?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
-
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
-const t$1=globalThis,i$3=t=>t,s$1=t$1.trustedTypes,e$1=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$2=`lit$${Math.random().toFixed(9).slice(2)}$`,n$1="?"+o$2,r$2=`<${n$1}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m$1=/>/g,p$1=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),w=x(2),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e$1?e$1.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m$1:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p$1):void 0!==u[3]&&(c=p$1):c===p$1?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p$1:'"'===u[3]?$:g):c===$||c===g?c=p$1:c===_||c===m$1?c=v:(c=p$1,n=void 0);const x=c===p$1&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$2:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$2+x):s+o$2+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$2),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$2)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$2),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n$1)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$2,t+1));)d.push({type:7,index:l}),t+=o$2.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$3(t).nextSibling;i$3(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t$1.litHtmlPolyfillSupport;B?.(S,k),(t$1.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
-
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */const s=globalThis;let i$2 = class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}};i$2._$litElement$=true,i$2["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i$2});const o$1=s.litElementPolyfillSupport;o$1?.({LitElement:i$2});(s.litElementVersions??=[]).push("4.2.2");
+ */const{is:i$4,defineProperty:e$2,getOwnPropertyDescriptor:h$2,getOwnPropertyNames:r$5,getOwnPropertySymbols:o$4,getPrototypeOf:n$3}=Object,a$1=globalThis,c$2=a$1.trustedTypes,l$1=c$2?c$2.emptyScript:"",p$2=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$2=(t,s)=>!i$4(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$2};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$2(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$2(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$3(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$5(t),...o$4(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$3(s));}else void 0!==s&&i.push(c$3(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$2)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$2?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
 
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const t=t=>(e,o)=>{ void 0!==o?o.addInitializer(()=>{customElements.define(t,e);}):customElements.define(t,e);};
+const t$2=globalThis,i$3=t=>t,s$2=t$2.trustedTypes,e$1=s$2?s$2.createPolicy("lit-html",{createHTML:t=>t}):void 0,h$1="$lit$",o$3=`lit$${Math.random().toFixed(9).slice(2)}$`,n$2="?"+o$3,r$4=`<${n$2}>`,l=document,c$1=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f$1="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m$1=/>/g,p$1=RegExp(`>|${f$1}(?:([^\\s"'>=/]+)(${f$1}*=${f$1}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),w=x(2),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e$1?e$1.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m$1:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p$1):void 0!==u[3]&&(c=p$1):c===p$1?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p$1:'"'===u[3]?$:g):c===$||c===g?c=p$1:c===_||c===m$1?c=v:(c=p$1,n=void 0);const x=c===p$1&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$4:d>=0?(e.push(a),s.slice(0,d)+h$1+s.slice(d)+o$3+x):s+o$3+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h$1)){const i=v[a++],s=r.getAttribute(t).split(o$3),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$3)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$3),i=t.length-1;if(i>0){r.textContent=s$2?s$2.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c$1()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c$1());}}}else if(8===r.nodeType)if(r.data===n$2)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$3,t+1));)d.push({type:7,index:l}),t+=o$3.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c$1()),this.O(c$1()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$3(t).nextSibling;i$3(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t$2.litHtmlPolyfillSupport;B?.(S,k),(t$2.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c$1(),t),t,void 0,s??{});}return h._$AI(t),h};
 
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */const o={attribute:true,type:String,converter:u$1,reflect:false,hasChanged:f$1},r$1=(t=o,e,r)=>{const{kind:n,metadata:i}=r;let s=globalThis.litPropertyMetadata.get(i);if(void 0===s&&globalThis.litPropertyMetadata.set(i,s=new Map),"setter"===n&&((t=Object.create(t)).wrapped=true),s.set(r.name,t),"accessor"===n){const{name:o}=r;return {set(r){const n=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,n,t,true,r);},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===n){const{name:o}=r;return function(r){const n=this[o];e.call(this,r),this.requestUpdate(o,n,t,true,r);}}throw Error("Unsupported decorator location: "+n)};function n(t){return (e,o)=>"object"==typeof o?r$1(t,e,o):((t,e,o)=>{const r=e.hasOwnProperty(o);return e.constructor.createProperty(o,t),r?Object.getOwnPropertyDescriptor(e,o):void 0})(t,e,o)}
+ */const s$1=globalThis;let i$2 = class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}};i$2._$litElement$=true,i$2["finalized"]=true,s$1.litElementHydrateSupport?.({LitElement:i$2});const o$2=s$1.litElementPolyfillSupport;o$2?.({LitElement:i$2});(s$1.litElementVersions??=[]).push("4.2.2");
 
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
- */function r(r){return n({...r,state:true,attribute:false})}
+ */
+const t$1=t=>(e,o)=>{ void 0!==o?o.addInitializer(()=>{customElements.define(t,e);}):customElements.define(t,e);};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const o$1={attribute:true,type:String,converter:u$1,reflect:false,hasChanged:f$2},r$3=(t=o$1,e,r)=>{const{kind:n,metadata:i}=r;let s=globalThis.litPropertyMetadata.get(i);if(void 0===s&&globalThis.litPropertyMetadata.set(i,s=new Map),"setter"===n&&((t=Object.create(t)).wrapped=true),s.set(r.name,t),"accessor"===n){const{name:o}=r;return {set(r){const n=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,n,t,true,r);},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===n){const{name:o}=r;return function(r){const n=this[o];e.call(this,r),this.requestUpdate(o,n,t,true,r);}}throw Error("Unsupported decorator location: "+n)};function n$1(t){return (e,o)=>"object"==typeof o?r$3(t,e,o):((t,e,o)=>{const r=e.hasOwnProperty(o);return e.constructor.createProperty(o,t),r?Object.getOwnPropertyDescriptor(e,o):void 0})(t,e,o)}
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */function r$2(r){return n$1({...r,state:true,attribute:false})}
 
 function computeDomain(entityId) {
     return entityId.substr(0, entityId.indexOf("."));
@@ -326,6 +326,7 @@ const translations = {
         // ── Daily pane ──
         'daily.take_pill': 'Take Pill',
         'daily.limit_reached': 'LIMIT REACHED',
+        'daily.24h_limit_reached': '24H LIMIT REACHED',
         'daily.last': 'Last',
         'daily.next': 'Next',
         'daily.overdue': 'Overdue',
@@ -444,6 +445,8 @@ const translations = {
         'dialog.log_drink.predicted_low_dash': 'Low: —',
         'dialog.override.body_scheduled': 'Your next scheduled dose is not until {time}. Take a dose now anyway?',
         'dialog.override.body_as_needed': 'Your next safe dose is not until {time}. Take a dose now anyway?',
+        'dialog.override.body_24h_exceeded': 'You have already exceeded the 24h strength limit for this medication ({time}). Taking another dose increases the risk of adverse effects. Press Override to log the dose anyway.',
+        'dialog.override.body_24h_would_exceed': 'Your next dose ({next} {unit}) would push the 24h total to {projected} {unit}, exceeding the {limit} {unit} limit (currently {current} {unit}). Press Override to log the dose anyway.',
         'dialog.override.confirm': 'Override',
         'dialog.device_info.button': 'To Device info',
         'dialog.device_info.aria': 'View device info',
@@ -461,11 +464,13 @@ const translations = {
             '| Color | State | When active |',
             '|-------|-------|-------------|',
             '| **Red** | Limit Reached | Daily limit reached / cooldown active |',
-            '| **Blue** | Dose Due | Scheduled dose due (within the adherence grace window) |',
-            '| **Amber** | Overdue Warning | Overdue (past the adherence grace window) |',
+            '| **Blue** | Dose Due | Scheduled dose due (within the first half of the on-time window) |',
+            '| **Amber** | Overdue Warning | Overdue (past half the on-time window) |',
             '| **Green** | Logged Dose Indicator | Transient flash after a successful press |',
             '',
             'These indicator colors are **fixed** — they are not affected by the card\'s Color Scheme setting.',
+            '',
+            'The **on-time window** is the on-time buffer you configured for the medication (in minutes). The button stays blue for the **first half** of the window (on-time, no rush) and turns amber at the **halfway point** — a proactive heads-up that the window is closing. This applies to **all scheduled medications**, whether or not adherence tracking is enabled.',
             '',
             '### Color Scheme Conflict',
             '',
@@ -598,42 +603,47 @@ const translations = {
         // ── Button State Matrix (Prosumer UI) — config labels ──
         // Submenu header (shared by Daily + Drinks Button expandables).
         'config.button': 'Button',
-        // Daily (Take Pill button) — per-state style + pulse + ack layout/duration.
+        // Daily (Take Pill button) — per-state style + icon_style + ack layout/duration.
         // Labels use patient-facing terminology (not internal state-machine jargon):
         // "Limit Reached" (lockout), "Take Pill" (execution-requested), "Overdue
         // Warning" (latency), "Logged Dose Indicator" (ack flash). Config keys are
         // unchanged — only the user-facing label text changed.
         'config.take_button_lockout_style': 'Limit Reached Style',
-        'config.take_button_lockout_pulse': 'Limit Reached Icon Pulse',
+        'config.take_button_lockout_icon_style': 'Limit Reached Icon Style',
         'config.take_button_execution_style': 'Take Pill Style',
-        'config.take_button_execution_pulse': 'Take Pill Icon Pulse',
+        'config.take_button_execution_icon_style': 'Take Pill Icon Style',
         'config.take_button_latency_style': 'Overdue Warning Style',
-        'config.take_button_latency_pulse': 'Overdue Warning Icon Pulse',
+        'config.take_button_latency_icon_style': 'Overdue Warning Icon Style',
         'config.take_button_ack_layout': 'Logged Dose Indicator Style',
         'config.take_button_ack_duration_ms': 'Logged Animation Duration (ms)',
-        'config.take_button_glow_speed': 'Rotating Glow Speed',
+        'config.take_button_ring_speed': 'Glow / Ring Speed',
         // Drinks (Log Drink button) — lockout + ack only (no schedule).
         'config.drink_button_lockout_style': 'Limit Reached Style',
-        'config.drink_button_lockout_pulse': 'Limit Reached Icon Pulse',
+        'config.drink_button_lockout_icon_style': 'Limit Reached Icon Style',
         'config.drink_button_ack_layout': 'Logged Dose Indicator Style',
         'config.drink_button_ack_duration_ms': 'Logged Animation Duration (ms)',
-        'config.drink_button_glow_speed': 'Rotating Glow Speed',
-        // ── Button State Matrix — 7 visual style option labels ──
+        'config.drink_button_ring_speed': 'Glow / Ring Speed',
+        // ── Button State Matrix — 6 Style option labels (Default sentinel + 5 visual) ──
+        'button_style.auto': 'Default',
         'button_style.full': 'Full Button',
-        'button_style.icon': 'Icon Only',
         'button_style.border': 'Border Only',
-        'button_style.icon_border': 'Icon and Border',
-        'button_style.none': 'No Change',
-        'button_style.glow': 'Rotating Border Glow',
-        'button_style.icon_glow': 'Icon and Rotating Border Glow',
+        'button_style.none': 'No Color',
+        'button_style.ring': 'Rotating Ring',
+        'button_style.glow': 'Ambilight Glow',
+        // ── Icon Style option labels (Default sentinel + 4 visual: 2x2 matrix) ──
+        'icon_style.auto': 'Default',
+        'icon_style.none': 'None',
+        'icon_style.color': 'Colored',
+        'icon_style.color_pulse': 'Colored + Pulse',
+        'icon_style.pulse': 'Pulse Only',
         // ── ACK (Logged) flash layout option labels (3 options) ──
         'ack_layout.top': 'Top tick mark and text',
         'ack_layout.inline': 'Tick mark and text inline',
         'ack_layout.big': 'Big tick mark',
-        // ── Rotating border-glow speed option labels (3 options) ──
-        'glow_speed.slow': 'Slow',
-        'glow_speed.medium': 'Medium',
-        'glow_speed.fast': 'Fast',
+        // ── Rotating ring speed option labels (3 options) ──
+        'ring_speed.slow': 'Slow',
+        'ring_speed.medium': 'Medium',
+        'ring_speed.fast': 'Fast',
         // ACK transient flash text ("Logged") rendered via the ack overlay element.
         'button.ack_text': 'Logged',
         // Box expandable titles (layer 3 — nested collapsable menus)
@@ -742,22 +752,23 @@ const translations = {
         // ── Button State Matrix helpers ──
         // Daily (Take Pill) per-state helpers. Terminology aligned with the
         // renamed labels (Limit Reached / Take Pill / Overdue Warning / Logged
-        // Dose Indicator). See plans/button-submenu-optimization-plan.md §2.1.
-        'config.helper.take_button_lockout_style': 'Visual style when the daily limit is reached. Default: Full Button.',
-        'config.helper.take_button_lockout_pulse': 'Pulse the button icon when the limit is reached.',
-        'config.helper.take_button_execution_style': 'Visual style when a scheduled dose is due (within the adherence grace window). Default: Icon Only.',
-        'config.helper.take_button_execution_pulse': 'Pulse the button icon when a dose is due.',
-        'config.helper.take_button_latency_style': 'Visual style when the dose is overdue (past the adherence grace window). Default: Icon and Border.',
-        'config.helper.take_button_latency_pulse': 'Pulse the button icon when overdue. On by default.',
+        // Dose Indicator). 'auto' (Default sentinel) resolves to the per-state
+        // default at runtime. See plans/icon-style-dropdown-separation-plan.md.
+        'config.helper.take_button_lockout_style': 'Visual style when the daily limit is reached (Full Button, Border Only, No Color, Rotating Ring, or Ambilight Glow). Default: Full Button.',
+        'config.helper.take_button_lockout_icon_style': 'Icon color and pulse when the limit is reached. Default: None.',
+        'config.helper.take_button_execution_style': 'Visual style when a scheduled dose is due (within the first half of the on-time window) (Full Button, Border Only, No Color, Rotating Ring, or Ambilight Glow). Default: No Color.',
+        'config.helper.take_button_execution_icon_style': 'Icon color and pulse when a dose is due. Default: Colored.',
+        'config.helper.take_button_latency_style': 'Visual style when the dose is overdue (past half the on-time window) (Full Button, Border Only, No Color, Rotating Ring, or Ambilight Glow). Default: Border Only.',
+        'config.helper.take_button_latency_icon_style': 'Icon color and pulse when overdue. Default: Colored + Pulse.',
         'config.helper.take_button_ack_layout': 'Layout of the transient "Logged" flash after pressing the button. Default: Top tick mark and text.',
         'config.helper.take_button_ack_duration_ms': 'How long the "Logged" flash appears, in milliseconds. Default: 3000.',
-        'config.helper.take_button_glow_speed': 'Speed of the rotating border glow animation. Default: Medium.',
+        'config.helper.take_button_ring_speed': 'Speed of the rotating ring and ambilight glow breathing animation. Default: Medium.',
         // Drinks (Log Drink) per-state helpers.
-        'config.helper.drink_button_lockout_style': 'Visual style when the substance daily limit is reached. Default: Full Button.',
-        'config.helper.drink_button_lockout_pulse': 'Pulse the button icon when the limit is reached.',
+        'config.helper.drink_button_lockout_style': 'Visual style when the substance daily limit is reached (Full Button, Border Only, No Color, Rotating Ring, or Ambilight Glow). Default: Full Button.',
+        'config.helper.drink_button_lockout_icon_style': 'Icon color and pulse when the limit is reached. Default: None.',
         'config.helper.drink_button_ack_layout': 'Layout of the transient "Logged" flash after logging a drink. Default: Top tick mark and text.',
         'config.helper.drink_button_ack_duration_ms': 'How long the "Logged" flash appears, in milliseconds. Default: 3000.',
-        'config.helper.drink_button_glow_speed': 'Speed of the rotating border glow animation. Default: Medium.',
+        'config.helper.drink_button_ring_speed': 'Speed of the rotating ring and ambilight glow breathing animation. Default: Medium.',
         // ── Color scheme labels ──
         'color.default': 'Default (HA Theme)',
         'color.blue': 'Blue',
@@ -778,6 +789,7 @@ const translations = {
         // ── aria-labels ──
         'aria.take_pill_safe': 'Take pill',
         'aria.take_pill_limit': 'Limit reached, override available',
+        'aria.take_pill_24h_limit': '24h strength limit reached, override available',
         'aria.timeframe_12h': '12 hours',
         'aria.timeframe_24h': '24 hours',
         'aria.timeframe_48h': '48 hours',
@@ -805,6 +817,154 @@ function localize(lang, key, params) {
     }
     return str;
 }
+
+/**
+ * @license
+ * Copyright 2020 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const r$1=o=>void 0===o.strings,m={},p=(o,t=m)=>o._$AH=t;
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t={CHILD:2},e=t=>(...e)=>({_$litDirective$:t,values:e});let i$1 = class i{constructor(t){}get _$AU(){return this._$AM._$AU}_$AT(t,e,i){this._$Ct=t,this._$AM=e,this._$Ci=i;}_$AS(t,e){return this.update(t,e)}update(t,e){return this.render(...e)}};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const s=(i,t)=>{const e=i._$AN;if(void 0===e)return  false;for(const i of e)i._$AO?.(t,false),s(i,t);return  true},o=i=>{let t,e;do{if(void 0===(t=i._$AM))break;e=t._$AN,e.delete(i),i=t;}while(0===e?.size)},r=i=>{for(let t;t=i._$AM;i=t){let e=t._$AN;if(void 0===e)t._$AN=e=new Set;else if(e.has(i))break;e.add(i),c(t);}};function h(i){ void 0!==this._$AN?(o(this),this._$AM=i,r(this)):this._$AM=i;}function n(i,t=false,e=0){const r=this._$AH,h=this._$AN;if(void 0!==h&&0!==h.size)if(t)if(Array.isArray(r))for(let i=e;i<r.length;i++)s(r[i],false),o(r[i]);else null!=r&&(s(r,false),o(r));else s(this,i);}const c=i=>{i.type==t.CHILD&&(i._$AP??=n,i._$AQ??=h);};class f extends i$1{constructor(){super(...arguments),this._$AN=void 0;}_$AT(i,t,e){super._$AT(i,t,e),r(this),this.isConnected=i._$AU;}_$AO(i,t=true){i!==this.isConnected&&(this.isConnected=i,i?this.reconnected?.():this.disconnected?.()),t&&(s(this,i),o(this));}setValue(t){if(r$1(this._$Ct))this._$Ct._$AI(t,this);else {const i=[...this._$Ct._$AH];i[this._$Ci]=t,this._$Ct._$AI(i,this,0);}}disconnected(){}reconnected(){}}
+
+// ──────────────────────────────────────────────
+// AX Dose Logger Card — Delayed-action directive
+// ──────────────────────────────────────────────
+// Wraps a click callback in a short setTimeout so the <ha-ripple> press
+// animation has time to render before the controller fires the action and
+// triggers a Lit re-render (which would otherwise interrupt MdRipple's
+// requestAnimationFrame chain and truncate the ripple).
+//
+// The delay (110ms) is deliberately shorter than HA's stock actionHandler
+// disambiguation window (~250ms) per user request — enough to let the
+// ripple visibly expand past its peak, but not so long that the action
+// feels sluggish.
+//
+// Implemented as a Lit AsyncDirective so the event-listener wrapper is
+// STABLE across re-renders (Lit memoizes the directive instance per
+// binding position), which:
+//   1. Avoids re-binding @click on every render (Lit diffs listener
+//      identity; a stable wrapper means no add/removeEventListener churn).
+//   2. Keeps the clearTimeout dedup correct across re-renders — the timer
+//      handle lives on the directive instance, not in a per-render closure,
+//      so a second rapid click always sees + cancels the first timer.
+//   3. Auto-cleans the pending timer when the host element is disconnected
+//      (disconnected() lifecycle), preventing a stale callback firing on a
+//      detached element.
+//
+// Usage in Lit templates (replaces a raw `@click`):
+//   @click=${delayedAction(() => c.handleTakePill(e))}
+//
+// For elements that also need hold/double-tap, keep the separate
+// @contextmenu / @dblclick bindings — those are user-intent-disambiguated
+// by the browser and do not interfere with the ripple.
+/** Delay in ms before the wrapped action fires. */
+const RIPPLE_ACTION_DELAY_MS = 110;
+/**
+ * AsyncDirective that binds a stable click listener which fires the latest
+ * callback after RIPPLE_ACTION_DELAY_MS.
+ *
+ * The directive instance is memoized by Lit for the lifetime of the binding
+ * position (the `@click=${…}` part), so the listener wrapper returned from
+ * `render()` is the SAME function reference across re-renders. Only the
+ * callback it dispatches to is updated (via the `_latest` field), which is
+ * what we want: no listener churn, correct timer dedup, auto-cleanup.
+ *
+ * The wrapper cancels any pending timer on a second rapid press so that the
+ * action fires once per click even during rapid tapping — and because the
+ * timer handle lives on the directive instance (not a per-render closure),
+ * the dedup works correctly even when a re-render happens between two
+ * rapid clicks (the bug the prior inline-closure implementation had).
+ */
+class DelayedActionDirective extends f {
+    constructor(partInfo) {
+        super(partInfo);
+        /** Latest callback to fire when the timer expires. Updated on every
+         *  render via update() so the wrapper always dispatches the fresh
+         *  callback (which may close over newer entity state). */
+        this._latest = null;
+        // Bind the wrapper to this instance once. The same function reference
+        // is returned from render() on every update → Lit does NOT re-bind the
+        // @click listener (it diffs listener identity and skips if unchanged).
+        this._wrapper = (ev) => {
+            if (this._timer !== undefined) {
+                clearTimeout(this._timer);
+            }
+            this._timer = window.setTimeout(() => {
+                this._timer = undefined;
+                // Defensive: the timer may fire after the host element was
+                // disconnected (disconnectedCallback clears the timer, but a
+                // native setTimeout callback already queued before the clear
+                // could still run in the same microtask). Guard with isConnected.
+                if (!this.isConnected)
+                    return;
+                this._latest?.(ev);
+            }, RIPPLE_ACTION_DELAY_MS);
+        };
+    }
+    /**
+     * Called by Lit on the initial render AND every subsequent update of the
+     * @click part. Returns the stable wrapper so Lit keeps the same listener
+     * bound, and refreshes _latest so the wrapper dispatches the newest
+     * callback (which closes over the current render's state).
+     */
+    render(callback) {
+        this._latest = callback;
+        return this._wrapper;
+    }
+    /**
+     * Called by Lit on every update (including the first). Mirrors render()
+     * but runs after the part is committed. We update _latest here as well so
+     * the freshest callback is in place regardless of which hook Lit uses.
+     */
+    update(_part, [callback]) {
+        this._latest = callback;
+        return this.render(callback);
+    }
+    /**
+     * Lit lifecycle hook — fired when the host element is disconnected or the
+     * part is removed. Cancels any pending timer so a stale callback can't
+     * fire on a detached element (which would call requestUpdate / mutate
+     * @state on an element no longer in the DOM).
+     */
+    disconnected() {
+        if (this._timer !== undefined) {
+            clearTimeout(this._timer);
+            this._timer = undefined;
+        }
+        // Drop the callback reference so a queued timer callback (cleared
+        // above, but defense-in-depth) can't reach a stale closure.
+        this._latest = null;
+        super.disconnected();
+    }
+    /**
+     * Reconnected lifecycle hook — Lit reuses the directive instance when the
+     * host element is re-attached, so _wrapper stays stable. No action needed
+     * beyond the base class; the next render() will refresh _latest.
+     */
+    reconnected() {
+        super.reconnected();
+    }
+}
+/**
+ * The directive factory. Use in Lit templates:
+ *   @click=${delayedAction(() => doThing())}
+ *
+ * Lit memoizes the directive instance per binding position, so the same
+ * DelayedActionDirective (and its stable _wrapper) is reused across
+ * re-renders — only the callback argument is refreshed.
+ */
+const delayedAction = e(DelayedActionDirective);
 
 // ──────────────────────────────────────────────
 // Pure helpers for the AX Dose Logger Card
@@ -949,8 +1109,15 @@ function resolveButtonState(input) {
     // compat; it is simply never returned here.
     if (input.isLockedOut)
         return 'lockout';
+    if (input.is24hLimitReached)
+        return 'limit_24h';
     if (input.isScheduled) {
-        if (input.overdueSeconds > 0)
+        // Overdue warning (latency) appears at half the grace period — proactive
+        // heads-up before adherence expires. The first half of the grace window
+        // stays in the execution state (on-time per adherence, no rush). This
+        // fixes the disconnect where the card warned "overdue" at 0 seconds while
+        // the adherence system still considered the dose on-time.
+        if (input.overdueSeconds > (input.graceHours * 3600) / 2)
             return 'latency';
         return 'execution';
     }
@@ -981,25 +1148,40 @@ const ACK_INTRO_MS = 240;
 // ──────────────────────────────────────────────
 // Button State Matrix — shared select options
 // ──────────────────────────────────────────────
-// The 7 visual-style options used by every per-state dropdown in the Daily
-// and Drinks "Button" submenus. Kept module-scoped so the schema below
-// references one source of truth (adding/reordering an option here updates
-// both submenus). Labels come from localize('button_style.*'). See plans/
-// button-state-matrix-plan.md §6.3.
+// The 6 Style options (Default sentinel + 5 visual) used by every per-state
+// Style dropdown in the Daily and Drinks "Button" submenus. 'auto' is a
+// sentinel that resolves to the per-state default at runtime. Kept module-
+// scoped so the schema below references one source of truth (adding/
+// reordering an option here updates both submenus). Labels come from
+// localize('button_style.*'). See plans/icon-style-dropdown-separation-plan.md
+// + plans/ambilight-glow-style-plan.md (the 6th 'glow' option).
 function _buttonStyleOptions() {
     return [
+        { value: 'auto', label: localize('en', 'button_style.auto') },
         { value: 'full', label: localize('en', 'button_style.full') },
-        { value: 'icon', label: localize('en', 'button_style.icon') },
         { value: 'border', label: localize('en', 'button_style.border') },
-        { value: 'icon_border', label: localize('en', 'button_style.icon_border') },
         { value: 'none', label: localize('en', 'button_style.none') },
+        { value: 'ring', label: localize('en', 'button_style.ring') },
         { value: 'glow', label: localize('en', 'button_style.glow') },
-        { value: 'icon_glow', label: localize('en', 'button_style.icon_glow') },
+    ];
+}
+// The 5 Icon Style options (Default sentinel + 4 visual) used by every
+// per-state Icon Style dropdown. 'auto' resolves to the per-state default
+// at runtime. The 4 visual options form a 2x2 matrix (color on/off x pulse
+// on/off). Kept module-scoped alongside _buttonStyleOptions. Labels come
+// from localize('icon_style.*'). See plans/icon-style-dropdown-separation-plan.md.
+function _iconStyleOptions() {
+    return [
+        { value: 'auto', label: localize('en', 'icon_style.auto') },
+        { value: 'none', label: localize('en', 'icon_style.none') },
+        { value: 'color', label: localize('en', 'icon_style.color') },
+        { value: 'color_pulse', label: localize('en', 'icon_style.color_pulse') },
+        { value: 'pulse', label: localize('en', 'icon_style.pulse') },
     ];
 }
 // The 3 "Logged" (ACK) flash layout options for the take/drink button
 // _ack_layout dropdown. Kept module-scoped alongside _buttonStyleOptions so
-// both submenus reference one source of truth. Labels come from
+// all submenus reference one source of truth. Labels come from
 // localize('ack_layout.*'). See plans/glow-speed-and-ack-style-plan.md §2.3.
 function _ackLayoutOptions() {
     return [
@@ -1008,27 +1190,31 @@ function _ackLayoutOptions() {
         { value: 'big', label: localize('en', 'ack_layout.big') },
     ];
 }
-// The 3 rotating-glow speed options for the take/drink button _glow_speed
+// The 3 rotating-ring speed options for the take/drink button _ring_speed
 // dropdown. 'medium' (4s) is the default. Labels come from
-// localize('glow_speed.*'). See plans/glow-speed-and-ack-style-plan.md §2.1.
-function _glowSpeedOptions() {
+// localize('ring_speed.*'). See plans/icon-style-dropdown-separation-plan.md.
+function _ringSpeedOptions() {
     return [
-        { value: 'slow', label: localize('en', 'glow_speed.slow') },
-        { value: 'medium', label: localize('en', 'glow_speed.medium') },
-        { value: 'fast', label: localize('en', 'glow_speed.fast') },
+        { value: 'slow', label: localize('en', 'ring_speed.slow') },
+        { value: 'medium', label: localize('en', 'ring_speed.medium') },
+        { value: 'fast', label: localize('en', 'ring_speed.fast') },
     ];
 }
 // ──────────────────────────────────────────────
 // Grid-alignment CSS injection
 // ──────────────────────────────────────────────
-// Module-scoped observer so repeated installEditorGridAlignment() calls
-// disconnect the previous observer before creating a new one (mirrors the
-// previous private-static-field behavior on the card class).
+// Module-scoped observer + reference count. The observer is module-scoped so
+// repeated installEditorGridAlignment() calls reuse a single observer (one
+// process-wide is enough — HA opens at most one card config dialog at a time).
+// A reference count guards against premature auto-cleanup when multiple card
+// instances on the same dashboard open their editors in quick succession (the
+// closing of one editor must not disconnect the observer while another is open).
 let _formStyleObserver = null;
+let _formStyleRefcount = 0;
 /**
- * Inject a `<style>` into every `ha-form` shadow root in the document so that
- * entity-picker + text-field pairs inside `type: 'grid'` containers align by
- * their bottom edges.
+ * Inject a `<style>` into `ha-form` shadow roots **inside a config dialog**
+ * so that entity-picker + text-field pairs inside `type: 'grid'` containers
+ * align by their bottom edges.
  *
  * Entity pickers render an external label above the control; text fields render
  * an internal floating label. In a CSS grid row, the text field's control box
@@ -1044,9 +1230,12 @@ let _formStyleObserver = null;
  * user opens the visual editor, not on every dashboard load (was previously
  * in connectedCallback, which installed the observer for every card instance
  * on every dashboard view and never disconnected it → memory leak + needless
- * document-wide DOM scanning). The observer auto-cleans when the editor
- * dialog closes (no ha-form left in the document), and uninstallEditorGrid-
- * Alignment() is available for explicit cleanup if ever needed.
+ * document-wide DOM scanning). The observer auto-cleans when the config
+ * dialog is removed from the DOM, using a **reference count** so that if two
+ * card instances' editors are open (or one closes while another is opening),
+ * the observer is only disconnected when the last reference is released — not
+ * when a transient "0 forms" state occurs during a dialog swap. uninstall-
+ * EditorGridAlignment() is available for explicit cleanup if ever needed.
  */
 function installEditorGridAlignment() {
     const STYLE_ID = 'ax-dose-grid-align-items-end';
@@ -1068,33 +1257,52 @@ function installEditorGridAlignment() {
         style.textContent = CSS;
         root.appendChild(style);
     };
-    // Find all ha-form elements and inject into their shadow roots.
-    // Returns the count so the caller can detect "no forms left" (editor
-    // dialog closed) and self-clean the observer.
+    // Find ha-form elements that are inside an ha-dialog (config editor scope)
+    // and inject into their shadow roots. Returns the count of scoped forms so
+    // the caller can detect "dialog closed" and self-clean the observer.
+    // Only forms inside a dialog receive the injection so we don't pollute
+    // ha-form elements used in other dashboard surfaces (N2 cross-card fix).
     const processForms = () => {
-        const forms = document.querySelectorAll('ha-form');
-        forms.forEach((form) => {
-            if (form.shadowRoot) {
-                injectInto(form.shadowRoot);
-            }
+        const dialogs = document.querySelectorAll('ha-dialog');
+        let scopedFormCount = 0;
+        dialogs.forEach((dialog) => {
+            const forms = dialog.querySelectorAll('ha-form');
+            forms.forEach((form) => {
+                if (form.shadowRoot) {
+                    injectInto(form.shadowRoot);
+                    scopedFormCount++;
+                }
+            });
         });
-        return forms.length;
+        return scopedFormCount;
     };
     // Process existing forms immediately.
     processForms();
-    // Set up a MutationObserver to catch forms that appear later (config dialog).
+    // Bump the reference count — each installEditorGridAlignment() call (one
+    // per getConfigForm() invocation, i.e. one per editor open) holds a ref.
+    // The observer is only disconnected when the count drops to 0, so a
+    // concurrent editor closing while another is open won't prematurely tear
+    // down the observer (N6 concurrent-editor race fix).
+    _formStyleRefcount++;
+    // Set up a MutationObserver to catch forms that appear later (the config
+    // dialog's ha-form may render asynchronously after the dialog opens).
     if (_formStyleObserver) {
-        _formStyleObserver.disconnect();
+        // Observer already exists (another editor is open or the prior one's
+        // observer hasn't been cleaned up yet) — reuse it, don't disconnect.
+        return;
     }
     _formStyleObserver = new MutationObserver(() => {
         const formCount = processForms();
-        // Auto-cleanup: when no ha-form remains in the document, the editor
-        // dialog has closed — disconnect the observer so it stops scanning
-        // every DOM mutation across the whole dashboard. Without this the
-        // observer leaked indefinitely (it was never disconnected before).
+        // Auto-cleanup: when no scoped ha-form remains inside any ha-dialog, the
+        // config dialog has closed. Decrement the reference count and disconnect
+        // only when no references remain (guards against the concurrent-editor
+        // race where one dialog closes while another is still open — N6 fix).
         if (formCount === 0) {
-            _formStyleObserver?.disconnect();
-            _formStyleObserver = null;
+            _formStyleRefcount = Math.max(0, _formStyleRefcount - 1);
+            if (_formStyleRefcount === 0) {
+                _formStyleObserver?.disconnect();
+                _formStyleObserver = null;
+            }
         }
     });
     _formStyleObserver.observe(document.body, {
@@ -1566,18 +1774,18 @@ function buildEditorForm() {
                     },
                     // ── Button State Matrix (Daily — Take Pill button) ──
                     // Restructured into nested flatten-expandables, one per aspect, so
-                    // each style dropdown + its pulse toggle are visually grouped (grid
-                    // pairs them side-by-side) and a section header makes the boundary
-                    // between aspects clear. All select selectors use mode:'dropdown' so
-                    // the 3-option selects (ack_layout, glow_speed) render as a single
-                    // dropdown box instead of 3 stacked radio buttons (HA auto-selects
-                    // LIST mode for ≤3 options with no explicit mode). All fields carry
-                    // an explicit default so the editor pre-populates the control when
-                    // the stored config value is undefined — matching the runtime ??
-                    // fallbacks in daily-panel.ts. Defaults: Lockout=full+pulse off,
-                    // Execution=icon+pulse off, Latency=icon_border+pulse on,
-                    // ACK layout=top / duration=3000ms, glow=fast. See plans/button-
-                    // submenu-optimization-plan.md.
+                    // each Style dropdown + its Icon Style dropdown are visually grouped
+                    // (grid pairs them side-by-side) and a section header makes the
+                    // boundary between aspects clear. All select selectors use
+                    // mode:'dropdown' so the 3-option selects (ack_layout, ring_speed)
+                    // render as a single dropdown box instead of 3 stacked radio buttons
+                    // (HA auto-selects LIST mode for <=3 options with no explicit mode).
+                    // All fields default to 'auto' (the per-state default sentinel) so the
+                    // editor pre-populates the control when the stored config value is
+                    // undefined — 'auto' resolves to the per-state default at runtime.
+                    // Defaults: Lockout=full+none, Execution=none+color,
+                    // Latency=border+color_pulse, ACK layout=top / duration=3000ms,
+                    // ring=medium. See plans/icon-style-dropdown-separation-plan.md.
                     {
                         type: 'expandable',
                         name: 'take_button_box',
@@ -1585,11 +1793,11 @@ function buildEditorForm() {
                         flatten: true,
                         schema: [
                             // Flat list of aspect grids — no nested expandables (2x nesting
-                            // only: Button → grid). Each style dropdown + its pulse toggle
-                            // are paired side-by-side in a grid so the grouping is obvious
-                            // at a glance. The label names (Limit Reached Style, Take Pill
-                            // Style, etc.) convey the aspect identity without section titles.
-                            // ── Limit Reached: style + pulse ──
+                            // only: Button -> grid). Each Style dropdown + its Icon Style
+                            // dropdown are paired side-by-side in a grid so the grouping is
+                            // obvious at a glance. The label names (Limit Reached Style, Take
+                            // Pill Style, etc.) convey the aspect identity without titles.
+                            // ── Limit Reached: style + icon_style ──
                             {
                                 type: 'grid',
                                 name: '',
@@ -1597,19 +1805,21 @@ function buildEditorForm() {
                                 schema: [
                                     {
                                         name: 'take_button_lockout_style',
-                                        default: 'full',
+                                        default: 'auto',
                                         selector: {
                                             select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                                         },
                                     },
                                     {
-                                        name: 'take_button_lockout_pulse',
-                                        default: false,
-                                        selector: { boolean: {} },
+                                        name: 'take_button_lockout_icon_style',
+                                        default: 'auto',
+                                        selector: {
+                                            select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                                        },
                                     },
                                 ],
                             },
-                            // ── Take Pill: style + pulse ──
+                            // ── Take Pill: style + icon_style ──
                             {
                                 type: 'grid',
                                 name: '',
@@ -1617,19 +1827,21 @@ function buildEditorForm() {
                                 schema: [
                                     {
                                         name: 'take_button_execution_style',
-                                        default: 'icon',
+                                        default: 'auto',
                                         selector: {
                                             select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                                         },
                                     },
                                     {
-                                        name: 'take_button_execution_pulse',
-                                        default: false,
-                                        selector: { boolean: {} },
+                                        name: 'take_button_execution_icon_style',
+                                        default: 'auto',
+                                        selector: {
+                                            select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                                        },
                                     },
                                 ],
                             },
-                            // ── Overdue Warning: style + pulse ──
+                            // ── Overdue Warning: style + icon_style ──
                             {
                                 type: 'grid',
                                 name: '',
@@ -1637,15 +1849,17 @@ function buildEditorForm() {
                                 schema: [
                                     {
                                         name: 'take_button_latency_style',
-                                        default: 'icon_border',
+                                        default: 'auto',
                                         selector: {
                                             select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                                         },
                                     },
                                     {
-                                        name: 'take_button_latency_pulse',
-                                        default: true,
-                                        selector: { boolean: {} },
+                                        name: 'take_button_latency_icon_style',
+                                        default: 'auto',
+                                        selector: {
+                                            select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                                        },
                                     },
                                 ],
                             },
@@ -1669,12 +1883,12 @@ function buildEditorForm() {
                                     },
                                 ],
                             },
-                            // ── Rotating Glow: speed ──
+                            // ── Rotating Ring: speed ──
                             {
-                                name: 'take_button_glow_speed',
+                                name: 'take_button_ring_speed',
                                 default: 'medium',
                                 selector: {
-                                    select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                                    select: { options: _ringSpeedOptions(), mode: 'dropdown' },
                                 },
                             },
                         ],
@@ -2029,12 +2243,12 @@ function buildEditorForm() {
                     // ── Button State Matrix (Drinks — Log Drink button) ──
                     // Restructured into nested flatten-expandables (mirrors the Daily
                     // Take Pill button structure). Only 3 aspects: Limit Reached,
-                    // Logged Dose Indicator, Rotating Glow (drinks are PRN with no
+                    // Logged Dose Indicator, Rotating Ring (drinks are PRN with no
                     // schedule, so Take Pill and Overdue Warning are omitted). All
-                    // selects use mode:'dropdown' + explicit defaults matching the
-                    // runtime ?? fallbacks in drinks-panel.ts. Defaults: Lockout=full
-                    // + pulse off, ACK layout=top / duration=3000ms, glow=fast. See
-                    // plans/button-submenu-optimization-plan.md §2.3.
+                    // selects use mode:'dropdown'. Style + Icon Style default to 'auto'
+                    // (the per-state default sentinel), which resolves at runtime.
+                    // Defaults: Lockout=full+none, ACK layout=top / duration=3000ms,
+                    // ring=medium. See plans/icon-style-dropdown-separation-plan.md.
                     {
                         type: 'expandable',
                         name: 'drink_button_box',
@@ -2042,10 +2256,10 @@ function buildEditorForm() {
                         flatten: true,
                         schema: [
                             // Flat list of aspect grids — no nested expandables (2x nesting
-                            // only: Button → grid). Mirrors the Daily Take Pill button
-                            // structure. Each style dropdown + its pulse toggle are paired
-                            // side-by-side in a grid so the grouping is obvious at a glance.
-                            // ── Limit Reached: style + pulse ──
+                            // only: Button -> grid). Mirrors the Daily Take Pill button
+                            // structure. Each Style dropdown + its Icon Style dropdown are
+                            // paired side-by-side in a grid so the grouping is obvious.
+                            // ── Limit Reached: style + icon_style ──
                             {
                                 type: 'grid',
                                 name: '',
@@ -2053,15 +2267,17 @@ function buildEditorForm() {
                                 schema: [
                                     {
                                         name: 'drink_button_lockout_style',
-                                        default: 'full',
+                                        default: 'auto',
                                         selector: {
                                             select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                                         },
                                     },
                                     {
-                                        name: 'drink_button_lockout_pulse',
-                                        default: false,
-                                        selector: { boolean: {} },
+                                        name: 'drink_button_lockout_icon_style',
+                                        default: 'auto',
+                                        selector: {
+                                            select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                                        },
                                     },
                                 ],
                             },
@@ -2085,12 +2301,12 @@ function buildEditorForm() {
                                     },
                                 ],
                             },
-                            // ── Rotating Glow: speed ──
+                            // ── Rotating Ring: speed ──
                             {
-                                name: 'drink_button_glow_speed',
+                                name: 'drink_button_ring_speed',
                                 default: 'medium',
                                 selector: {
-                                    select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                                    select: { options: _ringSpeedOptions(), mode: 'dropdown' },
                                 },
                             },
                         ],
@@ -2401,9 +2617,10 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i$2 {
               class="stat-cell ${row.entityId ? 'clickable' : ''}"
               role=${row.entityId ? 'button' : A}
               tabindex=${row.entityId ? '0' : A}
-              @click=${row.entityId ? () => this.controller.openMoreInfo(row.entityId) : undefined}
+              @click=${row.entityId ? delayedAction(() => this.controller.openMoreInfo(row.entityId)) : undefined}
               @keydown=${row.entityId ? (ev) => this.controller.onStatCellKeydown(ev, row.entityId) : undefined}
             >
+              ${row.entityId ? b `<ha-ripple></ha-ripple>` : A}
               <div class="stat-cell-header">
                 <ha-icon icon="${row.icon}"></ha-icon>
                 <span class="stat-cell-label">${row.label}</span>
@@ -2419,6 +2636,11 @@ let AxDoseStatsPanel = class AxDoseStatsPanel extends i$2 {
 AxDoseStatsPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     .pane-stats {
       display: flex;
@@ -2443,6 +2665,9 @@ AxDoseStatsPanel.styles = i$5 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       border-radius: 10px;
       transition: background 0.15s ease;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
     }
 
     .stat-cell.clickable {
@@ -2484,19 +2709,19 @@ AxDoseStatsPanel.styles = i$5 `
     }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseStatsPanel.prototype, "controller", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseStatsPanel.prototype, "entities", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseStatsPanel.prototype, "hass", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseStatsPanel.prototype, "tick", void 0);
 AxDoseStatsPanel = __decorate([
-    t('ax-dose-stats-panel')
+    t$1('ax-dose-stats-panel')
 ], AxDoseStatsPanel);
 
 // ──────────────────────────────────────────────
@@ -2592,13 +2817,15 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
             </div>
             <div class="drink-tool-actions">
               ${d.undoButtonEntityId ? b `
-                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkUndo(d)}>
+                <button class="tool-btn danger drink-tool-btn" @click=${delayedAction(() => this._handleDrinkUndo(d))}>
+                  <ha-ripple></ha-ripple>
                   <ha-icon icon="mdi:undo"></ha-icon>
                   <span>${localize(this._lang, 'tools.undo_dose')}</span>
                 </button>
               ` : A}
               ${d.resetButtonEntityId ? b `
-                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkReset(d)}>
+                <button class="tool-btn danger drink-tool-btn" @click=${delayedAction(() => this._handleDrinkReset(d))}>
+                  <ha-ripple></ha-ripple>
                   <ha-icon icon="mdi:history"></ha-icon>
                   <span>${localize(this._lang, 'tools.reset_history')}</span>
                 </button>
@@ -2633,8 +2860,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
             ${e.adherenceResetButton ? b `
               <button
                 class="tool-btn"
-                @click=${() => this._handleAdherenceReset(e)}
+                @click=${delayedAction(() => this._handleAdherenceReset(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:percent-circle-outline"></ha-icon>
                 <span>${localize(this._lang, 'tools.reset_adherence')}</span>
               </button>
@@ -2642,8 +2870,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
             ${e.adherenceCoverButton ? b `
               <button
                 class="tool-btn"
-                @click=${() => this._handleAdherenceCover(e)}
+                @click=${delayedAction(() => this._handleAdherenceCover(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:check-underline-circle"></ha-icon>
                 <span>${localize(this._lang, 'tools.mark_adherence_taken')}</span>
               </button>
@@ -2657,8 +2886,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
             ${e.skipButton ? b `
               <button
                 class="tool-btn"
-                @click=${() => this._handleSkipDose(e)}
+                @click=${delayedAction(() => this._handleSkipDose(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:skip-next"></ha-icon>
                 <span>${localize(this._lang, 'tools.skip_dose')}</span>
               </button>
@@ -2666,8 +2896,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
             ${e.undoButton ? b `
               <button
                 class="tool-btn"
-                @click=${() => this._handleUndoDoseConfirm(e)}
+                @click=${delayedAction(() => this._handleUndoDoseConfirm(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:undo"></ha-icon>
                 <span>${localize(this._lang, 'tools.undo_dose')}</span>
               </button>
@@ -2681,8 +2912,9 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
             ${e.resetButton ? b `
               <button
                 class="tool-btn"
-                @click=${() => this._handleResetHistory(e)}
+                @click=${delayedAction(() => this._handleResetHistory(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:history"></ha-icon>
                 <span>${localize(this._lang, 'tools.reset_history')}</span>
               </button>
@@ -2696,6 +2928,16 @@ let AxDoseToolsPanel = class AxDoseToolsPanel extends i$2 {
 AxDoseToolsPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). Per-element overrides below
+         set the ripple colour to the element's own identity colour. */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
+    }
+    /* Danger buttons (Undo/Reset) ripple red instead of the primary tint. */
+    .tool-btn.danger {
+      --ha-ripple-color: var(--error-color, #db4437);
     }
     .tools-panel {
       display: flex;
@@ -2742,7 +2984,11 @@ AxDoseToolsPanel.styles = i$5 `
       font-size: calc(14px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
+      transition: background 0.2s;
+      /* position:relative + overflow:hidden clip the ha-ripple surface to the
+         button's rounded border (MdRipple geometry requirement). */
+      position: relative;
+      overflow: hidden;
     }
 
     .tool-btn ha-icon {
@@ -2755,9 +3001,9 @@ AxDoseToolsPanel.styles = i$5 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
 
-    .tool-btn:active {
-      transform: scale(0.98);
-    }
+    /* :active scale transform removed — ha-ripple provides the press feedback
+       (Material Design radiating circle), so the physical compression is
+       redundant and can fight the ripple's layout. */
 
     .tool-btn.danger {
       background: rgba(var(--rgb-error-color, 219, 68, 55), 0.06);
@@ -2806,16 +3052,16 @@ AxDoseToolsPanel.styles = i$5 `
     .drink-tool-btn ha-icon { --mdc-icon-size: 20px; }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseToolsPanel.prototype, "controller", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseToolsPanel.prototype, "entities", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseToolsPanel.prototype, "hass", void 0);
 AxDoseToolsPanel = __decorate([
-    t('ax-dose-tools-panel')
+    t$1('ax-dose-tools-panel')
 ], AxDoseToolsPanel);
 
 // ──────────────────────────────────────────────
@@ -2982,30 +3228,17 @@ AxDoseTrackingPanel.styles = i$5 `
     }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseTrackingPanel.prototype, "controller", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseTrackingPanel.prototype, "entities", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseTrackingPanel.prototype, "hass", void 0);
 AxDoseTrackingPanel = __decorate([
-    t('ax-dose-tracking-panel')
+    t$1('ax-dose-tracking-panel')
 ], AxDoseTrackingPanel);
-
-/**
- * @license
- * Copyright 2017 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */
-const e=t=>(...e)=>({_$litDirective$:t,values:e});let i$1 = class i{constructor(t){}get _$AU(){return this._$AM._$AU}_$AT(t,e,i){this._$Ct=t,this._$AM=e,this._$Ci=i;}_$AS(t,e){return this.update(t,e)}update(t,e){return this.render(...e)}};
-
-/**
- * @license
- * Copyright 2020 Google LLC
- * SPDX-License-Identifier: BSD-3-Clause
- */const m={},p=(o,t=m)=>o._$AH=t;
 
 /**
  * @license
@@ -3031,7 +3264,7 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i$2 {
         // ── Button State Matrix (Prosumer UI) ──
         // Resolved ButtonState from the container's _computeDailyButtonState(). The
         // panel maps it to a CSS class string using the per-state style option +
-        // pulse toggle from the card config. 'idle' renders no state class (theme
+        // icon style option from the card config. 'idle' renders no state class
         // default). See plans/button-state-matrix-plan.md.
         this.buttonState = 'idle';
         // Transient ACK flag from the container (mirrors buttonState==='ack' but
@@ -3050,64 +3283,129 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i$2 {
     /**
      * Build the CSS class string for the Take Pill button from the resolved
      * ButtonState + the per-state style option + pulse toggle in the card
-     * config. Maps the 7 style options (full / icon / border / icon_border /
-     * none / glow / icon_glow) onto state-color class pairs. The 'idle' state
-     * renders only the base button (no color override). Returns the full
-     * class list including the base 'take-pill-btn'.
+     * config. Maps the 4 style options (full / border / none / ring) + 4
+     * icon style options (none / color / color_pulse / pulse) onto
+     * state-color class pairs. The 'auto' sentinel resolves to the per-state
+     * default at runtime. The 'idle' state renders only the base button (no
+     * color override). Returns the full class list including the base
+     * 'take-pill-btn'.
      */
     _takeButtonClasses() {
         const state = this.buttonState;
         const cfg = this.controller.config;
-        // State → color token + configured style option + pulse toggle.
+        // Per-state defaults (used when value is 'auto' or undefined).
+        const STATE_DEFAULTS = {
+            lockout: { style: 'full', iconStyle: 'none' },
+            execution: { style: 'none', iconStyle: 'color' },
+            latency: { style: 'border', iconStyle: 'color_pulse' },
+        };
+        // State → color token + configured style + icon_style (auto resolves).
         let style = 'none';
-        let pulse = false;
-        if (state === 'lockout') {
-            style = cfg?.take_button_lockout_style ?? 'full';
-            pulse = cfg?.take_button_lockout_pulse ?? false;
+        let iconStyle = 'none';
+        if (state === 'lockout' || state === 'limit_24h') {
+            // limit_24h inherits ALL lockout style config (same red color, same
+            // CSS classes, same take_button_lockout_style/_icon_style fields).
+            // Only the label + override dialog text differ.
+            const d = STATE_DEFAULTS.lockout;
+            style = cfg?.take_button_lockout_style ?? d.style;
+            if (style === 'auto')
+                style = d.style;
+            iconStyle = cfg?.take_button_lockout_icon_style ?? d.iconStyle;
+            if (iconStyle === 'auto')
+                iconStyle = d.iconStyle;
         }
         else if (state === 'execution') {
-            style = cfg?.take_button_execution_style ?? 'icon';
-            pulse = cfg?.take_button_execution_pulse ?? false;
+            const d = STATE_DEFAULTS.execution;
+            style = cfg?.take_button_execution_style ?? d.style;
+            if (style === 'auto')
+                style = d.style;
+            iconStyle = cfg?.take_button_execution_icon_style ?? d.iconStyle;
+            if (iconStyle === 'auto')
+                iconStyle = d.iconStyle;
         }
         else if (state === 'latency') {
-            style = cfg?.take_button_latency_style ?? 'icon_border';
-            pulse = cfg?.take_button_latency_pulse ?? true;
+            const d = STATE_DEFAULTS.latency;
+            style = cfg?.take_button_latency_style ?? d.style;
+            if (style === 'auto')
+                style = d.style;
+            iconStyle = cfg?.take_button_latency_icon_style ?? d.iconStyle;
+            if (iconStyle === 'auto')
+                iconStyle = d.iconStyle;
         }
         else {
             // idle — no color, no style option (theme default).
             return this.ackActive ? 'take-pill-btn ack-flash' : 'take-pill-btn';
         }
         // State → color name.
-        const color = state === 'lockout' ? 'red'
+        const color = (state === 'lockout' || state === 'limit_24h') ? 'red'
             : state === 'execution' ? 'blue'
                 : state === 'latency' ? 'amber'
                     : 'green'; // ack
-        // Style option → class fragments.
+        // Style option → class fragments (5 options; auto already resolved).
         const classes = ['take-pill-btn', `state-${state}`];
         if (style === 'full')
             classes.push(`full-${color}`);
-        if (style === 'icon' || style === 'icon_border' || style === 'icon_glow')
-            classes.push(`icon-${color}`);
-        if (style === 'border' || style === 'icon_border')
+        if (style === 'border')
             classes.push(`border-${color}`);
-        if (style === 'glow' || style === 'icon_glow')
-            classes.push(`glow-${color}`);
+        if (style === 'ring')
+            classes.push(`ring-${color}`);
+        if (style === 'glow')
+            classes.push(`style-none`); // glow renders on the wrapper backdrop, not the button face
         if (style === 'none')
             classes.push(`style-none`);
-        if (pulse)
+        // Icon Style option → class fragments (2x2 matrix; auto resolved).
+        if (iconStyle === 'color' || iconStyle === 'color_pulse')
+            classes.push(`icon-${color}`);
+        if (iconStyle === 'color_pulse' || iconStyle === 'pulse')
             classes.push('pulse');
         // ACK overlay is a pure flash layered on top of the true state — it does
-        // not recolor the button, so the real state stays correct underneath.
+        //    not recolor the button, so the real state stays correct underneath.
         if (this.ackActive)
             classes.push('ack-flash');
         return classes.join(' ');
     }
-    /** Resolve the rotating border-glow animation duration (CSS string) from the
-     *  per-button glow_speed config. 'medium' (4s) is the default. See plans/
-     *  glow-speed-and-ack-style-plan.md. */
-    _glowDuration() {
-        const speed = this.controller.config?.take_button_glow_speed ?? 'medium';
+    /** Resolve the rotating ring animation duration (CSS string) from the
+     *  per-button ring_speed config. 'medium' (4s) is the default. Shared by
+     *  the ring sweep and the ambilight glow breathing animation. See plans/
+     *  ambilight-glow-style-plan.md. */
+    _ringDuration() {
+        const speed = this.controller.config?.take_button_ring_speed ?? 'medium';
         return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+    }
+    /** Resolve the wrapper class for the ambilight glow backdrop. Returns ''
+     *  when the resolved style is not 'glow' (backdrop hidden, no GPU layer).
+     *  The glow-{color} class goes on the WRAPPER (not the button) because the
+     *  button has overflow:hidden which would clip the bleeding backdrop. See
+     *  plans/architecture-rollback-z-axis-stacking-plan.md. */
+    _takeGlowWrapClass() {
+        const state = this.buttonState;
+        const cfg = this.controller.config;
+        // Re-resolve the style using the same defaults as _takeButtonClasses.
+        let style = 'none';
+        if (state === 'lockout' || state === 'limit_24h') {
+            style = cfg?.take_button_lockout_style ?? 'full';
+            if (style === 'auto')
+                style = 'full';
+        }
+        else if (state === 'execution') {
+            style = cfg?.take_button_execution_style ?? 'none';
+            if (style === 'auto')
+                style = 'none';
+        }
+        else if (state === 'latency') {
+            style = cfg?.take_button_latency_style ?? 'border';
+            if (style === 'auto')
+                style = 'border';
+        }
+        else {
+            return ''; // idle — no glow
+        }
+        if (style !== 'glow')
+            return '';
+        const color = (state === 'lockout' || state === 'limit_24h') ? 'red'
+            : state === 'execution' ? 'blue'
+                : state === 'latency' ? 'amber' : 'green';
+        return `glow-${color}`;
     }
     /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
      *  config. 'top' is the default and mirrors the normal button layout. */
@@ -3212,25 +3510,33 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i$2 {
         <div class="med-name"
              role="button" tabindex="0"
              aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${() => c.showDeviceInfo()}
+             @click=${delayedAction(() => c.showDeviceInfo())}
              @keydown=${(ev) => c.onKeyActivate(ev, () => c.showDeviceInfo())}
-        >${c.getMedName(e)}</div>
+        ><ha-ripple></ha-ripple>${c.getMedName(e)}</div>
 
         <div class="daily-main">
-          <button
-            class=${this._takeButtonClasses()}
-            style=${[
-            `--glow-duration: ${this._glowDuration()}`,
-            this.ackActive ? `--ack-duration: ${this.controller.config?.take_button_ack_duration_ms ?? 3000}ms` : '',
-        ].filter(Boolean).join('; ')}
-            aria-label=${this.buttonState === 'lockout'
-            ? localize(this._lang, 'aria.take_pill_limit')
-            : (c.config?.take_pill_label || localize(this._lang, 'aria.take_pill_safe'))}
-            @click=${() => c.handleTakePill(e)}
+          <div class="take-pill-wrap${this._takeGlowWrapClass() ? ' ' + this._takeGlowWrapClass() : ''}"
+               style=${`--ring-duration: ${this._ringDuration()}`}
           >
-            <div class="glow-track"></div>
-            <ha-icon icon="${this.buttonState === 'lockout' ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
-            <span class="take-label">${this.buttonState === 'lockout' ? localize(this._lang, 'daily.limit_reached') : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
+            <div class="glow-backdrop"></div>
+            <button
+              class=${this._takeButtonClasses()}
+              style=${this.ackActive ? `--ack-duration: ${this.controller.config?.take_button_ack_duration_ms ?? 3000}ms` : ''}
+              aria-label=${this.buttonState === 'lockout'
+            ? localize(this._lang, 'aria.take_pill_limit')
+            : this.buttonState === 'limit_24h'
+                ? localize(this._lang, 'aria.take_pill_24h_limit')
+                : (c.config?.take_pill_label || localize(this._lang, 'aria.take_pill_safe'))}
+              @click=${delayedAction(() => c.handleTakePill(e))}
+            >
+              <div class="ring-track"></div>
+              <ha-ripple></ha-ripple>
+            <ha-icon icon="${(this.buttonState === 'lockout' || this.buttonState === 'limit_24h') ? 'mdi:alert' : (c.config?.take_pill_icon || 'mdi:pill')}"></ha-icon>
+            <span class="take-label">${this.buttonState === 'lockout'
+            ? localize(this._lang, 'daily.limit_reached')
+            : this.buttonState === 'limit_24h'
+                ? localize(this._lang, 'daily.24h_limit_reached')
+                : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
             ? b ` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
             : (nextDose !== 'Unavailable' && nextDose !== 'now'
@@ -3246,18 +3552,20 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i$2 {
                 : A)}
               </div>
             `) : A}
-          </button>
+            </button>
+          </div>
 
           <div class="stats-column">
             <div class="stat-pill ${safeBoxClickable ? 'clickable' : ''}"
                  role="button"
                  tabindex=${safeBoxClickable ? '0' : A}
                  aria-label=${c.config?.safe_to_take_label || topDefaultLabel}
-                 @click=${safeBoxClickable ? (ev) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity) : null}
+                 @click=${safeBoxClickable ? delayedAction((ev) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @keydown=${safeBoxClickable ? (ev) => c.onKeyActivate(ev, () => c.handleSafeBoxAction(null, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @contextmenu=${hasHold ? (ev) => { ev.preventDefault(); c.handleSafeBoxAction(null, 'hold', safeBoxActionConfig, displayEntity); } : null}
                  @dblclick=${hasDblClick ? () => c.handleSafeBoxAction(null, 'double_tap', safeBoxActionConfig, displayEntity) : null}>
-              <ha-icon icon="${c.config?.safe_to_take_icon || topDefaultIcon}"></ha-icon>
+              ${safeBoxClickable ? b `<ha-ripple></ha-ripple>` : A}
+               <ha-icon icon="${c.config?.safe_to_take_icon || topDefaultIcon}"></ha-icon>
               <span class="stat-label">${c.config?.safe_to_take_label || topDefaultLabel}</span>
               <span class="stat-value">${displayIsUnknown
             ? localize(this._lang, 'daily.na')
@@ -3282,11 +3590,12 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i$2 {
                  role="button"
                  tabindex=${pillsLeftClickable ? '0' : A}
                  aria-label=${c.config?.pills_left_label || pillsLeftDefaultLabel}
-                 @click=${pillsLeftClickable ? (ev) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback) : null}
+                 @click=${pillsLeftClickable ? delayedAction((ev) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
                  @keydown=${pillsLeftClickable ? (ev) => c.onKeyActivate(ev, () => c.handlePillsLeftBoxAction(null, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
                  @contextmenu=${plHasHold ? (ev) => { ev.preventDefault(); c.handlePillsLeftBoxAction(null, 'hold', pillsLeftActionConfig, pillsLeftDisplayEntity); } : null}
                  @dblclick=${plHasDblClick ? () => c.handlePillsLeftBoxAction(null, 'double_tap', pillsLeftActionConfig, pillsLeftDisplayEntity) : null}>
-              <ha-icon icon="${c.config?.pills_left_icon || pillsLeftDefaultIcon}"></ha-icon>
+              ${pillsLeftClickable ? b `<ha-ripple></ha-ripple>` : A}
+               <ha-icon icon="${c.config?.pills_left_icon || pillsLeftDefaultIcon}"></ha-icon>
               <span class="stat-label">${c.config?.pills_left_label || pillsLeftDefaultLabel}</span>
               <span class="stat-value">${pillsLeftUnknown
             ? localize(this._lang, 'daily.na')
@@ -3345,11 +3654,12 @@ let AxDoseDailyPanel = class AxDoseDailyPanel extends i$2 {
                       role="button"
                       tabindex="0"
                       aria-label=${chipName}
-                      @click=${(ev) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId)}
+                      @click=${delayedAction((ev) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
                       @keydown=${(ev) => c.onKeyActivate(ev, () => c.handleChipAction(null, 'tap', chipActionCfg, chip.entityId))}
                       @contextmenu=${hasHold ? (ev) => { ev.preventDefault(); c.handleChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
                       @dblclick=${hasDblClick ? () => c.handleChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
-                      ${chip.showIcon
+                      <ha-ripple></ha-ripple>
+                       ${chip.showIcon
                     ? b `<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
                     : A}
                       <span class="chip-name">${chipName}</span>
@@ -3370,6 +3680,12 @@ AxDoseDailyPanel.styles = i$5 `
        --pill-font-weight-boost is 1.5 (on) or 1 (off), injected on <ha-card>. */
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). Per-element overrides below
+         set the ripple colour to the element's own identity colour. */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     .pane-daily {
       display: flex;
@@ -3383,6 +3699,11 @@ AxDoseDailyPanel.styles = i$5 `
       color: var(--primary-text-color, #222);
       text-align: center;
       cursor: pointer;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--ha-card-border-radius, 12px);
+      z-index: 1;  /* global z-axis protection — glow bleeds behind title (Patch 1, belt-and-suspenders) */
     }
 
     .daily-main {
@@ -3394,6 +3715,23 @@ AxDoseDailyPanel.styles = i$5 `
       display: flex;
       flex-direction: column;
       gap: 10px;
+      flex: 1;
+      position: relative;  /* global z-axis protection — glow bleeds behind stats (Patch 1, belt-and-suspenders) */
+      z-index: 1;
+    }
+
+    /* Wrapper for the ambilight glow backdrop. Becomes the .daily-main flex
+       child (replaces the button's flex role). isolation:isolate + z-index:0
+       spawn a localized z-axis boundary so the backdrop's z-index:-1 can't
+       bleed behind the card background. NO overflow:hidden — the backdrop
+       must bleed freely beyond the button (the button keeps its own
+       overflow:hidden for ring-track/ripple clipping). See plans/
+       architecture-rollback-z-axis-stacking-plan.md. */
+    .take-pill-wrap {
+      position: relative;
+      z-index: 0;
+      isolation: isolate;
+      display: flex;
       flex: 1;
     }
 
@@ -3408,10 +3746,11 @@ AxDoseDailyPanel.styles = i$5 `
       border-radius: var(--ha-card-border-radius, 12px);
       font-family: inherit;
       cursor: pointer;
-      transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+      transition: background 0.2s, box-shadow 0.2s;
       position: relative;
       overflow: hidden;
       flex: 1;
+      z-index: 1;  /* stack above the .glow-backdrop (z-index:-1) */
       /* Reserve the full two-line-sub-text button height permanently. The
          button's justify-content: center distributes the reserved height as
          symmetric top/bottom padding around the icon + take-label + sub-text
@@ -3427,15 +3766,35 @@ AxDoseDailyPanel.styles = i$5 `
       min-height: 8em;
     }
 
-    .take-pill-btn:active {
-      transform: scale(0.96);
+    /* :active scale transform removed — ha-ripple provides the press feedback
+       (Material Design radiating circle), so the physical compression is
+       redundant and can fight the ripple's layout. */
+    /* ha-ripple sits above the .ring-track (z-index 0) AND above the
+       .ack-flash overlay (z-index 2) so the native ripple keeps radiating
+       over the opaque green "Logged" surface after an ACK press. The
+       ripple fires at pointerdown (t=0) and animates ~300ms; the green
+       overlay mounts ~110ms later (delayedAction), so raising the ripple
+       to z-index 3 lets the user see press feedback even when their
+       finger covers the Nx text. Matches Mushroom template-card
+       layering (ripple renders over content). */
+    .take-pill-btn > ha-ripple {
+      z-index: 3;
     }
+    /* State-coloured ripples — the press feedback colour matches the button's
+       current medical state (richer than Mushroom's single colour, fits the
+       Button State Matrix). The ACK state uses a light tint so the ripple
+       reads on the opaque dark-green overlay surface (#212c22). */
+    .take-pill-btn.state-lockout { --ha-ripple-color: var(--btn-red); }
+    .take-pill-btn.state-limit_24h { --ha-ripple-color: var(--btn-red); }
+    .take-pill-btn.state-execution { --ha-ripple-color: var(--btn-blue); }
+    .take-pill-btn.state-latency { --ha-ripple-color: var(--btn-amber); }
+    .take-pill-btn.ack-flash { --ha-ripple-color: #ffffff; }
 
     /* ── Button State Matrix (Prosumer UI) ──
        Replaces the prior binary .safe/.danger classes with a 5-state, 7-style-
        option system. The default (idle / no state class) keeps the original
        theme-tinted look. Each colored state composes a state-color class
-       (e.g. .full-red, .icon-blue, .border-amber, .glow-green) from the panel's
+       (e.g. .full-red, .icon-blue, .border-amber, .ring-green) from the panel's
        _takeButtonClasses() helper. See plans/button-state-matrix-plan.md. */
 
     /* State color tokens (CSS vars so the rules below stay generic). */
@@ -3456,44 +3815,45 @@ AxDoseDailyPanel.styles = i$5 `
       --btn-green-soft: #212c22;
     }
 
-    /* Base idle state (no state class) — original theme-tinted safe look. */
-    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack) {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+    /* Base idle state (no state class) — original theme-tinted safe look.
+       Gradient-stack surface: opaque --card-background-color base wall blocks
+       the ambilight backlight; flat rgba(...,0.12) tint layer (linear-gradient
+       with identical stops = flat color) restores the perceptual tint. See
+       plans/gradient-stacking-material-synthesis-plan.md. */
+    .take-pill-btn:not(.state-lockout):not(.state-limit_24h):not(.state-execution):not(.state-latency):not(.state-ack) {
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
-    .take-pill-btn:not(.state-lockout):not(.state-execution):not(.state-latency):not(.state-ack):hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+    .take-pill-btn:not(.state-lockout):not(.state-limit_24h):not(.state-execution):not(.state-latency):not(.state-ack):hover {
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.2), rgba(var(--rgb-primary-color, 3, 169, 244), 0.2));
     }
 
-    /* Option 1 — Full Button (per color). */
-    .take-pill-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
-    .take-pill-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
-    .take-pill-btn.full-blue   { background: rgba(var(--rgb-btn-blue), 0.12); color: var(--btn-blue); }
-    .take-pill-btn.full-blue:hover   { background: rgba(var(--rgb-btn-blue), 0.2); }
-    .take-pill-btn.full-amber  { background: rgba(var(--rgb-btn-amber), 0.12);color: var(--btn-amber); }
-    .take-pill-btn.full-amber:hover  { background: rgba(var(--rgb-btn-amber), 0.2); }
-    .take-pill-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
-    .take-pill-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+    /* Option 1 — Full Button (per color). Gradient-stack surface: opaque
+       --card-background-color base wall blocks the ambilight backlight; flat
+       rgba(var(--rgb-btn-*),0.12) tint layer restores the identity-color tint.
+       See plans/gradient-stacking-material-synthesis-plan.md. */
+    .take-pill-btn.full-red    { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.12), rgba(var(--rgb-btn-red), 0.12));    color: var(--btn-red); }
+    .take-pill-btn.full-red:hover    { background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.2), rgba(var(--rgb-btn-red), 0.2)); }
+    .take-pill-btn.full-blue   { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-blue), 0.12), rgba(var(--rgb-btn-blue), 0.12));   color: var(--btn-blue); }
+    .take-pill-btn.full-blue:hover   { background-image: linear-gradient(rgba(var(--rgb-btn-blue), 0.2), rgba(var(--rgb-btn-blue), 0.2)); }
+    .take-pill-btn.full-amber  { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-amber), 0.12), rgba(var(--rgb-btn-amber), 0.12));  color: var(--btn-amber); }
+    .take-pill-btn.full-amber:hover  { background-image: linear-gradient(rgba(var(--rgb-btn-amber), 0.2), rgba(var(--rgb-btn-amber), 0.2)); }
+    .take-pill-btn.full-green { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.12), rgba(var(--rgb-btn-green), 0.12)); color: var(--btn-green); }
+    .take-pill-btn.full-green:hover { background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.2), rgba(var(--rgb-btn-green), 0.2)); }
 
-    /* Option 2 — Icon only (button bg stays theme default, icon recolored).
-       The > child combinator scopes the recolor to the button's OWN icon
-       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
-       so it keeps its own color from .ack-flash. See plans/
-       ack-clarity-and-softening-plan.md (Issue 1). */
+    /* Option 2 — Icon recolor only (Icon Style: color / color_pulse). The >
+       child combinator scopes the recolor to the button's OWN icon only — the
+       nested ACK tick is excluded so it keeps its own color. Do NOT set
+       background/color here: every Style option emits its own bg rule with
+       equal specificity, and a bg here would tie with .full-{color} and win
+       by source order, erasing the Full Button tint (bug: Full Button only
+       worked with Icon Style None or Pulse Only). See plans/
+       full-button-icon-style-override-fix-plan.md. */
     .take-pill-btn.icon-red > ha-icon    { color: var(--btn-red); }
     .take-pill-btn.icon-blue > ha-icon   { color: var(--btn-blue); }
     .take-pill-btn.icon-amber > ha-icon  { color: var(--btn-amber); }
     .take-pill-btn.icon-green > ha-icon  { color: var(--btn-green); }
-    /* Icon-only states still use the theme default bg so they read as "safe". */
-    .take-pill-btn.icon-red, .take-pill-btn.icon-blue,
-    .take-pill-btn.icon-amber, .take-pill-btn.icon-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      color: var(--primary-color, #03a9f4);
-    }
-    .take-pill-btn.icon-red:hover, .take-pill-btn.icon-blue:hover,
-    .take-pill-btn.icon-amber:hover, .take-pill-btn.icon-green:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-    }
 
     /* Option 3 — Border only (inset box-shadow so the button does not grow;
        a real border would add 2px to the outer size on each side). */
@@ -3503,31 +3863,33 @@ AxDoseDailyPanel.styles = i$5 `
     .take-pill-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
     .take-pill-btn.border-red, .take-pill-btn.border-blue,
     .take-pill-btn.border-amber, .take-pill-btn.border-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
 
-    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+    /* Option 6 — Rotating Ring (Apple Intelligence perimeter sweep).
        TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
        cannot share one element — oversizing moves the mask's content-box ring
        off the button, where overflow:hidden clips it away → nothing renders).
-       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       Layer 1 .ring-track: button-sized (inset 0), holds the mask that carves
        the 2px ring on the button edge + overflow:hidden to clip the rotating
-       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       child to the rounded perimeter. Layer 2 .ring-track::before: oversized
        (inset -150%) rotating gradient source; the track's mask carves the ring
        from this rotating gradient. transform animates without @property. */
-    @keyframes ax-btn-glow-sweep { to { transform: rotate(360deg); } }
-    .take-pill-btn.glow-red, .take-pill-btn.glow-blue,
-    .take-pill-btn.glow-amber, .take-pill-btn.glow-green {
+    @keyframes ax-btn-ring-sweep { to { transform: rotate(360deg); } }
+    .take-pill-btn.ring-red, .take-pill-btn.ring-blue,
+    .take-pill-btn.ring-amber, .take-pill-btn.ring-green {
       position: relative;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
        exactly on the button edge. padding:2px defines the ring thickness;
        border-radius:inherit follows the rounded corners; overflow:hidden clips
        the rotating child to the perimeter. */
-    .take-pill-btn .glow-track {
+    .take-pill-btn .ring-track {
       position: absolute;
       inset: 0;
       padding: 2px;
@@ -3546,24 +3908,82 @@ AxDoseDailyPanel.styles = i$5 `
        (button-sized) so its rotating square always covers the track at every
        angle (no corner gaps). The track's mask carves the 2px ring from this
        rotating gradient. */
-    .take-pill-btn .glow-track::before {
+    .take-pill-btn .ring-track::before {
       content: '';
       position: absolute;
       inset: -150%;
-      animation: ax-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+      animation: ax-btn-ring-sweep var(--ring-duration, 2.2s) linear infinite;
     }
     /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
        153deg = 50% of the line) so the state color stays unambiguous; a
        white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
        crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
-    .take-pill-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .take-pill-btn.glow-blue .glow-track::before   { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-blue)   76.5deg, var(--btn-blue)   229.5deg, color-mix(in srgb, var(--btn-blue)   60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .take-pill-btn.glow-amber .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-amber)  76.5deg, var(--btn-amber)  229.5deg, color-mix(in srgb, var(--btn-amber)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .take-pill-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-red .ring-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-blue .ring-track::before   { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-blue)   76.5deg, var(--btn-blue)   229.5deg, color-mix(in srgb, var(--btn-blue)   60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-amber .ring-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-amber)  76.5deg, var(--btn-amber)  229.5deg, color-mix(in srgb, var(--btn-amber)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .take-pill-btn.ring-green .ring-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
 
-    /* Option 5 — No change (theme default, no color override). */
+    /* Option 6 — Ambilight Glow (GPU-composited diffused backlight + breathing).
+       A dedicated .glow-backdrop div sits behind the button (inside the
+       .take-pill-wrap wrapper) and bleeds outward (inset:-9px) with a STATIC
+       filter:blur(8px) that produces the ambilight falloff (vibrant edge,
+       quickly diffusing). The breathing animation animates OPACITY only
+       (compositor-only property → GPU layer, zero CPU repaint — safe for
+       tablet SOCs). will-change is sandboxed inside the active glow selector
+       below so inactive (non-glow) states revert to will-change:auto and
+       release the GPU compositor layer + VRAM. The button face stays
+       theme-tinted (style-none) — the glow is purely an outer light.
+       Z-axis: the wrapper has isolation:isolate + z-index:0, so the
+       backdrop's z-index:-1 renders behind the wrapper baseline but in
+       front of the card background. The 9px diffusion bleeds outside the
+       wrapper but stays behind adjacent siblings (z-index:1). See plans/
+       architecture-rollback-z-axis-stacking-plan.md. */
+   .take-pill-wrap .glow-backdrop {
+     position: absolute;
+     inset: -9px;
+     z-index: -1;
+     border-radius: calc(var(--ha-card-border-radius, 12px) + 9px);
+     background: var(--glow-color, transparent);
+     filter: blur(8px);
+     opacity: 0;
+      pointer-events: none;
+      /* will-change OMITTED from the base class — sandboxed inside the active
+         .glow-{color} .glow-backdrop selector so non-glow states revert to
+         will-change:auto and flush the VRAM footprint (no GPU layer pinned). */
+      /* No animation here — gated to the active glow selector below. */
+    }
+    /* Per-color activation: the wrapper's glow-{color} class sets the color
+       token consumed by the backdrop's background. */
+    .take-pill-wrap.glow-red    { --glow-color: rgba(var(--rgb-btn-red), 0.85); }
+    .take-pill-wrap.glow-blue   { --glow-color: rgba(var(--rgb-btn-blue), 0.85); }
+    .take-pill-wrap.glow-amber  { --glow-color: rgba(var(--rgb-btn-amber), 0.85); }
+    .take-pill-wrap.glow-green  { --glow-color: rgba(var(--rgb-btn-green), 0.85); }
+    /* Active-glow selector: animation + will-change scoped here ONLY. When no
+       glow-{color} class is on the wrapper, these rules do not apply → the
+       backdrop is opacity:0 with no animation and no will-change → zero GPU
+       layer cost (VRAM-safe). */
+    .take-pill-wrap.glow-red .glow-backdrop,
+    .take-pill-wrap.glow-blue .glow-backdrop,
+    .take-pill-wrap.glow-amber .glow-backdrop,
+    .take-pill-wrap.glow-green .glow-backdrop {
+      opacity: 0.6;
+      will-change: opacity;
+      animation: ax-btn-glow-breathe var(--ring-duration, 4s) ease-in-out infinite;
+    }
+    /* Breathing keyframe — opacity only (GPU-composited). The static
+       filter:blur(8px) is rasterized once when the layer is created; the
+       keyframe just fades the pre-blurred layer in/out. No per-frame CPU work. */
+    @keyframes ax-btn-glow-breathe {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.85; }
+    }
+
+    /* Option 5 — No change (theme default, no color override). The surface
+       is still solidified (alpha-1.0) to occlude the ambilight backlight;
+       only the color identity is left at the theme default primary tint. */
     .take-pill-btn.style-none {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
 
@@ -3702,10 +4122,19 @@ AxDoseDailyPanel.styles = i$5 `
       align-items: center;
       gap: 8px;
       padding: 6px 14px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.06) tint layer restores the
+         perceptual tint. The stat-pill is an adjacent UI surface on
+         .stats-column (z-index:1 sibling of .take-pill-wrap). See plans/
+         gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.06), rgba(var(--rgb-primary-color, 3, 169, 244), 0.06));
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
       flex: 1;
+      /* position:relative clips the ha-ripple surface (overflow:hidden
+         already present). */
+      position: relative;
     }
 
     .stat-pill ha-icon {
@@ -3740,13 +4169,15 @@ AxDoseDailyPanel.styles = i$5 `
     }
 
     .stat-pill.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .chips-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      position: relative;  /* global z-axis protection — glow bleeds behind chips (Patch 1, belt-and-suspenders) */
+      z-index: 1;
     }
 
     /* ── Chips — match the Graph panel Day Avg Boxes format (primary-tinted
@@ -3762,9 +4193,16 @@ AxDoseDailyPanel.styles = i$5 `
       align-items: center;
       gap: 2px;
       padding: 6px 4px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.05) tint layer restores the
+         perceptual tint. The chip row (.chips-row, z-index:1) sits below
+         .daily-main. See plans/gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.05), rgba(var(--rgb-primary-color, 3, 169, 244), 0.05));
       border-radius: 10px;
       overflow: hidden;
+      /* position:relative clips the ha-ripple surface. */
+      position: relative;
     }
 
     .chip.with-icon {
@@ -3778,7 +4216,7 @@ AxDoseDailyPanel.styles = i$5 `
     }
 
     .chip.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .chip-icon {
@@ -3810,28 +4248,28 @@ AxDoseDailyPanel.styles = i$5 `
     }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDailyPanel.prototype, "controller", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDailyPanel.prototype, "entities", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDailyPanel.prototype, "hass", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDailyPanel.prototype, "tick", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDailyPanel.prototype, "buttonState", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDailyPanel.prototype, "ackActive", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDailyPanel.prototype, "ackCount", void 0);
 AxDoseDailyPanel = __decorate([
-    t('ax-dose-daily-panel')
+    t$1('ax-dose-daily-panel')
 ], AxDoseDailyPanel);
 
 // ──────────────────────────────────────────────
@@ -4880,43 +5318,43 @@ AxDoseGraphsPanel.styles = i$5 `
     }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "controller", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "entities", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "hass", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "amountHistory", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "doseHistory", void 0);
 __decorate([
-    n({ type: Number })
+    n$1({ type: Number })
 ], AxDoseGraphsPanel.prototype, "activeGraph", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "activeTimeframe", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "activeBarTimeframe", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "activeEffectivenessTimeframe", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "activeEffectivenessView", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "effectivenessHistory", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "effectivenessVisible", void 0);
 AxDoseGraphsPanel = AxDoseGraphsPanel_1 = __decorate([
-    t('ax-dose-graphs-panel')
+    t$1('ax-dose-graphs-panel')
 ], AxDoseGraphsPanel);
 
 // ──────────────────────────────────────────────
@@ -4959,18 +5397,28 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
     }
     /**
      * Build the CSS class string for the Log Drink button from the resolved
-     * ButtonState + the per-state style option + pulse toggle. Mirrors the
+     * ButtonState + the per-state style + icon_style options. Mirrors the
      * Daily panel's _takeButtonClasses but only handles lockout + ack (the two
-     * states possible for PRN drinks). 'idle' renders only the base button.
+     * states possible for PRN drinks). 'auto' resolves to the per-state default
+     * at runtime. 'idle' renders only the base button.
      */
     _logDrinkButtonClasses() {
         const state = this.buttonState;
         const cfg = this.controller.config;
+        // Per-state default (used when value is 'auto' or undefined).
+        const STATE_DEFAULTS = {
+            lockout: { style: 'full', iconStyle: 'none' },
+        };
         let style = 'none';
-        let pulse = false;
+        let iconStyle = 'none';
         if (state === 'lockout') {
-            style = cfg?.drink_button_lockout_style ?? 'full';
-            pulse = cfg?.drink_button_lockout_pulse ?? false;
+            const d = STATE_DEFAULTS.lockout;
+            style = cfg?.drink_button_lockout_style ?? d.style;
+            if (style === 'auto')
+                style = d.style;
+            iconStyle = cfg?.drink_button_lockout_icon_style ?? d.iconStyle;
+            if (iconStyle === 'auto')
+                iconStyle = d.iconStyle;
         }
         else {
             // idle — no color, no style option (theme default).
@@ -4980,28 +5428,51 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
         const classes = ['log-drink-btn', `state-${state}`];
         if (style === 'full')
             classes.push(`full-${color}`);
-        if (style === 'icon' || style === 'icon_border' || style === 'icon_glow')
-            classes.push(`icon-${color}`);
-        if (style === 'border' || style === 'icon_border')
+        if (style === 'border')
             classes.push(`border-${color}`);
-        if (style === 'glow' || style === 'icon_glow')
-            classes.push(`glow-${color}`);
+        if (style === 'ring')
+            classes.push(`ring-${color}`);
+        if (style === 'glow')
+            classes.push(`style-none`); // glow renders on the wrapper backdrop, not the button face
         if (style === 'none')
             classes.push('style-none');
-        if (pulse)
+        if (iconStyle === 'color' || iconStyle === 'color_pulse')
+            classes.push(`icon-${color}`);
+        if (iconStyle === 'color_pulse' || iconStyle === 'pulse')
             classes.push('pulse');
         // ACK overlay is a pure flash layered on top of the true state — it does
-        // not recolor the button, so the real state stays correct underneath.
+        //    not recolor the button, so the real state stays correct underneath.
         if (this.ackActive)
             classes.push('ack-flash');
         return classes.join(' ');
     }
-    /** Resolve the rotating border-glow animation duration (CSS string) from the
-     *  per-button glow_speed config. 'medium' (4s) is the default. Mirrors
-     *  daily-panel._glowDuration. */
-    _glowDuration() {
-        const speed = this.controller.config?.drink_button_glow_speed ?? 'medium';
+    /** Resolve the rotating ring animation duration (CSS string) from the
+     *  per-button ring_speed config. 'medium' (4s) is the default. Shared by
+     *  the ring sweep and the ambilight glow breathing. Mirrors daily-panel. */
+    _ringDuration() {
+        const speed = this.controller.config?.drink_button_ring_speed ?? 'medium';
         return speed === 'slow' ? '6s' : speed === 'medium' ? '4s' : '2.2s';
+    }
+    /** Resolve the wrapper class for the ambilight glow backdrop. Returns ''
+     *  when the resolved style is not 'glow' (backdrop hidden, no GPU layer).
+     *  Mirrors daily-panel._takeGlowWrapClass. See plans/
+     *  architecture-rollback-z-axis-stacking-plan.md. */
+    _logDrinkGlowWrapClass() {
+        const state = this.buttonState;
+        const cfg = this.controller.config;
+        let style = 'none';
+        if (state === 'lockout') {
+            style = cfg?.drink_button_lockout_style ?? 'full';
+            if (style === 'auto')
+                style = 'full';
+        }
+        else {
+            return ''; // idle — no glow
+        }
+        if (style !== 'glow')
+            return '';
+        const color = state === 'lockout' ? 'red' : 'green';
+        return `glow-${color}`;
     }
     /** Resolve the ACK (Logged) flash layout from the per-button ack_layout
      *  config. 'top' is the default and mirrors the normal button layout. */
@@ -5144,22 +5615,24 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
         <div class="drinks-title"
              role="button" tabindex="0"
              aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${() => c.showDeviceInfo()}
+             @click=${delayedAction(() => c.showDeviceInfo())}
              @keydown=${(ev) => c.onKeyActivate(ev, () => c.showDeviceInfo())}
-        >${substanceLabel}</div>
+        ><ha-ripple></ha-ripple>${substanceLabel}</div>
 
         <div class="daily-main">
-          <button
-            class=${this._logDrinkButtonClasses()}
-            style=${[
-            `--glow-duration: ${this._glowDuration()}`,
-            this.ackActive ? `--ack-duration: ${this.controller.config?.drink_button_ack_duration_ms ?? 3000}ms` : '',
-        ].filter(Boolean).join('; ')}
-            aria-label=${logDrinkLabel}
-            ?disabled=${!substance}
-            @click=${() => substance && c.showLogDrinkDialog(substance)}
+          <div class="log-drink-wrap${this._logDrinkGlowWrapClass() ? ' ' + this._logDrinkGlowWrapClass() : ''}"
+               style=${`--ring-duration: ${this._ringDuration()}`}
           >
-            <div class="glow-track"></div>
+            <div class="glow-backdrop"></div>
+            <button
+              class=${this._logDrinkButtonClasses()}
+              style=${this.ackActive ? `--ack-duration: ${this.controller.config?.drink_button_ack_duration_ms ?? 3000}ms` : ''}
+              aria-label=${logDrinkLabel}
+              ?disabled=${!substance}
+              @click=${delayedAction(() => substance && c.showLogDrinkDialog(substance))}
+            >
+              <div class="ring-track"></div>
+              <ha-ripple ?disabled=${!substance}></ha-ripple>
             <ha-icon icon="${logDrinkIcon}"></ha-icon>
             <span class="take-label">${logDrinkLabel}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span></span>
@@ -5173,18 +5646,20 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
                 : A)}
               </div>
             `) : A}
-          </button>
+            </button>
+          </div>
 
           <div class="stats-column">
             <div class="stat-pill ${inBodyClickable ? 'clickable' : ''}"
                  role="button"
                  tabindex=${inBodyClickable ? '0' : A}
                  aria-label=${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}
-                 @click=${inBodyClickable ? (ev) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity) : null}
+                 @click=${inBodyClickable ? delayedAction((ev) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
                  @keydown=${inBodyClickable ? (ev) => c.onKeyActivate(ev, () => c.handleInBodyBoxAction(null, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
                  @contextmenu=${ibHasHold ? (ev) => { ev.preventDefault(); c.handleInBodyBoxAction(null, 'hold', inBodyActionConfig, inBodyDisplayEntity); } : null}
                  @dblclick=${ibHasDblClick ? () => c.handleInBodyBoxAction(null, 'double_tap', inBodyActionConfig, inBodyDisplayEntity) : null}>
-              <ha-icon icon="${cfg?.in_body_icon || 'mdi:chart-bell-curve'}"></ha-icon>
+              ${inBodyClickable ? b `<ha-ripple></ha-ripple>` : A}
+               <ha-icon icon="${cfg?.in_body_icon || 'mdi:chart-bell-curve'}"></ha-icon>
               <span class="stat-label">${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}</span>
               <span class="stat-value">${inBodyValue}</span>
             </div>
@@ -5192,11 +5667,12 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
                  role="button"
                  tabindex=${disruptionClickable ? '0' : A}
                  aria-label=${cfg?.disruption_label || disruptionDefaultLabel}
-                 @click=${disruptionClickable ? (ev) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback) : null}
+                 @click=${disruptionClickable ? delayedAction((ev) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
                  @keydown=${disruptionClickable ? (ev) => c.onKeyActivate(ev, () => c.handleDisruptionBoxAction(null, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
                  @contextmenu=${dHasHold ? (ev) => { ev.preventDefault(); c.handleDisruptionBoxAction(null, 'hold', disruptionActionConfig, disruptionDisplayEntity); } : null}
                  @dblclick=${dHasDblClick ? () => c.handleDisruptionBoxAction(null, 'double_tap', disruptionActionConfig, disruptionDisplayEntity) : null}>
-              <ha-icon icon="${cfg?.disruption_icon || disruptionDefaultIcon}"></ha-icon>
+              ${disruptionClickable ? b `<ha-ripple></ha-ripple>` : A}
+               <ha-icon icon="${cfg?.disruption_icon || disruptionDefaultIcon}"></ha-icon>
               <span class="stat-label">${cfg?.disruption_label || disruptionDefaultLabel}</span>
               <span class="stat-value">${disruptionValue}</span>
             </div>
@@ -5245,11 +5721,12 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
                       role="button"
                       tabindex="0"
                       aria-label=${chipName}
-                      @click=${(ev) => c.handleDrinkChipAction(ev, 'tap', chipActionCfg, chip.entityId)}
+                      @click=${delayedAction((ev) => c.handleDrinkChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
                       @keydown=${(ev) => c.onKeyActivate(ev, () => c.handleDrinkChipAction(null, 'tap', chipActionCfg, chip.entityId))}
                       @contextmenu=${hasHold ? (ev) => { ev.preventDefault(); c.handleDrinkChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
                       @dblclick=${hasDblClick ? () => c.handleDrinkChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
-                      ${chip.showIcon
+                      <ha-ripple></ha-ripple>
+                       ${chip.showIcon
                     ? b `<ha-icon icon=${chipIcon} class="chip-icon"></ha-icon>`
                     : A}
                       <span class="chip-name">${chipName}</span>
@@ -5267,6 +5744,11 @@ let AxDoseDrinksPanel = class AxDoseDrinksPanel extends i$2 {
 AxDoseDrinksPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     .pane-drinks {
       display: flex;
@@ -5280,6 +5762,11 @@ AxDoseDrinksPanel.styles = i$5 `
       color: var(--primary-text-color, #222);
       text-align: center;
       cursor: pointer;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--ha-card-border-radius, 12px);
+      z-index: 1;  /* global z-axis protection — glow bleeds behind title (Patch 1, belt-and-suspenders) */
     }
 
     /* ── .daily-main / .stats-column — verbatim from daily-panel.ts ── */
@@ -5292,6 +5779,20 @@ AxDoseDrinksPanel.styles = i$5 `
       display: flex;
       flex-direction: column;
       gap: 10px;
+      flex: 1;
+      position: relative;  /* global z-axis protection — glow bleeds behind stats (Patch 1, belt-and-suspenders) */
+      z-index: 1;
+    }
+
+    /* Wrapper for the ambilight glow backdrop. Becomes the .daily-main flex
+       child (replaces the button's flex role). isolation:isolate + z-index:0
+       spawn a localized z-axis boundary. Mirrors daily-panel .take-pill-wrap.
+       See plans/architecture-rollback-z-axis-stacking-plan.md. */
+    .log-drink-wrap {
+      position: relative;
+      z-index: 0;
+      isolation: isolate;
+      display: flex;
       flex: 1;
     }
 
@@ -5307,10 +5808,11 @@ AxDoseDrinksPanel.styles = i$5 `
       border-radius: var(--ha-card-border-radius, 12px);
       font-family: inherit;
       cursor: pointer;
-      transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+      transition: background 0.2s, box-shadow 0.2s;
       position: relative;
       overflow: hidden;
       flex: 1;
+      z-index: 1;  /* stack above the .glow-backdrop (z-index:-1) */
       /* Reserve the full two-line-sub-text button height permanently (mirrors
          daily-panel.ts .take-pill-btn). justify-content: center distributes
          the reserved height as symmetric top/bottom padding so the
@@ -5320,13 +5822,30 @@ AxDoseDrinksPanel.styles = i$5 `
       min-height: 8em;
     }
 
-    .log-drink-btn:active {
-      transform: scale(0.96);
+    /* :active scale transform removed — ha-ripple provides the press feedback
+       (Material Design radiating circle), so the physical compression is
+       redundant and can fight the ripple's layout. */
+    /* ha-ripple sits above the .ring-track (z-index 0) AND above the
+       .ack-flash overlay (z-index 2) so the native ripple keeps radiating
+       over the opaque green "Logged" surface after an ACK press. The
+       ripple fires at pointerdown (t=0) and animates ~300ms; the green
+       overlay mounts ~110ms later (delayedAction), so raising the ripple
+       to z-index 3 lets the user see press feedback even when their
+       finger covers the Nx text. Matches Mushroom template-card
+       layering (ripple renders over content). */
+    .log-drink-btn > ha-ripple {
+      z-index: 3;
     }
+    /* State-coloured ripples — the press feedback colour matches the button's
+       current medical state (richer than Mushroom's single colour, fits the
+       Button State Matrix). The ACK state uses a light tint so the ripple
+       reads on the opaque dark-green overlay surface (#212c22). */
+    .log-drink-btn.state-lockout { --ha-ripple-color: var(--btn-red); }
+    .log-drink-btn.ack-flash { --ha-ripple-color: #ffffff; }
 
     /* ── Button State Matrix (Prosumer UI) — Drinks ──
        Only lockout + ack are possible for PRN drinks. Mirrors the Daily
-       panel's CSS structure (full / icon / border / glow / pulse / ack).
+       panel's CSS structure (full / border / none / ring / icon / pulse / ack).
        The default (idle / no state class) keeps the original theme-tinted
        safe look. See plans/button-state-matrix-plan.md §1.2. */
     :host {
@@ -5342,65 +5861,72 @@ AxDoseDrinksPanel.styles = i$5 `
       --btn-green-soft: #212c22;
     }
 
-    /* Base idle (no state class) — original theme-tinted safe look. */
+    /* Base idle (no state class) — original theme-tinted safe look.
+       Gradient-stack surface: opaque --card-background-color base wall blocks
+       the ambilight backlight; flat rgba(...,0.12) tint layer (linear-gradient
+       with identical stops = flat color) restores the perceptual tint. See
+       plans/gradient-stacking-material-synthesis-plan.md. */
     .log-drink-btn:not(.state-lockout):not(.state-ack) {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     .log-drink-btn:not(.state-lockout):not(.state-ack):hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.2), rgba(var(--rgb-primary-color, 3, 169, 244), 0.2));
     }
 
-    /* Option 1 — Full Button (red lockout / green ack). */
-    .log-drink-btn.full-red    { background: rgba(var(--rgb-btn-red), 0.12);  color: var(--btn-red); }
-    .log-drink-btn.full-red:hover    { background: rgba(var(--rgb-btn-red), 0.2); }
-    .log-drink-btn.full-green { background: rgba(var(--rgb-btn-green), 0.12);color: var(--btn-green); }
-    .log-drink-btn.full-green:hover { background: rgba(var(--rgb-btn-green), 0.2); }
+    /* Option 1 — Full Button (red lockout / green ack). Gradient-stack
+       surface: opaque --card-background-color base wall blocks the ambilight
+       backlight; flat rgba(var(--rgb-btn-*),0.12) tint layer restores the
+       identity-color tint. See plans/
+       gradient-stacking-material-synthesis-plan.md. */
+    .log-drink-btn.full-red    { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.12), rgba(var(--rgb-btn-red), 0.12));    color: var(--btn-red); }
+    .log-drink-btn.full-red:hover    { background-image: linear-gradient(rgba(var(--rgb-btn-red), 0.2), rgba(var(--rgb-btn-red), 0.2)); }
+    .log-drink-btn.full-green { background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c)); background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.12), rgba(var(--rgb-btn-green), 0.12)); color: var(--btn-green); }
+    .log-drink-btn.full-green:hover { background-image: linear-gradient(rgba(var(--rgb-btn-green), 0.2), rgba(var(--rgb-btn-green), 0.2)); }
 
-    /* Option 2 — Icon only (theme bg, recolored icon).
-       The > child combinator scopes the recolor to the button's OWN icon
-       only — the nested ACK tick (button > .ack-flash > ha-icon) is excluded
-       so it keeps its own color from .ack-flash. See plans/
-       ack-clarity-and-softening-plan.md (Issue 1). */
+    /* Option 2 — Icon recolor only (Icon Style: color / color_pulse). The >
+       child combinator scopes the recolor to the button's OWN icon only — the
+       nested ACK tick is excluded so it keeps its own color. Do NOT set
+       background/color here: every Style option emits its own bg rule with
+       equal specificity, and a bg here would tie with .full-{color} and win
+       by source order, erasing the Full Button tint (bug: Full Button only
+       worked with Icon Style None or Pulse Only). See plans/
+       full-button-icon-style-override-fix-plan.md. */
     .log-drink-btn.icon-red > ha-icon    { color: var(--btn-red); }
     .log-drink-btn.icon-green > ha-icon  { color: var(--btn-green); }
-    .log-drink-btn.icon-red, .log-drink-btn.icon-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      color: var(--primary-color, #03a9f4);
-    }
-    .log-drink-btn.icon-red:hover, .log-drink-btn.icon-green:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.2);
-    }
 
     /* Option 3 — Border only (inset box-shadow so the button does not grow;
        a real border would add 2px to the outer size on each side). */
     .log-drink-btn.border-red, .log-drink-btn.border-green {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     .log-drink-btn.border-red    { box-shadow: inset 0 0 0 2px var(--btn-red); }
     .log-drink-btn.border-green  { box-shadow: inset 0 0 0 2px var(--btn-green); }
 
-    /* Option 6 — Rotating border glow (Apple Intelligence perimeter sweep).
+    /* Option 6 — Rotating Ring (Apple Intelligence perimeter sweep).
        TWO-LAYER architecture (required: the mask-ring and the rotation-oversize
        cannot share one element — oversizing moves the mask's content-box ring
        off the button, where overflow:hidden clips it away → nothing renders).
-       Layer 1 .glow-track: button-sized (inset 0), holds the mask that carves
+       Layer 1 .ring-track: button-sized (inset 0), holds the mask that carves
        the 2px ring on the button edge + overflow:hidden to clip the rotating
-       child to the rounded perimeter. Layer 2 .glow-track::before: oversized
+       child to the rounded perimeter. Layer 2 .ring-track::before: oversized
        (inset -150%) rotating gradient source; the track's mask carves the ring
        from this rotating gradient. transform animates without @property. */
-    @keyframes ax-drink-btn-glow-sweep { to { transform: rotate(360deg); } }
-    .log-drink-btn.glow-red, .log-drink-btn.glow-green {
+    @keyframes ax-drink-btn-ring-sweep { to { transform: rotate(360deg); } }
+    .log-drink-btn.ring-red, .log-drink-btn.ring-green {
       position: relative;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
     /* Layer 1 — the static geometry mask. Button-sized so the mask ring sits
        exactly on the button edge. padding:2px defines the ring thickness;
        border-radius:inherit follows the rounded corners; overflow:hidden clips
        the rotating child to the perimeter. */
-    .log-drink-btn .glow-track {
+    .log-drink-btn .ring-track {
       position: absolute;
       inset: 0;
       padding: 2px;
@@ -5419,22 +5945,62 @@ AxDoseDrinksPanel.styles = i$5 `
        (button-sized) so its rotating square always covers the track at every
        angle (no corner gaps). The track's mask carves the 2px ring from this
        rotating gradient. */
-    .log-drink-btn .glow-track::before {
+    .log-drink-btn .ring-track::before {
       content: '';
       position: absolute;
       inset: -150%;
-      animation: ax-drink-btn-glow-sweep var(--glow-duration, 2.2s) linear infinite;
+      animation: ax-drink-btn-ring-sweep var(--ring-duration, 2.2s) linear infinite;
     }
     /* State color → gradient. 85% line with a solid-color middle (76.5→229.5,
        153deg = 50% of the line) so the state color stays unambiguous; a
        white-tipped shimmer head at 306deg (color-mix lifts toward #fff); a
        crisp head edge (306→306.1deg near-zero stop); 54deg transparent gap. */
-    .log-drink-btn.glow-red .glow-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
-    .log-drink-btn.glow-green .glow-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .log-drink-btn.ring-red .ring-track::before    { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-red)    76.5deg, var(--btn-red)    229.5deg, color-mix(in srgb, var(--btn-red)    60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
+    .log-drink-btn.ring-green .ring-track::before  { background: conic-gradient(from 0deg, transparent 0deg, var(--btn-green)  76.5deg, var(--btn-green)  229.5deg, color-mix(in srgb, var(--btn-green)  60%, #fff) 306deg, transparent 306.1deg, transparent 360deg); }
 
-    /* Option 5 — No change (theme default). */
+    /* Option 6 — Ambilight Glow (GPU-composited diffused backlight + breathing).
+       Mirrors daily-panel: a .glow-backdrop div behind the button (inside the
+       .log-drink-wrap wrapper) bleeds outward (inset:-9px) with a STATIC
+       filter:blur(8px); the breathing animates OPACITY only (GPU-composited,
+       zero CPU repaint). will-change is sandboxed inside the active glow
+       selector so non-glow states release the GPU layer + VRAM. Z-axis: the
+       wrapper has isolation:isolate + z-index:0, so the backdrop's z-index:-1
+       renders behind the wrapper baseline but in front of the card
+       background. See plans/architecture-rollback-z-axis-stacking-plan.md. */
+    .log-drink-wrap .glow-backdrop {
+      position: absolute;
+      inset: -9px;
+      z-index: -1;
+      border-radius: calc(var(--ha-card-border-radius, 12px) + 9px);
+      background: var(--glow-color, transparent);
+      filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      /* will-change OMITTED here — sandboxed inside the active glow selector. */
+      /* No animation here — gated to the active glow selector below. */
+    }
+    .log-drink-wrap.glow-red    { --glow-color: rgba(var(--rgb-btn-red), 0.85); }
+    .log-drink-wrap.glow-green  { --glow-color: rgba(var(--rgb-btn-green), 0.85); }
+    .log-drink-wrap.glow-red .glow-backdrop,
+    .log-drink-wrap.glow-green .glow-backdrop {
+      opacity: 0.6;
+      will-change: opacity;
+      animation: ax-btn-glow-breathe var(--ring-duration, 4s) ease-in-out infinite;
+    }
+    /* Shared breathing keyframe (same name as daily-panel; Lit scopes CSS so
+       the two definitions don't conflict — both are identical opacity-only
+       keyframes). */
+    @keyframes ax-btn-glow-breathe {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.85; }
+    }
+
+    /* Option 5 — No change (theme default). The surface is still solidified
+       (alpha-1.0) to occlude the ambilight backlight; only the color
+       identity is left at the theme default primary tint. */
     .log-drink-btn.style-none {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
       color: var(--primary-color, #03a9f4);
     }
 
@@ -5577,10 +6143,18 @@ AxDoseDrinksPanel.styles = i$5 `
       align-items: center;
       gap: 8px;
       padding: 6px 14px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.06) tint layer restores the
+         perceptual tint. The .stats-column at z-index:1 is a sibling of
+         .log-drink-wrap. See plans/
+         gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.06), rgba(var(--rgb-primary-color, 3, 169, 244), 0.06));
       border-radius: var(--ha-card-border-radius, 12px);
       overflow: hidden;
       flex: 1;
+      /* position:relative clips the ha-ripple surface. */
+      position: relative;
     }
 
     .stat-pill.clickable {
@@ -5588,7 +6162,7 @@ AxDoseDrinksPanel.styles = i$5 `
     }
 
     .stat-pill.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .stat-pill ha-icon {
@@ -5618,11 +6192,19 @@ AxDoseDrinksPanel.styles = i$5 `
       white-space: nowrap;
     }
 
-    /* ── Custom chips — verbatim from daily-panel.ts ── */
+    /* ── Custom chips — verbatim from daily-panel.ts ──
+       Z-axis dependency (Patch 1, belt-and-suspenders): z-index is a null
+       operation on static elements, so position:relative MUST accompany
+       z-index:1. Without this the 9px .glow-backdrop diffusion (inset:-9px,
+       bleeding beyond .daily-main) paints on top of the chips. The wrapper's
+       isolation:isolate floor (z-index:0) contains the backdrop at z-index:-1;
+       this lifts the chips above that floor. Mirrors daily-panel .chips-row. */
     .chips-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+      position: relative;  /* global z-axis protection — glow bleeds behind chips */
+      z-index: 1;
     }
 
     /* ── Chips — match the Graph panel Day Avg Boxes format (primary-tinted
@@ -5638,9 +6220,16 @@ AxDoseDrinksPanel.styles = i$5 `
       align-items: center;
       gap: 2px;
       padding: 6px 4px;
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
+      /* Gradient-stack surface: opaque --card-background-color base wall blocks
+         the ambilight backlight; flat rgba(...,0.05) tint layer restores the
+         perceptual tint. The .chips-row (z-index:1) sits below .daily-main.
+         See plans/gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.05), rgba(var(--rgb-primary-color, 3, 169, 244), 0.05));
       border-radius: 10px;
       overflow: hidden;
+      /* position:relative clips the ha-ripple surface. */
+      position: relative;
     }
 
     .chip.with-icon {
@@ -5654,7 +6243,7 @@ AxDoseDrinksPanel.styles = i$5 `
     }
 
     .chip.clickable:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
     .chip-icon {
@@ -5686,28 +6275,28 @@ AxDoseDrinksPanel.styles = i$5 `
     }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "controller", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "entities", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "hass", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "tick", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "buttonState", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "ackActive", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseDrinksPanel.prototype, "ackCount", void 0);
 AxDoseDrinksPanel = __decorate([
-    t('ax-dose-drinks-panel')
+    t$1('ax-dose-drinks-panel')
 ], AxDoseDrinksPanel);
 
 // ──────────────────────────────────────────────
@@ -5795,9 +6384,10 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i$2 {
           role=${canRefill ? 'button' : A}
           tabindex=${canRefill ? '0' : A}
           aria-label=${localize(this._lang, 'dialog.refill.aria')}
-          @click=${canRefill && d.addStockEntityId ? () => c.showRefillDialogFor(d.addStockEntityId, d.name) : null}
+          @click=${canRefill && d.addStockEntityId ? delayedAction(() => c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
           @keydown=${canRefill ? (ev) => c.onKeyActivate(ev, () => d.addStockEntityId && c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
         >
+          ${canRefill ? b `<ha-ripple></ha-ripple>` : A}
           <div class="stat-pill-header">
             <ha-icon icon="${substanceIcon}"></ha-icon>
             <div class="stat-text">
@@ -5815,10 +6405,11 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i$2 {
         <div class="avg-cell"
              role="button" tabindex="0"
              aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${() => c.showDeviceInfoFor(d.deviceId, d.name)}
+             @click=${delayedAction(() => c.showDeviceInfoFor(d.deviceId, d.name))}
              @keydown=${(ev) => c.onKeyActivate(ev, () => c.showDeviceInfoFor(d.deviceId, d.name))}
         >
-          <div class="avg-line">
+           <ha-ripple></ha-ripple>
+           <div class="avg-line">
             <span class="avg-label">${localize(this._lang, 'inventory.avg_7_day')}</span>
             <span class="avg-value">${avg7Display}</span>
           </div>
@@ -5834,6 +6425,11 @@ let AxDoseInventoryPanel = class AxDoseInventoryPanel extends i$2 {
 AxDoseInventoryPanel.styles = i$5 `
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
     /* ── Container parity with the Stats pane (.pane-stats) ── */
     .pane-inventory {
@@ -5883,6 +6479,10 @@ AxDoseInventoryPanel.styles = i$5 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       border-radius: 10px;
       transition: background 0.15s ease;
+      /* position:relative + overflow:hidden clip the ha-ripple surface to the
+         box's rounded border (MdRipple geometry requirement). */
+      position: relative;
+      overflow: hidden;
     }
     .stat-pill.clickable {
       cursor: pointer;
@@ -5965,6 +6565,9 @@ AxDoseInventoryPanel.styles = i$5 `
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.05);
       cursor: pointer;
       transition: background 0.15s ease;
+      /* position:relative + overflow:hidden clip the ha-ripple surface. */
+      position: relative;
+      overflow: hidden;
     }
     .avg-cell:hover {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
@@ -5995,21 +6598,90 @@ AxDoseInventoryPanel.styles = i$5 `
     }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseInventoryPanel.prototype, "controller", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseInventoryPanel.prototype, "entities", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseInventoryPanel.prototype, "hass", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseInventoryPanel.prototype, "tick", void 0);
 AxDoseInventoryPanel = __decorate([
-    t('ax-dose-inventory-panel')
+    t$1('ax-dose-inventory-panel')
 ], AxDoseInventoryPanel);
 
+// ──────────────────────────────────────────────
+// Button State Matrix — config migration (old *_style + *_pulse -> new
+// *_style + *_icon_style, and *_glow_speed -> *_ring_speed). Runs in
+// setConfig() so existing user configs are migrated transparently.
+// Idempotent: a no-op once the new *_icon_style field is present.
+// See plans/icon-style-dropdown-separation-plan.md §5-6.
+// ──────────────────────────────────────────────
+function _migrateOneButtonState(raw, prefix) {
+    const oldStyle = raw[`${prefix}_style`];
+    const oldPulse = raw[`${prefix}_pulse`];
+    // Skip if the new field is already present (post-migration) or neither old
+    // field exists.
+    if (raw[`${prefix}_icon_style`] !== undefined)
+        return;
+    if (oldStyle === undefined && oldPulse === undefined)
+        return;
+    // Detect legacy icon-composite style names (icon, icon_border, icon_glow).
+    const hasIcon = oldStyle === 'icon' || oldStyle === 'icon_border' || oldStyle === 'icon_glow';
+    // Modern styles (full, border, none, ring, glow, auto) with no legacy pulse
+    // field are already in the new format — skip migration. This is critical
+    // for idempotency: HA's visual editor omits the *_icon_style field when it
+    // is at its default ('auto'), so the earlier guard (line 55) does NOT fire
+    // after a style-only change. Without this guard, migration would re-run
+    // every time the user changes the style dropdown, injecting
+    // icon_style='none' into the stored config and causing the editor to show
+    // 'none' instead of 'auto'. By returning early for modern configs, we
+    // ensure only truly legacy configs (those with *_pulse or icon-composite
+    // style names) are migrated.
+    if (oldPulse === undefined && !hasIcon)
+        return;
+    // Map old style -> new style (strip icon component from legacy names).
+    // NOTE: 'glow' is NO LONGER remapped — it is a valid ButtonStateStyle as of
+    // the Ambilight Glow feature. Legacy 'glow' (which meant the old rotating
+    // ring) is left as 'glow' so those users get the new Ambilight Glow style
+    // instead of a silent downgrade to 'ring'. The old ring is still available
+    // by explicitly selecting 'ring' in the editor.
+    const newStyle = oldStyle === 'icon' ? 'none'
+        : oldStyle === 'icon_border' ? 'border'
+            : oldStyle === 'icon_glow' ? 'ring'
+                : oldStyle; // full, border, none, ring, glow unchanged
+    // Map old pulse + icon presence -> new icon_style.
+    let iconStyle;
+    if (hasIcon) {
+        iconStyle = oldPulse ? 'color_pulse' : 'color';
+    }
+    else {
+        iconStyle = oldPulse ? 'pulse' : 'none';
+    }
+    raw[`${prefix}_style`] = newStyle;
+    raw[`${prefix}_icon_style`] = iconStyle;
+    delete raw[`${prefix}_pulse`];
+}
+function _migrateButtonStateConfig(raw) {
+    // Daily — 3 states
+    _migrateOneButtonState(raw, 'take_button_lockout');
+    _migrateOneButtonState(raw, 'take_button_execution');
+    _migrateOneButtonState(raw, 'take_button_latency');
+    // Drinks — 1 state
+    _migrateOneButtonState(raw, 'drink_button_lockout');
+    // Ring speed rename (glow_speed -> ring_speed).
+    if (raw.take_button_glow_speed !== undefined && raw.take_button_ring_speed === undefined) {
+        raw.take_button_ring_speed = raw.take_button_glow_speed;
+        delete raw.take_button_glow_speed;
+    }
+    if (raw.drink_button_glow_speed !== undefined && raw.drink_button_ring_speed === undefined) {
+        raw.drink_button_ring_speed = raw.drink_button_glow_speed;
+        delete raw.drink_button_glow_speed;
+    }
+}
 // ──────────────────────────────────────────────
 // AxDoseLoggerCard — Main Card Class (Container)
 // ──────────────────────────────────────────────
@@ -6102,6 +6774,10 @@ class AxDoseLoggerCard extends i$2 {
         // designated dose time (next_dose sensor); As Needed meds show when the
         // rolling safety window resets (window_expires_at attribute).
         this._overrideDialog = null;
+        // Extra context for the 24h limit override dialog body placeholders
+        // (current amount, limit, next dose strength, projected total, unit).
+        // Only populated when bodyKey is a 24h_limit variant; null otherwise.
+        this._overrideDialogExtras = null;
         // Tracking override warning dialog: when user tries to change a daily-locked
         // tracking value that has already been set today, this dialog asks for confirmation.
         this._trackingOverrideDialog = null;
@@ -6110,6 +6786,14 @@ class AxDoseLoggerCard extends i$2 {
         // the first set_value completes would read stale logged_today=false and bypass
         // the override dialog. Cleared in updated() once HA confirms logged_today=true.
         this._pendingTracking = new Set();
+        // Connection flag (N3 defense-in-depth): set true in connectedCallback,
+        // false in disconnectedCallback. Timer callbacks that mutate @state and
+        // call requestUpdate() check this flag before acting, so even if a
+        // setTimeout callback was already queued before disconnectedCallback's
+        // clearTimeout ran, it can't mutate state on a detached element. The
+        // existing clearTimeout calls in disconnectedCallback are the primary
+        // guard; this is belt-and-suspenders for the microtask-race edge case.
+        this._connected = false;
         // ── Render-performance optimization ─────────
         // _tick: bumped every 30s by a timer so time-relative panes (daily/stats)
         // refresh their "Xh XXm" countdowns without re-rendering on every system-wide
@@ -6151,6 +6835,15 @@ class AxDoseLoggerCard extends i$2 {
     }
     // ── Configuration ──────────────────────────
     setConfig(config) {
+        // Defensive shallow clone: HA's Lovelace editor may pass a frozen
+        // (Object.freeze) config object to setConfig, especially during live
+        // editing. The migration code below mutates the config in place, which
+        // would throw "Cannot assign to read only property" on a frozen object.
+        // Clone once at the entry point so all downstream code owns a writable
+        // copy. A shallow clone is sufficient — all nested button-state config
+        // lives at the top level (take_button_*, drink_button_*), and the only
+        // nested structure (chips[]) is handled separately below.
+        config = { ...config };
         // Backward compat: convert legacy chips[] array to flat chip_N fields
         const raw = config;
         if (Array.isArray(raw.chips)) {
@@ -6163,6 +6856,10 @@ class AxDoseLoggerCard extends i$2 {
             const { chips: _chips, ...rest } = raw;
             config = { ...rest, ...mapped };
         }
+        // Migrate old button-state config (7-style + pulse -> 4-style + 4-icon_style,
+        // glow_speed -> ring_speed). Idempotent. See plans/
+        // icon-style-dropdown-separation-plan.md §5-6.
+        _migrateButtonStateConfig(config);
         // HA contract: throw on invalid config so HA renders an error card with
         // the message. We check for null/undefined (key missing in YAML) but NOT
         // empty string — getStubConfig() returns { device_id: '' } when the card
@@ -6225,7 +6922,14 @@ class AxDoseLoggerCard extends i$2 {
         if (this.hass.devices?.[deviceId]?.name) {
             result.medicationName = this.hass.devices[deviceId].name;
         }
-        // Iterate all entities to find those belonging to this device
+        // Iterate all entities to find those belonging to this device. This single
+        // pass handles both suffix-based medicine categorization AND master-tracker
+        // / granular-drink detection (N5: previously two separate loops over the
+        // same hass.entities object — merged since the result is cached and only
+        // runs on device-id or registry change, but the double iteration was a
+        // code-quality smell).
+        let isMaster = false;
+        let isGranularDrink = false;
         for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
             if (entityInfo.device_id !== deviceId)
                 continue;
@@ -6282,6 +6986,8 @@ class AxDoseLoggerCard extends i$2 {
                 }
                 else if (entityId.endsWith('_strength'))
                     result.strength = entityId;
+                else if (entityId.endsWith('_24h_limit_exceeded'))
+                    result.limit24hExceeded = entityId;
             }
             else if (entityId.startsWith('button.')) {
                 if (entityId.endsWith('_take'))
@@ -6324,20 +7030,15 @@ class AxDoseLoggerCard extends i$2 {
                     result.metrics.push({ entityId, label, metricKey });
                 }
             }
-        }
-        // ── Master Tracker (Caffeine/Alcohol) + granular drink detection ──
-        // Master tracker entities use different suffixes (drink_master_*,
-        // sleep_disruption, estimated_low_time) than medicine entities, so the
-        // suffix loop above does not populate ResolvedEntities for them.  Detect
-        // them by state attributes (`drink_master: True` for masters,
-        // `device_type: "drink"` for granular drinks) and populate the master
-        // fields.  Granular drink devices set deviceType='drink' so render() can
-        // show the redirect placeholder.
-        let isMaster = false;
-        let isGranularDrink = false;
-        for (const [entityId, entityInfo] of Object.entries(this.hass.entities)) {
-            if (entityInfo.device_id !== deviceId)
-                continue;
+            // ── Master Tracker (Caffeine/Alcohol) + granular drink detection ──
+            // Merged into the same single pass as the suffix categorization above
+            // (N5: previously a second Object.entries loop). Master tracker entities
+            // use different suffixes than medicine entities, so the suffix block
+            // above doesn't populate ResolvedEntities for them. Detect them by state
+            // attributes (`drink_master: True` for masters, `device_type: "drink"`
+            // for granular drinks) and populate the master fields. Granular drink
+            // devices set deviceType='drink' so render() can show the redirect
+            // placeholder.
             const drinkMaster = this._getAttr(entityId, 'drink_master');
             const dt = (this._getAttr(entityId, 'device_type') || '').toLowerCase();
             if (drinkMaster === true) {
@@ -6631,6 +7332,41 @@ class AxDoseLoggerCard extends i$2 {
             return;
         const safeState = this._getState(entities.pillsSafeToTake);
         const safeCount = parseInt(safeState, 10);
+        // 24h Strength Limit reached — show override dialog with 24h-specific
+        // text. This fires when the next dose would push the 24h strength sum
+        // over the daily_limit, or the limit is already exceeded. Checked
+        // before the pill-count lockout so the user sees the more specific
+        // 24h strength warning even when pills are still available.
+        if (entities.limit24hExceeded) {
+            const limitState = this._getState(entities.limit24hExceeded);
+            if (limitState === 'on') {
+                const currentAmount = this._getAttr(entities.limit24hExceeded, 'current_amount');
+                const dailyLimit = this._getAttr(entities.limit24hExceeded, 'daily_limit');
+                const nextStrength = this._getAttr(entities.limit24hExceeded, 'next_dose_strength');
+                const alreadyExceeded = this._getAttr(entities.limit24hExceeded, 'already_exceeded');
+                const unit = this._getAttr(entities.limit24hExceeded, 'unit_of_measurement') || 'mg';
+                const projected = (typeof currentAmount === 'number' ? currentAmount : 0)
+                    + (typeof nextStrength === 'number' ? nextStrength : 0);
+                const timeLabel = `${currentAmount} / ${dailyLimit} ${unit}`;
+                const bodyKey = alreadyExceeded
+                    ? 'dialog.override.body_24h_exceeded'
+                    : 'dialog.override.body_24h_would_exceed';
+                this._overrideDialog = {
+                    timeLabel,
+                    bodyKey,
+                    entities,
+                };
+                // Store extra context for the dialog body placeholders.
+                this._overrideDialogExtras = {
+                    current: String(currentAmount),
+                    limit: String(dailyLimit),
+                    next: String(nextStrength),
+                    projected: String(projected),
+                    unit: String(unit),
+                };
+                return;
+            }
+        }
         if (!isNaN(safeCount) && safeCount <= 0) {
             // Pill limit reached: show the HA-native override confirmation dialog
             // instead of the synchronous browser confirm() box (#6). The actual
@@ -6845,6 +7581,8 @@ class AxDoseLoggerCard extends i$2 {
             window.clearTimeout(this._dailyFreezeTimer);
         }
         this._dailyFreezeTimer = window.setTimeout(() => {
+            if (!this._connected)
+                return; // N3: detached guard
             this._dailyFrozenState = null;
             this._dailyFreezeTimer = undefined;
             this.requestUpdate();
@@ -6865,6 +7603,8 @@ class AxDoseLoggerCard extends i$2 {
             window.clearTimeout(this._dailyAckTimer);
         }
         this._dailyAckTimer = window.setTimeout(() => {
+            if (!this._connected)
+                return; // N3: detached guard
             this._dailyAckActive = false;
             this._dailyAckCount = 0;
             this._dailyAckTimer = undefined;
@@ -6884,6 +7624,8 @@ class AxDoseLoggerCard extends i$2 {
             window.clearTimeout(this._drinksFreezeTimer);
         }
         this._drinksFreezeTimer = window.setTimeout(() => {
+            if (!this._connected)
+                return; // N3: detached guard
             this._drinksFrozenState = null;
             this._drinksFreezeTimer = undefined;
             this.requestUpdate();
@@ -6903,6 +7645,8 @@ class AxDoseLoggerCard extends i$2 {
             window.clearTimeout(this._drinksAckTimer);
         }
         this._drinksAckTimer = window.setTimeout(() => {
+            if (!this._connected)
+                return; // N3: detached guard
             this._drinksAckActive = false;
             this._drinksAckCount = 0;
             this._drinksAckTimer = undefined;
@@ -6910,13 +7654,29 @@ class AxDoseLoggerCard extends i$2 {
         }, Math.max(500, duration));
     }
     /**
-     * Resolve the adherence grace period (on-time buffer) in hours from any
-     * resolved adherence sensor's `grace_hours` state attribute (the 7-day
-     * window is the tightest representative). Falls back to the backend default
-     * 1.0h when no adherence sensor exposes the attribute (matches
-     * config_flow.py:211). Powers the Button State Matrix latency boundary.
+     * Resolve the adherence grace period (on-time buffer) in hours. Powers the
+     * Button State Matrix latency boundary (overdue warning at half grace).
+     *
+     * Resolution order (fixes the bug where the card silently fell back to a
+     * hardcoded 1.0h when adherence tracking was off, ignoring the user's
+     * configured value):
+     *   1. The Overdue sensor's `grace_minutes` attribute — the Overdue sensor
+     *      is created for every scheduled medication (independent of
+     *      enable_adherence), so it is the reliable single source of truth.
+     *      Convert minutes -> hours for the internal ButtonStateInput contract.
+     *   2. The adherence sensors' `grace_hours` attribute (legacy path, when
+     *      the Overdue sensor somehow lacks grace_minutes — defensive).
+     *   3. The backend default 60 min (== 1.0h).
      */
     _resolveGraceHours(entities) {
+        // 1. Prefer the Overdue sensor's grace_minutes (always present for
+        //    scheduled meds, regardless of whether adherence tracking is on).
+        if (entities.overdue) {
+            const gm = this._getAttr(entities.overdue, 'grace_minutes');
+            if (typeof gm === 'number' && gm > 0)
+                return gm / 60;
+        }
+        // 2. Fall back to adherence sensors' grace_hours (legacy).
         const candidates = [
             entities.adherence7Days,
             entities.adherence14Days,
@@ -6930,6 +7690,7 @@ class AxDoseLoggerCard extends i$2 {
             if (typeof gh === 'number' && gh > 0)
                 return gh;
         }
+        // 3. Final fallback (matches the backend default 60 min).
         return 1.0;
     }
     /**
@@ -6950,6 +7711,16 @@ class AxDoseLoggerCard extends i$2 {
         const safeState = this._getState(entities.pillsSafeToTake);
         const safeCount = parseInt(safeState, 10);
         const isLockedOut = !isNaN(safeCount) && safeCount <= 0;
+        // 24h Strength Limit — reads the binary sensor (on when the next dose
+        // would push the 24h strength sum over the daily_limit, or the limit is
+        // already exceeded). Distinct from the pill-count lockout (isLockedOut)
+        // which reads pillsSafeToTake. Takes precedence after lockout but before
+        // latency/execution in the state machine.
+        let is24hLimitReached = false;
+        if (entities.limit24hExceeded) {
+            const limitState = this._getState(entities.limit24hExceeded);
+            is24hLimitReached = limitState === 'on';
+        }
         // Scheduled = tracking_type != as_needed. Defensive snake/title-case
         // normalization mirroring _handleTakePill.
         const tt = (this._getAttr(entities.nextDose, 'tracking_type') || '').toLowerCase();
@@ -6964,6 +7735,7 @@ class AxDoseLoggerCard extends i$2 {
         }
         const input = {
             isLockedOut,
+            is24hLimitReached,
             isScheduled,
             overdueSeconds,
             graceHours: this._resolveGraceHours(entities),
@@ -6998,8 +7770,10 @@ class AxDoseLoggerCard extends i$2 {
         }
         const input = {
             isLockedOut,
+            is24hLimitReached: false, // drinks have no 24h strength limit
             isScheduled: false, // drinks have no schedule
             overdueSeconds: 0,
+            graceHours: 1.0,
             ackActive: this._drinksAckActive,
         };
         return resolveButtonState(input);
@@ -7289,12 +8063,14 @@ class AxDoseLoggerCard extends i$2 {
       >
         <div slot="header" class="dialog-header">${targetName}</div>
         <div class="dialog-body dialog-body--center">
-          <button class="dialog-btn" @click=${() => { this._navigateToDevice(targetDeviceId); close(); }}>
+          <button class="dialog-btn" @click=${delayedAction(() => { this._navigateToDevice(targetDeviceId); close(); })}>
+            <ha-ripple></ha-ripple>
             <ha-icon icon="mdi:information-outline"></ha-icon>
             <span>${localize(this._lang, 'dialog.device_info.button')}</span>
           </button>
           ${this.config?.show_color_indicator_explainer !== false
-            ? b `<button class="dialog-btn" aria-label=${localize(this._lang, 'dialog.device_info.color_indicators_aria')} @click=${() => { this.showColorExplainerDialog(); close(); }}>
+            ? b `<button class="dialog-btn" aria-label=${localize(this._lang, 'dialog.device_info.color_indicators_aria')} @click=${delayedAction(() => { this.showColorExplainerDialog(); close(); })}>
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:palette-outline"></ha-icon>
                 <span>${localize(this._lang, 'dialog.device_info.color_indicators')}</span>
               </button>`
@@ -7332,7 +8108,8 @@ class AxDoseLoggerCard extends i$2 {
           <button class="dialog-btn dialog-btn--muted" @click=${close}>
             ${localize(this._lang, 'dialog.cancel')}
           </button>
-          <button class="dialog-btn" @click=${() => this._handleRefill(entities)}>
+          <button class="dialog-btn" @click=${delayedAction(() => this._handleRefill(entities))}>
+            <ha-ripple></ha-ripple>
             ${localize(this._lang, 'dialog.refill.confirm')}
           </button>
         </div>
@@ -7391,8 +8168,9 @@ class AxDoseLoggerCard extends i$2 {
                   <button
                     class="dialog-btn log-drink-btn"
                     ?disabled=${!d.logButtonEntityId}
-                    @click=${() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId)}
+                    @click=${delayedAction(() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId))}
                   >
+                    <ha-ripple ?disabled=${!d.logButtonEntityId}></ha-ripple>
                     <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
                     <span class="log-drink-name">${d.name}</span>
                     <span class="log-drink-low">${formatLow(d.logButtonEntityId)}</span>
@@ -7415,11 +8193,25 @@ class AxDoseLoggerCard extends i$2 {
         const dlg = this._overrideDialog;
         if (!dlg)
             return A;
+        const extras = this._overrideDialogExtras;
+        // Build the placeholder map: always includes `time` (used by the
+        // pill-count lockout dialog). For 24h limit dialogs, also includes
+        // current/limit/next/projected/unit so the body text can show the
+        // specific numbers (e.g. "600 / 700 mg — next dose 200 mg → 800 mg").
+        const placeholders = { time: dlg.timeLabel };
+        if (extras) {
+            placeholders.current = extras.current;
+            placeholders.limit = extras.limit;
+            placeholders.next = extras.next;
+            placeholders.projected = extras.projected;
+            placeholders.unit = extras.unit;
+        }
+        const closeDialog = () => { this._overrideDialog = null; this._overrideDialogExtras = null; };
         return b `
       <ha-dialog
         open
         width="small"
-        @closed=${() => { this._overrideDialog = null; }}
+        @closed=${closeDialog}
       >
         <div slot="header" class="dialog-header dialog-header--warning">
           <ha-icon icon="mdi:alert"></ha-icon>
@@ -7427,16 +8219,16 @@ class AxDoseLoggerCard extends i$2 {
         </div>
         <div class="dialog-body">
           <div class="tools-dialog-descriptor">
-            ${localize(this._lang, dlg.bodyKey, { time: dlg.timeLabel })}
+            ${localize(this._lang, dlg.bodyKey, placeholders)}
           </div>
         </div>
         <div class="custom-action-bar">
           <button class="dialog-btn dialog-btn--muted"
-                  @click=${() => { this._overrideDialog = null; }}>
+                  @click=${closeDialog}>
             ${localize(this._lang, 'dialog.cancel')}
           </button>
           <button class="dialog-btn"
-                  @click=${() => {
+                  @click=${delayedAction(() => {
             if (this.hass && dlg.entities.takeButton) {
                 this.hass.callService('button', 'press', {
                     entity_id: dlg.entities.takeButton,
@@ -7445,8 +8237,9 @@ class AxDoseLoggerCard extends i$2 {
                 // successful dose log → trigger the ACK flash.
                 this._triggerDailyAck();
             }
-            this._overrideDialog = null;
-        }}>
+            closeDialog();
+        })}>
+            <ha-ripple></ha-ripple>
             ${localize(this._lang, 'dialog.override.confirm')}
           </button>
         </div>
@@ -7960,7 +8753,8 @@ class AxDoseLoggerCard extends i$2 {
             <ha-icon icon="mdi:close"></ha-icon>
             <span>${localize(this._lang, 'dialog.cancel')}</span>
           </button>
-          <button class="dialog-btn" @click=${onConfirm}>
+          <button class="dialog-btn" @click=${delayedAction(onConfirm)}>
+            <ha-ripple></ha-ripple>
             <ha-icon icon="mdi:check"></ha-icon>
             <span>${localize(this._lang, 'dialog.confirm')}</span>
           </button>
@@ -8029,7 +8823,7 @@ class AxDoseLoggerCard extends i$2 {
             ${localize(this._lang, 'tracking.cancel')}
           </button>
           <button class="dialog-btn"
-                  @click=${() => {
+                  @click=${delayedAction(() => {
             if (this.hass) {
                 this.hass.callService('ax_dose_logger', 'set_metric', {
                     entity_id: dlg.entityId,
@@ -8038,7 +8832,8 @@ class AxDoseLoggerCard extends i$2 {
                 });
             }
             this._trackingOverrideDialog = null;
-        }}>
+        })}>
+            <ha-ripple></ha-ripple>
             ${localize(this._lang, 'tracking.override')}
           </button>
         </div>
@@ -8186,6 +8981,7 @@ class AxDoseLoggerCard extends i$2 {
     // ── Lifecycle ──────────────────────────────
     connectedCallback() {
         super.connectedCallback();
+        this._connected = true; // N3: guard timer callbacks from detached mutation
         // Reset to defaults on every connection. With ll-rebuild removed (#16),
         // the element is no longer destroyed/recreated on pane switch, so @state
         // survives naturally. The only time connectedCallback fires is on a
@@ -8232,6 +9028,7 @@ class AxDoseLoggerCard extends i$2 {
         this._showColorExplainerDialog = false;
         this._toolsDialog = null;
         this._overrideDialog = null;
+        this._overrideDialogExtras = null;
         // Clear pending tracking flags so stale entries from a prior session
         // (set_value calls that never got confirmed by HA before disconnect)
         // don't suppress the override dialog on the next tracking change.
@@ -8244,6 +9041,7 @@ class AxDoseLoggerCard extends i$2 {
     }
     disconnectedCallback() {
         super.disconnectedCallback();
+        this._connected = false; // N3: guard timer callbacks from detached mutation
         this._stopTickTimer();
         // Invalidate any in-flight fetch so it can't write state to a detached
         // element. Bumping the token makes every pending _fetchAmountHistory /
@@ -8479,6 +9277,8 @@ class AxDoseLoggerCard extends i$2 {
                 }
                 this._graphsRefetchTimer = window.setTimeout(() => {
                     this._graphsRefetchTimer = null;
+                    if (!this._connected)
+                        return; // N3: detached guard
                     // Re-resolve entities inside the timeout in case the device changed
                     // during the debounce window (unlikely but defense-in-depth).
                     const e = this._resolveEntities();
@@ -8552,6 +9352,11 @@ AxDoseLoggerCard.styles = i$5 `
     :host {
       display: block;
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         on dialog action buttons (1:1 parity with Lovelace Mushroom cards). */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
     }
 
     *, *::before, *::after {
@@ -8577,6 +9382,19 @@ AxDoseLoggerCard.styles = i$5 `
     .pane-selector {
       display: flex;
       border-top: 1px solid var(--divider-color, rgba(0,0,0,0.1));
+      /* Solidified opaque surface — the same alpha-channel transmission bug
+         that affected .stat-pill/.chip applies here at the card-root level:
+         .pane-selector is a sibling of .card-content (which contains the
+         .glow-backdrop), and the 9px+8px glow diffusion bleeds past the
+         bottom of .card-content into the nav bar's territory. With
+         background:none the glow was visible THROUGH the transparent nav bar
+         despite correct z-index:1 (z-index controls paint ORDER, opacity
+         controls paint BLENDING). An opaque background-color matching the
+         card bg fully occludes the backlight. See plans/
+         gradient-stacking-material-synthesis-plan.md. */
+      background-color: var(--card-background-color, var(--primary-background-color, #1c1c1c));
+      position: relative;  /* global z-axis protection — glow bleeds behind nav bar (Patch 1, belt-and-suspenders) */
+      z-index: 1;
     }
 
     .pane-btn {
@@ -8713,6 +9531,10 @@ AxDoseLoggerCard.styles = i$5 `
       font-family: inherit;
       cursor: pointer;
       transition: background 0.2s;
+      /* position:relative + overflow:hidden clip the ha-ripple surface to the
+         button's rounded border (MdRipple geometry requirement). */
+      position: relative;
+      overflow: hidden;
     }
 
     .dialog-btn:hover {
@@ -8804,103 +9626,103 @@ AxDoseLoggerCard.styles = i$5 `
     }
   `;
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseLoggerCard.prototype, "hass", void 0);
 __decorate([
-    n({ attribute: false })
+    n$1({ attribute: false })
 ], AxDoseLoggerCard.prototype, "config", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_activePane", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_activeGraph", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_amountHistory", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_doseHistory", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_showDeviceInfo", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_showRefillDialog", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_refillAmount", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_refillTarget", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_deviceInfoTarget", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_showLogDrinkDialog", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_logDrinkSubstance", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_drinkLowPredictions", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_showSleepDisruptionDialog", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_sleepDisruptionSubstance", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_showColorExplainerDialog", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_dailyAckActive", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_drinksAckActive", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_dailyAckCount", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_drinksAckCount", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_dailyFrozenState", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_drinksFrozenState", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_activeTimeframe", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_activeBarTimeframe", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_activeEffectivenessTimeframe", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_activeEffectivenessView", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_effectivenessHistory", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_effectivenessVisible", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_toolsDialog", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_overrideDialog", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_trackingOverrideDialog", void 0);
 __decorate([
-    r()
+    r$2()
 ], AxDoseLoggerCard.prototype, "_tick", void 0);
 // ──────────────────────────────────────────────
 // Registrations

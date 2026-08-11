@@ -153,17 +153,18 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   drink_chip_4_double_tap_action?: ActionConfig;
 
   // ── Button State Matrix — Daily (Take Pill button) ──
-  // Each scheduled/lockout state maps to one of 7 visual style options
-  // (ButtonStateStyle) + an independent icon-pulse toggle. The 'idle' state
-  // is intentionally excluded — it has no color and is not user-configurable
-  // (always falls back to the theme default). See plans/button-state-matrix-
-  // plan.md for the full state matrix + precedence.
-  take_button_lockout_style?: ButtonStateStyle;    // default 'full'   (Option 1)
-  take_button_lockout_pulse?: boolean;              // default false
-  take_button_execution_style?: ButtonStateStyle;  // default 'icon'   (Option 2)
-  take_button_execution_pulse?: boolean;            // default false
-  take_button_latency_style?: ButtonStateStyle;    // default 'icon_border' (Option 4)
-  take_button_latency_pulse?: boolean;              // default true
+  // Each scheduled/lockout state maps to a Style option (ButtonStateStyle)
+  // + an independent Icon Style option (IconStyle). The 'idle' state is
+  // intentionally excluded — it has no color and is not user-configurable
+  // (always falls back to the theme default). 'auto' resolves to the
+  // per-state default at runtime. See plans/icon-style-dropdown-separation-
+  // plan.md for the full state matrix + migration details.
+  take_button_lockout_style?: ButtonStateStyle;        // default 'full'
+  take_button_lockout_icon_style?: IconStyle;          // default 'none'
+  take_button_execution_style?: ButtonStateStyle;      // default 'none'
+  take_button_execution_icon_style?: IconStyle;        // default 'color'
+  take_button_latency_style?: ButtonStateStyle;        // default 'border'
+  take_button_latency_icon_style?: IconStyle;         // default 'color_pulse'
   /** Layout of the transient "Logged" (ACK) flash on the Take Pill button
    *  after a successful press. One of 'top' (default, mirrors button layout),
    *  'inline' (tick + text on one line), or 'big' (large check only). */
@@ -171,41 +172,57 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
   /** Duration of the transient "Logged" (ACK) flash on the Take Pill button,
    *  in milliseconds. Default 3000 (per the state matrix). */
   take_button_ack_duration_ms?: number;
-  /** Speed of the rotating border-glow animation on the Take Pill button.
+  /** Speed of the rotating ring animation on the Take Pill button.
    *  'slow' (6s) / 'medium' (4s, default) / 'fast' (2.2s). Only affects the
-   *  glow / icon_glow style options. */
-  take_button_glow_speed?: GlowSpeed;
+   *  ring style option. */
+  take_button_ring_speed?: RingSpeed;
 
   // ── Button State Matrix — Drinks (Log Drink button) ──
   // Drinks are PRN/as-needed with no schedule, so Execution Requested and
   // Latency Warning can never activate. Only Lockout + ACK are configurable
   // (user-confirmed — see plans/button-state-matrix-plan.md §1.2).
-  drink_button_lockout_style?: ButtonStateStyle;   // default 'full'   (Option 1)
-  drink_button_lockout_pulse?: boolean;            // default false
+  drink_button_lockout_style?: ButtonStateStyle;   // default 'full'
+  drink_button_lockout_icon_style?: IconStyle;     // default 'none'
   /** Layout of the transient "Logged" (ACK) flash on the Log Drink button.
    *  Mirrors take_button_ack_layout (default 'top'). */
   drink_button_ack_layout?: AckLayout;
   /** Duration of the transient "Logged" (ACK) flash on the Log Drink button,
    *  in milliseconds. Default 3000. */
   drink_button_ack_duration_ms?: number;
-  /** Speed of the rotating border-glow animation on the Log Drink button.
+  /** Speed of the rotating ring animation on the Log Drink button.
    *  'slow' (6s) / 'medium' (4s, default) / 'fast' (2.2s). */
-  drink_button_glow_speed?: GlowSpeed;
+  drink_button_ring_speed?: RingSpeed;
 }
 
 /**
  * Visual style option for a single button-state color assignment.
- * Maps 1:1 to the 7 options in the Prosumer UI State Matrix
- * (plans/button-state-matrix-plan.md §2).
+ * Controls background, text color, border, rotating ring, and ambilight
+ * glow — everything EXCEPT the icon (which is controlled by IconStyle).
+ * 'auto' is a sentinel that resolves to the per-state default at runtime.
+ * See plans/icon-style-dropdown-separation-plan.md + plans/
+ * ambilight-glow-style-plan.md.
  */
 export type ButtonStateStyle =
-  | 'full'        // Option 1 — Full Button
-  | 'icon'        // Option 2 — Icon only
-  | 'border'      // Option 3 — Border only
-  | 'icon_border' // Option 4 — Icon and Border
-  | 'none'        // Option 5 — No change (theme default)
-  | 'glow'        // Option 6 — Rotating border glow
-  | 'icon_glow';  // Option 7 — Icon and Rotating border glow
+  | 'auto'      // Sentinel — resolve to per-state default at runtime
+  | 'full'      // Full Button (background + text colored)
+  | 'border'    // Border Only (inset box-shadow ring)
+  | 'none'      // No Color (theme-tinted bg, no state color override)
+  | 'ring'      // Rotating Ring (conic-gradient ring sweep)
+  | 'glow';     // Ambilight Glow (GPU-composited diffused backlight + breathing)
+
+/**
+ * Icon visual treatment for a single button-state. Controls icon color
+ * and icon pulse animation independently from the Style dropdown. Forms
+ * a 2×2 matrix: color on/off × pulse on/off. 'auto' is a sentinel that
+ * resolves to the per-state default at runtime. See plans/
+ * icon-style-dropdown-separation-plan.md.
+ */
+export type IconStyle =
+  | 'auto'         // Sentinel — resolve to per-state default at runtime
+  | 'none'         // No icon color, no pulse
+  | 'color'        // Icon colored, no pulse
+  | 'color_pulse'  // Icon colored + pulse animation
+  | 'pulse';       // No icon color, pulse animation only
 
 /**
  * Layout of the transient "Logged" (ACK) flash overlay shown after a
@@ -217,10 +234,11 @@ export type AckLayout =
   | 'big';    // Option 3 — Big tickmark only (no text)
 
 /**
- * Speed of the rotating border-glow animation. Maps to a CSS duration set via
- * the --glow-duration var. See plans/glow-speed-and-ack-style-plan.md §2.1.
+ * Speed of the rotating ring animation (renamed from GlowSpeed). Maps to a
+ * CSS duration set via the --ring-duration var. See plans/
+ * icon-style-dropdown-separation-plan.md.
  */
-export type GlowSpeed =
+export type RingSpeed =
   | 'slow'    // 6s
   | 'medium'  // 4s
   | 'fast';   // 2.2s (default — the prior hardcoded value)
@@ -270,6 +288,10 @@ export interface ResolvedEntities {
   steadyState?: string;
   strength?: string;
   overdue?: string;
+  /** Binary sensor: on when 24h strength limit is/would be exceeded
+   *  (medicine only, created when daily_limit > 0). Resolved via entity_id
+   *  suffix `_24h_limit_exceeded`. Powers the `limit_24h` ButtonState. */
+  limit24hExceeded?: string;
   takeButton?: string;
   resetButton?: string;
   undoButton?: string;

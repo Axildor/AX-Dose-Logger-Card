@@ -146,14 +146,17 @@ export function getTimeframeHours(timeframe: string): number {
 // entities + the transient ACK flag, then this function maps it to one of 5
 // states per the Prosumer UI State Matrix (plans/button-state-matrix-plan.md).
 //
-// Precedence: ack (transient, always wins) → lockout (hard stop) → latency →
-// execution → idle. The 'idle' state has no color and is never user-configured.
+// Precedence: ack (transient, always wins) → lockout (pill-count hard stop) →
+// limit_24h (24h strength limit) → latency → execution → idle.
+// The 'idle' state has no color and is never user-configured.
 
 /**
- * One of the 5 states in the Prosumer UI State Matrix. The 'idle' state has no
+ * One of the 6 states in the Prosumer UI State Matrix. The 'idle' state has no
  * color assignment (theme default) and is excluded from the editor config.
+ * 'limit_24h' inherits all 'lockout' style config (same red color, same CSS,
+ * same config fields) — only the label + override dialog text differ.
  */
-export type ButtonState = 'lockout' | 'idle' | 'execution' | 'latency' | 'ack';
+export type ButtonState = 'lockout' | 'limit_24h' | 'idle' | 'execution' | 'latency' | 'ack';
 
 /**
  * Inputs to resolveButtonState(), supplied by the container from resolved
@@ -161,16 +164,22 @@ export type ButtonState = 'lockout' | 'idle' | 'execution' | 'latency' | 'ack';
  * resolver stays pure + testable with no `this` / hass reference.
  */
 export interface ButtonStateInput {
-  /** Hard stop: cooldown active or max limit reached (prevents double-dose). */
+  /** Hard stop: cooldown active or max pill-count limit reached (prevents double-dose). */
   isLockedOut: boolean;
+  /** 24h strength limit reached: the next dose would push the 24h strength
+   *  sum over the daily_limit, or the limit is already exceeded. Read from
+   *  the Pill24hLimitExceededSensor binary sensor. Distinct from isLockedOut
+   *  (pill count) — takes precedence after lockout but before latency. */
+  is24hLimitReached: boolean;
   /** True for scheduled (non-PRN) medications — gates execution/latency. */
   isScheduled: boolean;
   /** Seconds past the missed scheduled slot. 0 when on-time / not yet due. */
   overdueSeconds: number;
   /** Adherence grace period in hours (on-time buffer). Read from the
-   *  adherence sensor's `grace_hours` attribute; fallback 1.0h. Used only
-   *  for the latency boundary — kept here so the resolver is self-contained,
-   *  though the overdue-anchored mapping means it's informational. */
+   *  adherence sensor's `grace_hours` attribute; fallback 1.0h. Powers the
+   *  latency boundary: the overdue warning (latency state) appears when
+   *  overdueSeconds exceeds half the grace period — proactive heads-up
+   *  before adherence expires, respecting the on-time window. */
   graceHours: number;
   /** Transient ACK flag (container sets it on successful button.press). */
   ackActive: boolean;
@@ -191,8 +200,14 @@ export function resolveButtonState(input: ButtonStateInput): ButtonState {
   // pillsSafeToTake. The 'ack' value stays in the ButtonState union for type
   // compat; it is simply never returned here.
   if (input.isLockedOut) return 'lockout';
+  if (input.is24hLimitReached) return 'limit_24h';
   if (input.isScheduled) {
-    if (input.overdueSeconds > 0) return 'latency';
+    // Overdue warning (latency) appears at half the grace period — proactive
+    // heads-up before adherence expires. The first half of the grace window
+    // stays in the execution state (on-time per adherence, no rush). This
+    // fixes the disconnect where the card warned "overdue" at 0 seconds while
+    // the adherence system still considered the dose on-time.
+    if (input.overdueSeconds > (input.graceHours * 3600) / 2) return 'latency';
     return 'execution';
   }
   return 'idle';

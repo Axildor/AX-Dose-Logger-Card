@@ -18,26 +18,42 @@ import { localize } from './localize.js';
 // ──────────────────────────────────────────────
 // Button State Matrix — shared select options
 // ──────────────────────────────────────────────
-// The 7 visual-style options used by every per-state dropdown in the Daily
-// and Drinks "Button" submenus. Kept module-scoped so the schema below
-// references one source of truth (adding/reordering an option here updates
-// both submenus). Labels come from localize('button_style.*'). See plans/
-// button-state-matrix-plan.md §6.3.
+// The 6 Style options (Default sentinel + 5 visual) used by every per-state
+// Style dropdown in the Daily and Drinks "Button" submenus. 'auto' is a
+// sentinel that resolves to the per-state default at runtime. Kept module-
+// scoped so the schema below references one source of truth (adding/
+// reordering an option here updates both submenus). Labels come from
+// localize('button_style.*'). See plans/icon-style-dropdown-separation-plan.md
+// + plans/ambilight-glow-style-plan.md (the 6th 'glow' option).
 function _buttonStyleOptions() {
   return [
+    { value: 'auto', label: localize('en', 'button_style.auto') },
     { value: 'full', label: localize('en', 'button_style.full') },
-    { value: 'icon', label: localize('en', 'button_style.icon') },
     { value: 'border', label: localize('en', 'button_style.border') },
-    { value: 'icon_border', label: localize('en', 'button_style.icon_border') },
     { value: 'none', label: localize('en', 'button_style.none') },
+    { value: 'ring', label: localize('en', 'button_style.ring') },
     { value: 'glow', label: localize('en', 'button_style.glow') },
-    { value: 'icon_glow', label: localize('en', 'button_style.icon_glow') },
+  ];
+}
+
+// The 5 Icon Style options (Default sentinel + 4 visual) used by every
+// per-state Icon Style dropdown. 'auto' resolves to the per-state default
+// at runtime. The 4 visual options form a 2x2 matrix (color on/off x pulse
+// on/off). Kept module-scoped alongside _buttonStyleOptions. Labels come
+// from localize('icon_style.*'). See plans/icon-style-dropdown-separation-plan.md.
+function _iconStyleOptions() {
+  return [
+    { value: 'auto', label: localize('en', 'icon_style.auto') },
+    { value: 'none', label: localize('en', 'icon_style.none') },
+    { value: 'color', label: localize('en', 'icon_style.color') },
+    { value: 'color_pulse', label: localize('en', 'icon_style.color_pulse') },
+    { value: 'pulse', label: localize('en', 'icon_style.pulse') },
   ];
 }
 
 // The 3 "Logged" (ACK) flash layout options for the take/drink button
 // _ack_layout dropdown. Kept module-scoped alongside _buttonStyleOptions so
-// both submenus reference one source of truth. Labels come from
+// all submenus reference one source of truth. Labels come from
 // localize('ack_layout.*'). See plans/glow-speed-and-ack-style-plan.md §2.3.
 function _ackLayoutOptions() {
   return [
@@ -47,14 +63,14 @@ function _ackLayoutOptions() {
   ];
 }
 
-// The 3 rotating-glow speed options for the take/drink button _glow_speed
+// The 3 rotating-ring speed options for the take/drink button _ring_speed
 // dropdown. 'medium' (4s) is the default. Labels come from
-// localize('glow_speed.*'). See plans/glow-speed-and-ack-style-plan.md §2.1.
-function _glowSpeedOptions() {
+// localize('ring_speed.*'). See plans/icon-style-dropdown-separation-plan.md.
+function _ringSpeedOptions() {
   return [
-    { value: 'slow', label: localize('en', 'glow_speed.slow') },
-    { value: 'medium', label: localize('en', 'glow_speed.medium') },
-    { value: 'fast', label: localize('en', 'glow_speed.fast') },
+    { value: 'slow', label: localize('en', 'ring_speed.slow') },
+    { value: 'medium', label: localize('en', 'ring_speed.medium') },
+    { value: 'fast', label: localize('en', 'ring_speed.fast') },
   ];
 }
 
@@ -62,15 +78,19 @@ function _glowSpeedOptions() {
 // Grid-alignment CSS injection
 // ──────────────────────────────────────────────
 
-// Module-scoped observer so repeated installEditorGridAlignment() calls
-// disconnect the previous observer before creating a new one (mirrors the
-// previous private-static-field behavior on the card class).
+// Module-scoped observer + reference count. The observer is module-scoped so
+// repeated installEditorGridAlignment() calls reuse a single observer (one
+// process-wide is enough — HA opens at most one card config dialog at a time).
+// A reference count guards against premature auto-cleanup when multiple card
+// instances on the same dashboard open their editors in quick succession (the
+// closing of one editor must not disconnect the observer while another is open).
 let _formStyleObserver: MutationObserver | null = null;
+let _formStyleRefcount: number = 0;
 
 /**
- * Inject a `<style>` into every `ha-form` shadow root in the document so that
- * entity-picker + text-field pairs inside `type: 'grid'` containers align by
- * their bottom edges.
+ * Inject a `<style>` into `ha-form` shadow roots **inside a config dialog**
+ * so that entity-picker + text-field pairs inside `type: 'grid'` containers
+ * align by their bottom edges.
  *
  * Entity pickers render an external label above the control; text fields render
  * an internal floating label. In a CSS grid row, the text field's control box
@@ -86,9 +106,12 @@ let _formStyleObserver: MutationObserver | null = null;
  * user opens the visual editor, not on every dashboard load (was previously
  * in connectedCallback, which installed the observer for every card instance
  * on every dashboard view and never disconnected it → memory leak + needless
- * document-wide DOM scanning). The observer auto-cleans when the editor
- * dialog closes (no ha-form left in the document), and uninstallEditorGrid-
- * Alignment() is available for explicit cleanup if ever needed.
+ * document-wide DOM scanning). The observer auto-cleans when the config
+ * dialog is removed from the DOM, using a **reference count** so that if two
+ * card instances' editors are open (or one closes while another is opening),
+ * the observer is only disconnected when the last reference is released — not
+ * when a transient "0 forms" state occurs during a dialog swap. uninstall-
+ * EditorGridAlignment() is available for explicit cleanup if ever needed.
  */
 export function installEditorGridAlignment(): void {
   const STYLE_ID = 'ax-dose-grid-align-items-end';
@@ -111,35 +134,55 @@ export function installEditorGridAlignment(): void {
     root.appendChild(style);
   };
 
-  // Find all ha-form elements and inject into their shadow roots.
-  // Returns the count so the caller can detect "no forms left" (editor
-  // dialog closed) and self-clean the observer.
+  // Find ha-form elements that are inside an ha-dialog (config editor scope)
+  // and inject into their shadow roots. Returns the count of scoped forms so
+  // the caller can detect "dialog closed" and self-clean the observer.
+  // Only forms inside a dialog receive the injection so we don't pollute
+  // ha-form elements used in other dashboard surfaces (N2 cross-card fix).
   const processForms = (): number => {
-    const forms = document.querySelectorAll('ha-form');
-    forms.forEach((form) => {
-      if (form.shadowRoot) {
-        injectInto(form.shadowRoot);
-      }
+    const dialogs = document.querySelectorAll('ha-dialog');
+    let scopedFormCount = 0;
+    dialogs.forEach((dialog) => {
+      const forms = dialog.querySelectorAll('ha-form');
+      forms.forEach((form) => {
+        if (form.shadowRoot) {
+          injectInto(form.shadowRoot);
+          scopedFormCount++;
+        }
+      });
     });
-    return forms.length;
+    return scopedFormCount;
   };
 
   // Process existing forms immediately.
   processForms();
 
-  // Set up a MutationObserver to catch forms that appear later (config dialog).
+  // Bump the reference count — each installEditorGridAlignment() call (one
+  // per getConfigForm() invocation, i.e. one per editor open) holds a ref.
+  // The observer is only disconnected when the count drops to 0, so a
+  // concurrent editor closing while another is open won't prematurely tear
+  // down the observer (N6 concurrent-editor race fix).
+  _formStyleRefcount++;
+
+  // Set up a MutationObserver to catch forms that appear later (the config
+  // dialog's ha-form may render asynchronously after the dialog opens).
   if (_formStyleObserver) {
-    _formStyleObserver.disconnect();
+    // Observer already exists (another editor is open or the prior one's
+    // observer hasn't been cleaned up yet) — reuse it, don't disconnect.
+    return;
   }
   _formStyleObserver = new MutationObserver(() => {
     const formCount = processForms();
-    // Auto-cleanup: when no ha-form remains in the document, the editor
-    // dialog has closed — disconnect the observer so it stops scanning
-    // every DOM mutation across the whole dashboard. Without this the
-    // observer leaked indefinitely (it was never disconnected before).
+    // Auto-cleanup: when no scoped ha-form remains inside any ha-dialog, the
+    // config dialog has closed. Decrement the reference count and disconnect
+    // only when no references remain (guards against the concurrent-editor
+    // race where one dialog closes while another is still open — N6 fix).
     if (formCount === 0) {
-      _formStyleObserver?.disconnect();
-      _formStyleObserver = null;
+      _formStyleRefcount = Math.max(0, _formStyleRefcount - 1);
+      if (_formStyleRefcount === 0) {
+        _formStyleObserver?.disconnect();
+        _formStyleObserver = null;
+      }
     }
   });
   _formStyleObserver.observe(document.body, {
@@ -156,6 +199,7 @@ export function installEditorGridAlignment(): void {
  * that want to guarantee no observer lingers.
  */
 export function uninstallEditorGridAlignment(): void {
+  _formStyleRefcount = 0;
   if (_formStyleObserver) {
     _formStyleObserver.disconnect();
     _formStyleObserver = null;
@@ -627,18 +671,18 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           },
           // ── Button State Matrix (Daily — Take Pill button) ──
           // Restructured into nested flatten-expandables, one per aspect, so
-          // each style dropdown + its pulse toggle are visually grouped (grid
-          // pairs them side-by-side) and a section header makes the boundary
-          // between aspects clear. All select selectors use mode:'dropdown' so
-          // the 3-option selects (ack_layout, glow_speed) render as a single
-          // dropdown box instead of 3 stacked radio buttons (HA auto-selects
-          // LIST mode for ≤3 options with no explicit mode). All fields carry
-          // an explicit default so the editor pre-populates the control when
-          // the stored config value is undefined — matching the runtime ??
-          // fallbacks in daily-panel.ts. Defaults: Lockout=full+pulse off,
-          // Execution=icon+pulse off, Latency=icon_border+pulse on,
-          // ACK layout=top / duration=3000ms, glow=fast. See plans/button-
-          // submenu-optimization-plan.md.
+          // each Style dropdown + its Icon Style dropdown are visually grouped
+          // (grid pairs them side-by-side) and a section header makes the
+          // boundary between aspects clear. All select selectors use
+          // mode:'dropdown' so the 3-option selects (ack_layout, ring_speed)
+          // render as a single dropdown box instead of 3 stacked radio buttons
+          // (HA auto-selects LIST mode for <=3 options with no explicit mode).
+          // All fields default to 'auto' (the per-state default sentinel) so the
+          // editor pre-populates the control when the stored config value is
+          // undefined — 'auto' resolves to the per-state default at runtime.
+          // Defaults: Lockout=full+none, Execution=none+color,
+          // Latency=border+color_pulse, ACK layout=top / duration=3000ms,
+          // ring=medium. See plans/icon-style-dropdown-separation-plan.md.
           {
             type: 'expandable',
             name: 'take_button_box',
@@ -646,11 +690,11 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             flatten: true,
             schema: [
               // Flat list of aspect grids — no nested expandables (2x nesting
-              // only: Button → grid). Each style dropdown + its pulse toggle
-              // are paired side-by-side in a grid so the grouping is obvious
-              // at a glance. The label names (Limit Reached Style, Take Pill
-              // Style, etc.) convey the aspect identity without section titles.
-              // ── Limit Reached: style + pulse ──
+              // only: Button -> grid). Each Style dropdown + its Icon Style
+              // dropdown are paired side-by-side in a grid so the grouping is
+              // obvious at a glance. The label names (Limit Reached Style, Take
+              // Pill Style, etc.) convey the aspect identity without titles.
+              // ── Limit Reached: style + icon_style ──
               {
                 type: 'grid',
                 name: '',
@@ -658,19 +702,21 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                 schema: [
                   {
                     name: 'take_button_lockout_style',
-                    default: 'full',
+                    default: 'auto',
                     selector: {
                       select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                     },
                   },
                   {
-                    name: 'take_button_lockout_pulse',
-                    default: false,
-                    selector: { boolean: {} },
+                    name: 'take_button_lockout_icon_style',
+                    default: 'auto',
+                    selector: {
+                      select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                    },
                   },
                 ],
               },
-              // ── Take Pill: style + pulse ──
+              // ── Take Pill: style + icon_style ──
               {
                 type: 'grid',
                 name: '',
@@ -678,19 +724,21 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                 schema: [
                   {
                     name: 'take_button_execution_style',
-                    default: 'icon',
+                    default: 'auto',
                     selector: {
                       select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                     },
                   },
                   {
-                    name: 'take_button_execution_pulse',
-                    default: false,
-                    selector: { boolean: {} },
+                    name: 'take_button_execution_icon_style',
+                    default: 'auto',
+                    selector: {
+                      select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                    },
                   },
                 ],
               },
-              // ── Overdue Warning: style + pulse ──
+              // ── Overdue Warning: style + icon_style ──
               {
                 type: 'grid',
                 name: '',
@@ -698,15 +746,17 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                 schema: [
                   {
                     name: 'take_button_latency_style',
-                    default: 'icon_border',
+                    default: 'auto',
                     selector: {
                       select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                     },
                   },
                   {
-                    name: 'take_button_latency_pulse',
-                    default: true,
-                    selector: { boolean: {} },
+                    name: 'take_button_latency_icon_style',
+                    default: 'auto',
+                    selector: {
+                      select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                    },
                   },
                 ],
               },
@@ -730,12 +780,12 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                 ],
               },
-              // ── Rotating Glow: speed ──
+              // ── Rotating Ring: speed ──
               {
-                name: 'take_button_glow_speed',
+                name: 'take_button_ring_speed',
                 default: 'medium',
                 selector: {
-                  select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                  select: { options: _ringSpeedOptions(), mode: 'dropdown' },
                 },
               },
             ],
@@ -1090,12 +1140,12 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
           // ── Button State Matrix (Drinks — Log Drink button) ──
           // Restructured into nested flatten-expandables (mirrors the Daily
           // Take Pill button structure). Only 3 aspects: Limit Reached,
-          // Logged Dose Indicator, Rotating Glow (drinks are PRN with no
+          // Logged Dose Indicator, Rotating Ring (drinks are PRN with no
           // schedule, so Take Pill and Overdue Warning are omitted). All
-          // selects use mode:'dropdown' + explicit defaults matching the
-          // runtime ?? fallbacks in drinks-panel.ts. Defaults: Lockout=full
-          // + pulse off, ACK layout=top / duration=3000ms, glow=fast. See
-          // plans/button-submenu-optimization-plan.md §2.3.
+          // selects use mode:'dropdown'. Style + Icon Style default to 'auto'
+          // (the per-state default sentinel), which resolves at runtime.
+          // Defaults: Lockout=full+none, ACK layout=top / duration=3000ms,
+          // ring=medium. See plans/icon-style-dropdown-separation-plan.md.
           {
             type: 'expandable',
             name: 'drink_button_box',
@@ -1103,10 +1153,10 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             flatten: true,
             schema: [
               // Flat list of aspect grids — no nested expandables (2x nesting
-              // only: Button → grid). Mirrors the Daily Take Pill button
-              // structure. Each style dropdown + its pulse toggle are paired
-              // side-by-side in a grid so the grouping is obvious at a glance.
-              // ── Limit Reached: style + pulse ──
+              // only: Button -> grid). Mirrors the Daily Take Pill button
+              // structure. Each Style dropdown + its Icon Style dropdown are
+              // paired side-by-side in a grid so the grouping is obvious.
+              // ── Limit Reached: style + icon_style ──
               {
                 type: 'grid',
                 name: '',
@@ -1114,15 +1164,17 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                 schema: [
                   {
                     name: 'drink_button_lockout_style',
-                    default: 'full',
+                    default: 'auto',
                     selector: {
                       select: { options: _buttonStyleOptions(), mode: 'dropdown' },
                     },
                   },
                   {
-                    name: 'drink_button_lockout_pulse',
-                    default: false,
-                    selector: { boolean: {} },
+                    name: 'drink_button_lockout_icon_style',
+                    default: 'auto',
+                    selector: {
+                      select: { options: _iconStyleOptions(), mode: 'dropdown' },
+                    },
                   },
                 ],
               },
@@ -1146,12 +1198,12 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                 ],
               },
-              // ── Rotating Glow: speed ──
+              // ── Rotating Ring: speed ──
               {
-                name: 'drink_button_glow_speed',
+                name: 'drink_button_ring_speed',
                 default: 'medium',
                 selector: {
-                  select: { options: _glowSpeedOptions(), mode: 'dropdown' },
+                  select: { options: _ringSpeedOptions(), mode: 'dropdown' },
                 },
               },
             ],

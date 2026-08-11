@@ -17,6 +17,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CardController, ResolvedEntities, AxDoseLoggerHass, DrinkInfo } from '../types.js';
 import { localize } from '../localize.js';
+import { delayedAction } from '../delayed-action.js';
 
 @customElement('ax-dose-tools-panel')
 export class AxDoseToolsPanel extends LitElement {
@@ -136,13 +137,15 @@ export class AxDoseToolsPanel extends LitElement {
             </div>
             <div class="drink-tool-actions">
               ${d.undoButtonEntityId ? html`
-                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkUndo(d)}>
+                <button class="tool-btn danger drink-tool-btn" @click=${delayedAction(() => this._handleDrinkUndo(d))}>
+                  <ha-ripple></ha-ripple>
                   <ha-icon icon="mdi:undo"></ha-icon>
                   <span>${localize(this._lang, 'tools.undo_dose')}</span>
                 </button>
               ` : nothing}
               ${d.resetButtonEntityId ? html`
-                <button class="tool-btn danger drink-tool-btn" @click=${() => this._handleDrinkReset(d)}>
+                <button class="tool-btn danger drink-tool-btn" @click=${delayedAction(() => this._handleDrinkReset(d))}>
+                  <ha-ripple></ha-ripple>
                   <ha-icon icon="mdi:history"></ha-icon>
                   <span>${localize(this._lang, 'tools.reset_history')}</span>
                 </button>
@@ -181,8 +184,9 @@ export class AxDoseToolsPanel extends LitElement {
             ${e.adherenceResetButton ? html`
               <button
                 class="tool-btn"
-                @click=${() => this._handleAdherenceReset(e)}
+                @click=${delayedAction(() => this._handleAdherenceReset(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:percent-circle-outline"></ha-icon>
                 <span>${localize(this._lang, 'tools.reset_adherence')}</span>
               </button>
@@ -190,8 +194,9 @@ export class AxDoseToolsPanel extends LitElement {
             ${e.adherenceCoverButton ? html`
               <button
                 class="tool-btn"
-                @click=${() => this._handleAdherenceCover(e)}
+                @click=${delayedAction(() => this._handleAdherenceCover(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:check-underline-circle"></ha-icon>
                 <span>${localize(this._lang, 'tools.mark_adherence_taken')}</span>
               </button>
@@ -205,8 +210,9 @@ export class AxDoseToolsPanel extends LitElement {
             ${e.skipButton ? html`
               <button
                 class="tool-btn"
-                @click=${() => this._handleSkipDose(e)}
+                @click=${delayedAction(() => this._handleSkipDose(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:skip-next"></ha-icon>
                 <span>${localize(this._lang, 'tools.skip_dose')}</span>
               </button>
@@ -214,8 +220,9 @@ export class AxDoseToolsPanel extends LitElement {
             ${e.undoButton ? html`
               <button
                 class="tool-btn"
-                @click=${() => this._handleUndoDoseConfirm(e)}
+                @click=${delayedAction(() => this._handleUndoDoseConfirm(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:undo"></ha-icon>
                 <span>${localize(this._lang, 'tools.undo_dose')}</span>
               </button>
@@ -229,8 +236,9 @@ export class AxDoseToolsPanel extends LitElement {
             ${e.resetButton ? html`
               <button
                 class="tool-btn"
-                @click=${() => this._handleResetHistory(e)}
+                @click=${delayedAction(() => this._handleResetHistory(e))}
               >
+                <ha-ripple></ha-ripple>
                 <ha-icon icon="mdi:history"></ha-icon>
                 <span>${localize(this._lang, 'tools.reset_history')}</span>
               </button>
@@ -244,6 +252,16 @@ export class AxDoseToolsPanel extends LitElement {
   static styles = css`
     :host {
       font-weight: calc(400 * var(--pill-font-weight-boost, 1));
+      /* ha-ripple defaults — Material Design radiating-circle press feedback
+         (1:1 parity with Lovelace Mushroom cards). Per-element overrides below
+         set the ripple colour to the element's own identity colour. */
+      --ha-ripple-color: var(--primary-color, #03a9f4);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
+    }
+    /* Danger buttons (Undo/Reset) ripple red instead of the primary tint. */
+    .tool-btn.danger {
+      --ha-ripple-color: var(--error-color, #db4437);
     }
     .tools-panel {
       display: flex;
@@ -290,7 +308,11 @@ export class AxDoseToolsPanel extends LitElement {
       font-size: calc(14px + var(--pill-text-offset, 0px));
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
+      transition: background 0.2s;
+      /* position:relative + overflow:hidden clip the ha-ripple surface to the
+         button's rounded border (MdRipple geometry requirement). */
+      position: relative;
+      overflow: hidden;
     }
 
     .tool-btn ha-icon {
@@ -303,9 +325,9 @@ export class AxDoseToolsPanel extends LitElement {
       background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
     }
 
-    .tool-btn:active {
-      transform: scale(0.98);
-    }
+    /* :active scale transform removed — ha-ripple provides the press feedback
+       (Material Design radiating circle), so the physical compression is
+       redundant and can fight the ripple's layout. */
 
     .tool-btn.danger {
       background: rgba(var(--rgb-error-color, 219, 68, 55), 0.06);
