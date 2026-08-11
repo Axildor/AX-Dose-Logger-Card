@@ -4,6 +4,7 @@
   "description": "A custom Lovelace card for the AX Dose Logger Home Assistant integration",
   "main": "dist/ax-dose-logger-card.js",
   "type": "module",
+  "packageManager": "yarn@4.16.0",
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w"

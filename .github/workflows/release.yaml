@@ -25,16 +25,24 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "yarn"
 
+      - name: Enable Corepack (Yarn Berry)
+        # The repo uses Yarn Berry (v4) with a .yarnrc.yml and a v4-format
+        # yarn.lock. setup-node ships Yarn Classic by default, which cannot
+        # parse the v4 lockfile. Corepack reads the `packageManager` field
+        # in package.json and installs the matching Yarn release.
+        run: corepack enable
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        # --immutable is the Yarn 4 successor to --frozen-lockfile.
+        run: yarn install --immutable
 
       - name: Build card
         run: yarn run build
