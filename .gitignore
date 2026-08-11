@@ -1,6 +1,5 @@
 # artifacts
 node_modules/
-dist/
 *.tsbuildinfo
 .yarn/cache
 .yarn/install-state.gz
