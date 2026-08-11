@@ -124,7 +124,7 @@ The card adapts its tabs to the selected device type:
   - **Bottom Box** — toggle to show Days Left instead of Pills Left, or swap to any entity with a custom icon/label and actions.
 
 <!-- SCREENSHOT: Daily tab -->
-> 📸 **Screenshot needed:** Daily tab — Take Pill button with countdown, pills safe to take, last dose, inventory, custom boxes.
+<img width="441" alt="Screenshot 2026-08-11 210821" src="https://github.com/user-attachments/assets/a31f8115-1157-4d40-86c4-921d66abb45d" /> <img width="597" height="319" alt="Screenshot 2026-08-11 210929" src="https://github.com/user-attachments/assets/7f276b4d-d27f-4a26-9bdd-08ca4a0331e3" />
 
 ### 📊 Graphs
 
