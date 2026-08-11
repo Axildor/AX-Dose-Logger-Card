@@ -404,3 +404,42 @@ The in-card Medical Color Indicators explainer popup (reached via the device-inf
 - `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/hacs.yaml'))"` → VALID YAML
 - `grep render_readme hacs.json` → line 3 present
 - `grep 'category: plugin' .github/workflows/hacs.yaml` → line 18 present
+
+
+## X-Axis Collision Resolution — Graphs Pane Current Badge Relocation (2026-08-11)
+**Feature**: Resolved a mobile viewport collision in the Graphs pane (Pane 2) where the horizontal flex container of time-horizon selector buttons (12H–30D) intersected with the "Current" amount badge on narrow screens, causing severe UI overlap. Per the architecture directive, deployed **Route A (Preferred)**: extracted the "Current" badge from the time-selector row (`.line-graph-wrapper` graph surface) and injected it into the graph's carousel header row, anchoring it adjacent to the slide title via a new `.nav-title-group` wrapper. The badge remains permanently visible and strictly associated with the Amount-in-Body (line) data stream — never hidden via media queries (Data Locality directive). The timeframe-chip hit-box separation (`min-width:41px` + `gap:2px`) is preserved unchanged (WCAG Hit-Box Integrity). No `display:none`, no horizontal overflow scroll (Prohibited Protocols). The matching SVG dashed current-amount line inside the chart is unchanged. Frontend-only. Architecture plan: [`plans/x-axis-collision-resolution-plan.md`](plans/x-axis-collision-resolution-plan.md).
+
+### Checklist
+- [x] Step 1: Context grounding — read [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) (DOM: `.carousel-nav` + `.line-graph-wrapper` + `.timeframe-chips` absolute left + `.current-label` absolute right; CSS: lines 851–880); memory-bank activeContext + projectstructure
+- [x] Step 2: Architecture plan — [`plans/x-axis-collision-resolution-plan.md`](plans/x-axis-collision-resolution-plan.md) (Route A selected: badge → carousel header; Route B documented as fallback; data-flow lift of `hasCurrent`/`currentAmountNum` into `render()`; CSS additions; WCAG verification table)
+- [x] Step 3: User confirmation — plan approved; Route A selected; SVG dashed line kept unchanged (already in plan)
+- [x] Step 4: [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) `render()` — added `amountInBodyState`/`currentAmountNum`/`hasCurrent`/`currentUnit` computation gated on `activeSlide === 'line'`; wrapped `.nav-title` in `.nav-title-group` div + appended `.current-badge` span in BOTH carousel-nav branches (multi-slide + single-slide)
+- [x] Step 5: [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) `_renderLineGraph()` — removed the `div.current-label` template block (the SVG dashed `<line>` for `currentY` is untouched)
+- [x] Step 6: [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) `static styles` — deleted the `.current-label` rule (21 lines); added `.nav-title-group` (`inline-flex`, `align-items:center`, `gap:8px`) + `.current-badge` (inherited pill styling, `flex-shrink:0`, `white-space:nowrap`) rules
+- [x] Step 7: Verification — `yarn run build` clean (exit 0, 4.8s); grep audit: `current-label` → 0 live matches (only a comment reference to "former .current-label"); `current-badge` → 3 matches (2 template + 1 CSS); `nav-title-group` → 3 matches (2 template + 1 CSS); dist grep → 6 matches confirm compilation
+
+### Notes
+- **Route A over Route B**: Route A moves the badge above the chart surface entirely, eliminating the shared absolute layer that caused the collision; Route B (Y-axis chip wrap) would consume chart vertical space and risk the `padTop=36` SVG gridline clearance. Route B documented as fallback only.
+- **No media queries**: per the Prohibited Protocols clause, no `@media` rules were added; the badge is always visible when the line slide is active at every viewport width.
+- **No README change**: internal layout fix; no user config/install/install impact.
+- **No `projectstructure.md` change**: no files added/renamed/deleted.
+
+
+## Amount-in-Body Current Badge → Plain Text (2026-08-11)
+**Feature**: Removed the separate tinted "Current: 99 mg" badge chip from the Graphs pane carousel header and merged the current Amount-in-Body value directly into the slide title as plain text with a colon separator (e.g. "Amount in Body: 99 mg"). This eliminates the `.current-badge` span + `.nav-title-group` wrapper introduced by the X-Axis Collision Resolution task, drops the now-redundant "Current" prefix, and creates visual parity with the Daily panel's stat-pill label+value format (plain adjacent text, no pill/badge styling). The `hasCurrent` gating is preserved — the value only appends on the line slide with a parseable current value; bar/effectiveness slides are unaffected. The SVG dashed current-amount reference line inside the chart is unchanged. Frontend-only.
+
+### Checklist
+- [x] Step 1: Context grounding — read [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) (template lines 124–164 + CSS lines 878–908), [`src/components/daily-panel.ts`](src/components/daily-panel.ts) (stat-pill label/value pattern), [`src/localize.ts`](src/localize.ts:39) (`graphs.current` key); confirmed `graphs.current` had no other consumers via grep
+- [x] Step 2: Grammatical audit — confirmed "Amount in Body: 99 mg" reads as a clean state sentence (label + value, colon separator); user selected colon over space separator
+- [x] Step 3: [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) `render()` — in BOTH carousel-nav branches (multi-slide + single-slide), replaced the `.nav-title-group` wrapper + `.current-badge` span with a bare `.nav-title` span whose text is `slideTitle` + (when `hasCurrent`) `` `: ${Math.round(currentAmountNum)} ${currentUnit}` ``; dropped the `graphs.current` localize call
+- [x] Step 4: [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) `static styles` — deleted the `.nav-title-group` + `.current-badge` CSS rules (26 lines) + their preceding comment block; `.nav-title` left unchanged (its existing plain-text styling now governs the merged text run)
+- [x] Step 5: [`src/components/graphs-panel.ts`](src/components/graphs-panel.ts) — updated the stale Route-A comment block above the `amountInBodyState` computation to describe the new plain-text merge + Daily-panel parity
+- [x] Step 6: [`src/localize.ts`](src/localize.ts:39) — removed the now-unused `graphs.current` key ("Current")
+- [x] Step 7: Verification — `yarn run build` clean (exit 0, 4.7s); grep audit: `current-badge`/`nav-title-group`/`graphs.current` → 0 matches in `src/`; dist grep → only the updated doc comment references the new format, no dead classes/keys in the bundle
+
+### Notes
+- **Daily-panel parity**: the Daily panel's stat-pill renders the label ("Amount in Body") beside the value ("99 mg") as adjacent plain text with no badge/pill styling; the Graphs pane title now does the same, creating cross-pane visual consistency.
+- **Colon separator**: user explicitly chose `: ` (colon + space) over a bare space; the title reads as "Amount in Body: 99 mg".
+- **Dead-code cleanup safe**: `.nav-title-group`, `.current-badge`, and `graphs.current` had no other consumers (confirmed via grep before removal); the X-Axis Collision Resolution task was their sole introducer, and this task fully reverts that visual layer while keeping the collision fix (the badge is gone entirely, not relocated again).
+- **No README change**: internal visual polish; no user config/install impact.
+- **No `projectstructure.md` change**: no files added/renamed/deleted.

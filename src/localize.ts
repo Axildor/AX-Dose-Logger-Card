@@ -36,7 +36,6 @@ const translations: Record<string, Record<string, string>> = {
     'graphs.effectiveness_title': 'Effectiveness',
     'graphs.effectiveness_avg': 'Avg',
     'graphs.effectiveness_individual': 'Individual',
-    'graphs.current': 'Current',
     'graphs.loading_history': 'Loading history...',
     'graphs.timeframe_12h': '12H',
     'graphs.timeframe_24h': '24H',

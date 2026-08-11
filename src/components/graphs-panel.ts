@@ -107,6 +107,19 @@ export class AxDoseGraphsPanel extends LitElement {
         ? localize(this._lang, 'graphs.line_title')
         : localize(this._lang, 'graphs.effectiveness_title');
 
+    // Current Amount-in-Body value, appended to the slide title as plain text
+    // (e.g. "Amount in Body: 99 mg") — mirrors the Daily panel's stat-pill
+    // label+value format. Renders ONLY on the Amount-in-Body (line) slide,
+    // gated on a parseable current value. The matching SVG dashed line inside
+    // the chart is computed separately in _renderLineGraph and is unaffected.
+    const amountInBodyState = activeSlide === 'line' ? c.getState(e.amountInBody) : '';
+    const currentAmountNum = parseFloat(amountInBodyState);
+    const hasCurrent = activeSlide === 'line'
+      && amountInBodyState
+      && amountInBodyState !== 'unavailable'
+      && !isNaN(currentAmountNum);
+    const currentUnit = hasCurrent ? c.getStrengthUnit(e) : '';
+
     return html`
       <div class="pane pane-graphs">
         ${slides.length > 1 ? html`
@@ -119,7 +132,9 @@ export class AxDoseGraphsPanel extends LitElement {
             >
               <ha-icon icon="mdi:chevron-left"></ha-icon>
             </button>
-            <span class="nav-title">${slideTitle}</span>
+            <span class="nav-title">${slideTitle}${hasCurrent
+              ? `: ${Math.round(currentAmountNum)} ${currentUnit}`
+              : ''}</span>
             <button
               class="nav-btn"
               aria-label=${localize(this._lang, 'graphs.aria_next')}
@@ -131,7 +146,9 @@ export class AxDoseGraphsPanel extends LitElement {
           </div>
         ` : html`
           <div class="carousel-nav">
-            <span class="nav-title">${slideTitle}</span>
+            <span class="nav-title">${slideTitle}${hasCurrent
+              ? `: ${Math.round(currentAmountNum)} ${currentUnit}`
+              : ''}</span>
           </div>
         `}
 
@@ -391,11 +408,6 @@ export class AxDoseGraphsPanel extends LitElement {
         <div class="timeframe-chips">
           ${this._renderTimeframeChips()}
         </div>
-        ${hasCurrent ? html`
-          <div class="current-label">
-            ${localize(this._lang, 'graphs.current')}: ${Math.round(currentAmountNum)} ${c.getStrengthUnit(entities)}
-          </div>
-        ` : nothing}
         <svg viewBox="0 0 ${w} ${h}" class="chart-svg" preserveAspectRatio="xMidYMid meet" style="aspect-ratio: ${w}/${h}">
           <!-- Y-axis grid lines and labels -->
           ${[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
@@ -854,28 +866,6 @@ export class AxDoseGraphsPanel extends LitElement {
       left: 24px;
       display: flex;
       gap: 2px;
-      z-index: 1;
-    }
-
-    /* "Current" amount chip for the Amount-in-Body line graph. Sits in the
-       top-right of .line-graph-wrapper, mirroring the left-side timeframe
-       chips' pill styling (same font-size, padding, border-radius, background
-       opacity, and text color) so the two read as a matched pair. Renders only
-       when amountInBody is a parseable number (see _renderLineGraph). */
-    .current-label {
-      position: absolute;
-      top: 4px;
-      right: 10px;
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: calc(500 * var(--pill-font-weight-boost, 1));
-      border-radius: 4px;
-      color: var(--secondary-text-color);
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
-      border: none;
-      font-family: inherit;
-      line-height: 1.4;
-      white-space: nowrap;
       z-index: 1;
     }
 
