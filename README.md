@@ -1,7 +1,6 @@
-[![GitHub Release](https://img.shields.io/github/v/release/Axildor/AX-Dose-Logger?style=flat-square)](https://github.com/Axildor/AX-Dose-Logger/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/Axildor/AX-Dose-Logger-Card?style=flat-square)](https://github.com/Axildor/AX-Dose-Logger-Card/releases)
 [![HACS Status](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
-[![Lint Status](https://img.shields.io/github/actions/workflow/status/Axildor/AX-Dose-Logger/lint.yml?branch=main&label=Lint&style=flat-square)](https://github.com/Axildor/AX-Dose-Logger/actions/workflows/lint.yml)
-[![Validate Status](https://img.shields.io/github/actions/workflow/status/Axildor/AX-Dose-Logger/validate.yml?branch=main&label=Validate&style=flat-square)](https://github.com/Axildor/AX-Dose-Logger/actions/workflows/validate.yml)
+[![HACS Validation Status](https://img.shields.io/github/actions/workflow/status/Axildor/AX-Dose-Logger-Card/hacs.yaml?branch=master&label=HACS%20Validation&style=flat-square)](https://github.com/Axildor/AX-Dose-Logger-Card/actions/workflows/hacs.yaml)
 [![Buy me a tea](https://img.shields.io/badge/Buy_me_a_tea-☕-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/axildor)
 # 💊 AX Dose Logger Card
 
