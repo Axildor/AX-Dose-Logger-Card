@@ -11,7 +11,7 @@ A custom Lovelace dashboard card for the [AX Dose Logger](https://github.com/Axi
 
 ---
 
-## 🃏 Companion Integration
+## Companion Integration
 
 This card was built **in tandem** with the [**AX Dose Logger**](https://github.com/Axildor/AX-Dose-Logger) integration. The two were programmed together and are designed to work as a pair — the card surfaces everything the integration produces (sensors, buttons, services, PK graphs, drink tracking) in a polished, purpose-built UI.
 
