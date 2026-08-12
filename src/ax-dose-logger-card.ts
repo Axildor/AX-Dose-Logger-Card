@@ -1159,10 +1159,27 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       if (!isNaN(s) && s > 0) overdueSeconds = s;
     }
 
+    // "Due now" = the next scheduled slot has arrived. Read the next_dose
+    // sensor: a valid ISO timestamp <= now means the slot is here (freshly
+    // due or overdue); a future timestamp means not yet due. The overdue
+    // sensor alone can't distinguish these (it reads 0 in both cases), so
+    // next_dose is the authoritative "has the slot arrived" signal.
+    // Fail-open: when next_dose is unavailable/unknown/unparseable, treat as
+    // due-now so a genuinely-due dose is never hidden behind idle.
+    let isDueNow = true;
+    const nextDoseState = this._getState(entities.nextDose);
+    if (nextDoseState && nextDoseState !== 'unavailable' && nextDoseState !== 'unknown') {
+      const next = new Date(nextDoseState);
+      if (!isNaN(next.getTime())) {
+        isDueNow = next.getTime() <= Date.now();
+      }
+    }
+
     const input: ButtonStateInput = {
       isLockedOut,
       is24hLimitReached,
       isScheduled,
+      isDueNow,
       overdueSeconds,
       graceHours: this._resolveGraceHours(entities),
       ackActive: this._dailyAckActive,
@@ -1197,6 +1214,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       isLockedOut,
       is24hLimitReached: false, // drinks have no 24h strength limit
       isScheduled: false, // drinks have no schedule
+      isDueNow: false, // no schedule → unreachable in the resolver
       overdueSeconds: 0,
       graceHours: 1.0,
       ackActive: this._drinksAckActive,

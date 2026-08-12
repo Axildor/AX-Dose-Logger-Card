@@ -173,6 +173,15 @@ export interface ButtonStateInput {
   is24hLimitReached: boolean;
   /** True for scheduled (non-PRN) medications — gates execution/latency. */
   isScheduled: boolean;
+  /** True when the next scheduled slot has arrived (next_dose <= now). False
+   *  when the next dose is still in the future (not yet due). Only meaningful
+   *  when isScheduled is true. Computed by the container from the next_dose
+   *  sensor state. When false AND overdueSeconds <= 0, the resolver returns
+   *  'idle' (not yet due) instead of 'execution' — fixes the bug where every
+   *  scheduled med showed the blue "Dose Due" state for the entire interval
+   *  between doses. Defaults to true on unavailable/unknown next_dose so a
+   *  genuinely-due dose is never hidden behind idle (fail-open for safety). */
+  isDueNow: boolean;
   /** Seconds past the missed scheduled slot. 0 when on-time / not yet due. */
   overdueSeconds: number;
   /** Adherence grace period in hours (on-time buffer). Read from the
@@ -202,6 +211,19 @@ export function resolveButtonState(input: ButtonStateInput): ButtonState {
   if (input.isLockedOut) return 'lockout';
   if (input.is24hLimitReached) return 'limit_24h';
   if (input.isScheduled) {
+    // Not yet due: the next scheduled slot is still in the future
+    // (isDueNow === false) and the overdue sensor hasn't started counting
+    // (overdueSeconds <= 0). Show idle (theme default, no color) until the
+    // slot actually arrives. This fixes the bug where every scheduled med
+    // showed the blue "Dose Due" (execution) state for the entire interval
+    // between doses, not just when due — most visible on long-interval
+    // schedules (bi-daily cyclic). The overdue sensor alone can't
+    // distinguish "not yet due" from "freshly due" (both read 0), so the
+    // next_dose timestamp (via isDueNow) is the authoritative "has the
+    // slot arrived" signal.
+    if (!input.isDueNow && input.overdueSeconds <= 0) {
+      return 'idle';
+    }
     // Overdue warning (latency) appears at half the grace period — proactive
     // heads-up before adherence expires. The first half of the grace window
     // stays in the execution state (on-time per adherence, no rush). This

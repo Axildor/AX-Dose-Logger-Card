@@ -1111,6 +1111,19 @@ function resolveButtonState(input) {
     if (input.is24hLimitReached)
         return 'limit_24h';
     if (input.isScheduled) {
+        // Not yet due: the next scheduled slot is still in the future
+        // (isDueNow === false) and the overdue sensor hasn't started counting
+        // (overdueSeconds <= 0). Show idle (theme default, no color) until the
+        // slot actually arrives. This fixes the bug where every scheduled med
+        // showed the blue "Dose Due" (execution) state for the entire interval
+        // between doses, not just when due — most visible on long-interval
+        // schedules (bi-daily cyclic). The overdue sensor alone can't
+        // distinguish "not yet due" from "freshly due" (both read 0), so the
+        // next_dose timestamp (via isDueNow) is the authoritative "has the
+        // slot arrived" signal.
+        if (!input.isDueNow && input.overdueSeconds <= 0) {
+            return 'idle';
+        }
         // Overdue warning (latency) appears at half the grace period — proactive
         // heads-up before adherence expires. The first half of the grace window
         // stays in the execution state (on-time per adherence, no rush). This
@@ -7721,10 +7734,26 @@ class AxDoseLoggerCard extends i$2 {
             if (!isNaN(s) && s > 0)
                 overdueSeconds = s;
         }
+        // "Due now" = the next scheduled slot has arrived. Read the next_dose
+        // sensor: a valid ISO timestamp <= now means the slot is here (freshly
+        // due or overdue); a future timestamp means not yet due. The overdue
+        // sensor alone can't distinguish these (it reads 0 in both cases), so
+        // next_dose is the authoritative "has the slot arrived" signal.
+        // Fail-open: when next_dose is unavailable/unknown/unparseable, treat as
+        // due-now so a genuinely-due dose is never hidden behind idle.
+        let isDueNow = true;
+        const nextDoseState = this._getState(entities.nextDose);
+        if (nextDoseState && nextDoseState !== 'unavailable' && nextDoseState !== 'unknown') {
+            const next = new Date(nextDoseState);
+            if (!isNaN(next.getTime())) {
+                isDueNow = next.getTime() <= Date.now();
+            }
+        }
         const input = {
             isLockedOut,
             is24hLimitReached,
             isScheduled,
+            isDueNow,
             overdueSeconds,
             graceHours: this._resolveGraceHours(entities),
             ackActive: this._dailyAckActive,
@@ -7760,6 +7789,7 @@ class AxDoseLoggerCard extends i$2 {
             isLockedOut,
             is24hLimitReached: false, // drinks have no 24h strength limit
             isScheduled: false, // drinks have no schedule
+            isDueNow: false, // no schedule → unreachable in the resolver
             overdueSeconds: 0,
             graceHours: 1.0,
             ackActive: this._drinksAckActive,
