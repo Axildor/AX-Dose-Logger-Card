@@ -22,7 +22,7 @@ This card is the purpose-built UI for the [**AX Dose Logger**](https://github.co
 
 1. **Install the integration** — [AX Dose Logger](https://github.com/Axildor/AX-Dose-Logger) via HACS (Integration category), then add at least one medication or drink through its config flow.
 2. **Install this card** — via HACS (Dashboard category), repository URL `https://github.com/Axildor/AX-Dose-Logger-Card` (see [Installation](#installation)).
-3. **Add the card** — Edit your dashboard → Add Card → search "AX Dose Logger" → pick your medication or Master Tracker device. Done.
+3. **Add the card** — Edit your dashboard → Add Card → search "AX Dose Logger" → pick your Medicine device, or select one or more Drink Trackers (Caffeine/Alcohol Tracker) in the visual editor. Done.
 
 ---
 
@@ -87,7 +87,7 @@ This card is the purpose-built UI for the [**AX Dose Logger**](https://github.co
 ### Visual Editor
 
 1. Edit your dashboard → Add Card → Search for "AX Dose Logger"
-2. Select your medication or Master Tracker device from the dropdown
+2. Select your **Medicine Device** (top selector), or select one or more **Drink Trackers** (Caffeine/Alcohol Tracker) in the lower selector
 3. Configure color scheme, custom boxes, graph options, and per-box overrides as desired
 
 The visual editor is organized into expandable sections: **Daily Tab**, **Drinks Tab**, and **Graphs Tab**, each with collapsable per-box menus. The full reference table of every config option is in [Advanced-Users.md](Advanced-Users.md#configuration-options).
@@ -177,6 +177,7 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 - A centered substance title (Caffeine / Alcohol) at the top — tapping opens the device-info dialog.
 - A two-column main row identical in layout to the Daily tab:
   - **Left:** a tinted **Log Drink** button. Opens a popup listing every granular drink of that substance (e.g. Coffee, Espresso, Energy Drink for caffeine). Each drink shows a predictive **"Low: hh:mm"** line — the wall-clock time body-mass would drop into the *Low* sleep band *if logged now*. "Low: —" means the drink is safe. Pressing a drink logs it.
+    - **Multi-user households:** if a drink is shared across multiple profiles (the backend M2M topology), tapping it reveals a **"Who is logging this?"** sub-list so you pick which profile receives the PK payload. Drinks assigned to a single profile (or none) log immediately with one tap — unchanged. See [Profile Lock](#profile-lock-multi-user) below.
   - **Right:** two boxes — **In Body** (current body-mass + substance unit) on top and **Disruption** on the bottom. Tapping either opens its more-info dialog (or the Sleep Disruption popup, depending on the Disruption mode).
 - The **Disruption box** has three display modes (Sleep Disruption, Low - Timestamp, Low - Hours Until) — see [Advanced-Users.md](Advanced-Users.md#disruption-box-display-modes) for the mode details.
 - **Top Box** and **Bottom Box** — fully overridable via the visual editor's Drinks Tab expandable (entity swap, custom icon/label, actions). Top Box defaults to In Body; Bottom Box defaults to Sleep Disruption (with a selector to switch to the Low timestamp/hours sensors).
@@ -221,6 +222,18 @@ A per-granular-drink list of **Undo** and **Reset** buttons. Each opens a confir
 
 <!-- SCREENSHOT: Drinks Tools -->
 > 📸 **Screenshot needed:** Drinks Tools tab — per-drink Undo / Reset buttons.
+
+---
+
+### 👥 Multi-Profile (Multi-User)
+
+In a multi-user household using the backend's [M2M multi-profile topology](https://github.com/Axildor/AX-Dose-Logger), each person can have their own **Drink Tracker** device (a Caffeine Tracker or Alcohol Tracker, with a per-profile PK curve). The card's visual editor exposes a **Drink Trackers** device multi-select (just below the **Medicine Device** selector) where you pick one or more of these tracker devices.
+
+- **One tracker selected** — the card always renders that single profile. Logging a shared drink (e.g. a Coca-Cola device assigned to multiple profiles) is one-tap; it always logs to the selected profile.
+- **Two or more trackers selected (same substance)** — the card runs the multi-profile state machine. A header profile switcher lets you switch the active view, and shared drinks show a **"Who is logging this?"** picker when you tap them so the PK payload routes to the right person. All selected trackers must be the same substance (all Caffeine **or** all Alcohol); mixed selections render an "Invalid Drink Tracker selection" error.
+- **No Drink Trackers selected** — the card falls back to the **Medicine Device** selector (single medicine / granular drink card). Zero-config single-substance households auto-discover all matching tracker devices.
+
+Legacy configs that used the old **Master Trackers** entity selector or the **Profile Lock** UUID field are migrated automatically on first load — no manual reconfiguration needed.
 
 ---
 

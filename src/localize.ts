@@ -8,6 +8,14 @@ const translations: Record<string, Record<string, string>> = {
     'card.loading': 'Loading...',
     'card.placeholder_title': 'AX Dose Logger Card',
     'card.placeholder_subtitle': 'Please select a device in the visual editor to begin.',
+    // ── Multi-Tracker State Machine (Phase 2) ──
+    'card.trackers_error_title': 'Invalid Drink Tracker selection',
+    'card.trackers_error_generic': 'The selected Drink Trackers are invalid. Please reconfigure in the visual editor.',
+    'card.trackers_error_not_master': 'One or more selected devices are not Drink Tracker devices. Please select only Caffeine Tracker or Alcohol Tracker devices.',
+    'card.trackers_error_mixed_substance': 'All selected Drink Trackers must be the same substance (Caffeine OR Alcohol). Please select only one substance.',
+    'card.trackers_placeholder_title': 'Select Drink Trackers',
+    'card.trackers_placeholder_subtitle': 'Please select Caffeine Tracker or Alcohol Tracker devices in the visual editor.',
+    'card.profile_switcher_title': 'Switch profile',
 
     // ── Pane tabs ──
     'pane.daily': 'Daily',
@@ -88,6 +96,7 @@ const translations: Record<string, Record<string, string>> = {
     // ── Drinks pane (Master Tracker) ──
     'drinks.caffeine': 'Caffeine',
     'drinks.alcohol': 'Alcohol',
+    'drinks.default_profile': 'Default',
     'drinks.log_drink': 'Log Drink',
     'drinks.in_body': 'In Body',
     'drinks.disruption': 'Disruption',
@@ -145,6 +154,9 @@ const translations: Record<string, Record<string, string>> = {
     'dialog.log_drink.empty': 'No drinks of this category configured.',
     'dialog.log_drink.predicted_low': 'Low',
     'dialog.log_drink.predicted_low_dash': 'Low: —',
+    'dialog.log_drink.select_profile': 'Who is logging this?',
+    'dialog.log_drink.back': 'Back',
+    'dialog.log_drink.unknown_profile': 'Unknown profile',
     'dialog.override.body_scheduled': 'Your next scheduled dose is not until {time}. Take a dose now anyway?',
     'dialog.override.body_as_needed': 'Your next safe dose is not until {time}. Take a dose now anyway?',
     'dialog.override.body_24h_exceeded': 'You have already exceeded the 24h strength limit for this medication ({time}). Taking another dose increases the risk of adverse effects. Press Override to log the dose anyway.',
@@ -218,7 +230,7 @@ const translations: Record<string, Record<string, string>> = {
     ].join('\n'),
 
     // ── Config form labels ──
-    'config.device_id': 'Device',
+    'config.device_id': 'Medicine Picker',
     'config.big_text': 'Large Text',
     'config.bold_text': 'Bold Text',
     'config.default_view': 'Default View',
@@ -263,6 +275,8 @@ const translations: Record<string, Record<string, string>> = {
     'config.disruption_mode_low_timestamp': 'Low - Timestamp',
     'config.disruption_mode_low_hours_until': 'Low - Hours Until',
     'config.drink_chips': 'Custom Boxes',
+    // ── M2M Multi-User — Multi-Tracker State Machine ──
+    'config.drink_tracker_devices': 'Drink Tracker Picker',
     // Drink box field labels (the box titles reuse config.chip_N_box above)
     'config.drink_chip_1': 'Box 1 (optional)',
     'config.drink_chip_1_label': 'Box 1 Label',
@@ -396,7 +410,7 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.default_view': 'Falls back to Daily if invalid.',
 
     // ── Config form helpers ──
-    'config.helper.device_id': 'Choose a medication device.',
+    'config.helper.device_id': 'Choose a medicine device. Do NOT select a Caffeine/Alcohol Tracker here — use the Drink Tracker Picker below.',
     'config.helper.big_text': 'Enlarges all card text for easier reading.',
     'config.helper.take_pill_icon': 'Icon for the Take Pill button. Defaults to mdi:pill.',
     'config.helper.take_pill_label': 'Button text. Defaults to "Take Pill". E.g. "Inject Dose", "Apply Cream".',
@@ -417,7 +431,7 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.pills_left_hold_action': 'Long-press action.',
     'config.helper.pills_left_double_tap_action': 'Double-tap action.',
     // ── Drinks Panel config helpers (mirror the Daily Panel helpers) ──
-    'config.helper.drinks_panel': 'Master Tracker (Caffeine / Alcohol) card settings.',
+    'config.helper.drinks_panel': 'Drink Tracker (Caffeine / Alcohol) card settings.',
     'config.helper.log_drink_icon': 'Icon for the Log Drink button. Defaults to mdi:coffee / mdi:glass-mug-variant.',
     'config.helper.log_drink_label': 'Button text. Defaults to "Log Drink".',
     'config.helper.in_body_box': 'Replace the box with any entity. Leave empty for the default sensor.',
@@ -436,6 +450,8 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.disruption_hold_action': 'Long-press action.',
     'config.helper.disruption_double_tap_action': 'Double-tap action.',
     'config.helper.drink_chips': 'Show as a box on the Drinks tab.',
+    // ── M2M Multi-User — Multi-Tracker helper ──
+    'config.helper.drink_tracker_devices': 'Choose Caffeine or Alcohol Tracker devices. Multiple can be selected (all must be the same substance). Leave empty for a single medicine card.',
     'config.helper.drink_chip': 'Show as a box on the Drinks tab.',
     'config.helper.drink_chip_label': "Leave empty to use the entity's name.",
     'config.helper.color_scheme': 'Accent color for the card. *Press card title for more info on indicator colors and the starred colors.',

@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import type { PropertyValues } from 'lit';
+import type { PropertyValues, TemplateResult } from 'lit';
 import type { LovelaceCard, ActionConfig } from 'custom-card-helpers';
 import { fireEvent, formatTime, formatDateTime, handleAction } from 'custom-card-helpers';
 import { localize } from './localize.js';
@@ -32,6 +32,7 @@ import type {
   AxDoseLoggerHass,
   CardController,
   ResolvedEntities,
+  ResolvedTracker,
   MetricEntity,
   DayBucket,
   DrinkInfo,
@@ -153,6 +154,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // Not @state() — a race-guard token has no rendering impact; making it
   // reactive caused unnecessary shouldUpdate evaluations on every increment.
   private _predictLowToken: number = 0;
+  // M2M profile-picker sub-step (Log Drink popup). When non-null, the popup
+  // switches from the drink grid to a profile sub-list for the tapped shared
+  // drink (2+ allowed_profiles). Each row is a profile-name button; tapping
+  // one calls _logDrink with that profile's UUID. The Back button clears this
+  // to return to the drink grid. Reset to null on dialog close.
+  @state() private _logDrinkProfileTarget: {
+    drinkName: string;
+    logButtonEntityId: string;
+    allowedProfiles: string[];
+  } | null = null;
   // Sleep Disruption popup (Master Tracker Drinks panel). When open, renders
   // a substance-aware markdown description of how the current body-mass load
   // affects sleep (caffeine vs alcohol), via HA's native ha-markdown element.
@@ -265,7 +276,40 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // cache the method did a full O(n) entity scan on every call, including
   // inside _relevantStateChanged() on every HA state change while the
   // inventory pane was active.
-  private _drinksCache: { substance: 'caffeine' | 'alcohol'; entitiesRef: object; drinks: DrinkInfo[] } | null = null;
+  private _drinksCache: { substance: 'caffeine' | 'alcohol'; entitiesRef: object; drinks: DrinkInfo[]; activeProfileId: string } | null = null;
+
+  // Cache for _getProfileNameMap() — mirrors the _drinksCache pattern. The
+  // map stores only stable UUID→name pairs (read from the Master Tracker
+  // sensor attributes), so it is valid until the entity registry reference
+  // changes (HA replaces hass.entities on registry updates). Used by the
+  // Log Drink popup profile picker + the multi-tracker header switcher.
+  private _profilesCache: { entitiesRef: object; map: Record<string, string> } | null = null;
+
+  // ── Multi-Tracker State Machine (Phase 2) ──
+  // Resolved tracker array + active index. Built once per drink_tracker_devices
+  // config change or hass.entities registry change. The active tracker's
+  // ResolvedEntities drives ALL panels (zero panel-internal change — the state
+  // machine swaps the entity bundle ahead of the panels). _activeTrackerIndex is
+  // @state so a profile switch re-renders; it is persisted to localStorage keyed
+  // by a hash of drink_tracker_devices so a shared dashboard remembers each
+  // browser's last view. _trackersError is @state so a mixed-substance /
+  // non-tracker-device validation failure renders the error placeholder.
+  @state() private _activeTrackerIndex: number = 0;
+  private _resolvedTrackers: ResolvedTracker[] = [];
+  @state() private _trackersError: string | null = null;
+  private _trackersCache: { entitiesRef: object; configKey: string } | null = null;
+  // Header profile-switcher popup (shown only when N>1).
+  @state() private _showProfileSwitcher: boolean = false;
+  // Legacy Profile Lock UUID stashed by setConfig migration for lazy
+  // resolution in _resolveTrackers (setConfig runs before hass is available).
+  // Consumed once then cleared; auto-discovery takes over if the UUID is dead.
+  private _legacyProfileLock: string | null = null;
+  // Legacy drink_master_entities (entity IDs) stashed by setConfig migration
+  // for lazy resolution to drink_tracker_devices (device IDs) in
+  // _resolveTrackers. setConfig runs before hass is available, so the
+  // entity→device mapping (hass.entities[id].device_id) cannot run there.
+  // Consumed once then cleared; auto-discovery takes over for dead entities.
+  private _legacyMasterEntities: string[] | null = null;
 
   // In-flight fetch management (#3 + #4):
   //  - Separate per-fetch-type tokens prevent cross-stream invalidation. When
@@ -313,25 +357,69 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // glow_speed -> ring_speed). Idempotent. See plans/
     // icon-style-dropdown-separation-plan.md §5-6.
     _migrateButtonStateConfig(config as any);
+    // ── Phase 2 → Phase 3: Multi-Tracker migration (device-driven) ──
+    // The selector is now drink_tracker_devices (device IDs). Two legacy
+    // fields migrate lazily in _resolveTrackers (setConfig runs before hass
+    // is available, so entity→device / UUID→device resolution can't happen
+    // here):
+    //   - drink_master_entities (entity IDs) → stashed on _legacyMasterEntities
+    //     for lazy resolution to drink_tracker_devices device IDs.
+    //   - drink_target_profile (Profile Lock UUID) → stashed on
+    //     _legacyProfileLock for lazy resolution to a single device ID.
+    // Both legacy fields are deleted from config immediately so they don't
+    // linger in persisted YAML; the active-profile default replaces the lock
+    // (N=1 = the new "lock"). Dead entities/UUIDs fall through to
+    // auto-discovery. See plans/drink-tracker-selector-rename-plan.md.
+    const raw2 = config as any;
+    // Normalize drink_tracker_devices to an array (HA may store a single
+    // string when the user picks one device in the multi-select).
+    if (typeof raw2.drink_tracker_devices === 'string') {
+      raw2.drink_tracker_devices = raw2.drink_tracker_devices ? [raw2.drink_tracker_devices] : [];
+    } else if (!Array.isArray(raw2.drink_tracker_devices)) {
+      raw2.drink_tracker_devices = [];
+    }
+    // Stash legacy drink_master_entities (entity IDs) for lazy migration.
+    if (Array.isArray(raw2.drink_master_entities) && raw2.drink_master_entities.length > 0 &&
+        raw2.drink_tracker_devices.length === 0) {
+      this._legacyMasterEntities = raw2.drink_master_entities
+        .filter((e: unknown) => typeof e === 'string' && e);
+    } else if (typeof raw2.drink_master_entities === 'string' && raw2.drink_master_entities &&
+               raw2.drink_tracker_devices.length === 0) {
+      this._legacyMasterEntities = [raw2.drink_master_entities];
+    }
+    delete raw2.drink_master_entities;
+    // Stash legacy Profile Lock UUID for lazy migration (only when no
+    // tracker devices and no legacy entity IDs are already queued).
+    if (raw2.drink_target_profile &&
+        raw2.drink_tracker_devices.length === 0 &&
+        !this._legacyMasterEntities) {
+      this._legacyProfileLock = String(raw2.drink_target_profile);
+    }
+    delete raw2.drink_target_profile;
     // HA contract: throw on invalid config so HA renders an error card with
     // the message. We check for null/undefined (key missing in YAML) but NOT
     // empty string — getStubConfig() returns { device_id: '' } when the card
     // is first added in the visual editor, and that stub case should render
     // the friendly "Please select a device" placeholder in render(), not an
-    // error card.
-    if (config.device_id == null) {
+    // error card. A multi-tracker card may legitimately have an empty
+    // device_id, so the check is skipped when drink_tracker_devices is set
+    // (or a legacy migration is pending).
+    if (config.device_id == null &&
+        !(config as any).drink_tracker_devices?.length &&
+        !this._legacyMasterEntities) {
       throw new Error(localize('en', 'setconfig.error.device_required'));
     }
     const prevDeviceId = this.config?.device_id;
+    const prevTrackersKey = this._trackerConfigKey();
     // Store the raw user config without baking in defaults (#18). All read
     // sites already use the `!== false` pattern (treating undefined as true),
     // so the defaults were redundant — and baking them in polluted persisted
     // YAML and masked future default changes. Now the stored config contains
     // only what the user explicitly set.
     this.config = config;
-    // If the device changed, the cached entity map is stale — drop it so the
-    // next _resolveEntities() call re-scans for the new device's entities.
-    if (prevDeviceId !== this.config.device_id) {
+    // If the device changed OR the trackers config changed, the cached entity
+    // map is stale — drop it so the next _resolveEntities() call re-scans.
+    if (prevDeviceId !== this.config.device_id || prevTrackersKey !== this._trackerConfigKey()) {
       this._invalidateEntityCache();
     }
   }
@@ -349,6 +437,25 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     if (!this.hass || !this.config) {
       return { medicationName: 'Medication', metrics: [] };
     }
+    // ── Multi-tracker state machine (Phase 3) ──
+    // When drink_tracker_devices is populated, return the active tracker's
+    // pre-computed entities. The trackers array (built by _resolveTrackers)
+    // already calls _computeEntities per tracker, so this is a cache hit — no
+    // duplicate O(n) scan. Switching profile invalidates _resolvedEntities so
+    // the next call re-resolves. Validation failures set _trackersError; the
+    // caller (render) checks _trackersError and shows the placeholder instead.
+    if (this._isMultiTrackerMode()) {
+      const trackers = this._resolveTrackers();
+      if (trackers.length === 0) {
+        return { medicationName: 'Medication', metrics: [] };
+      }
+      const idx = Math.min(this._activeTrackerIndex, trackers.length - 1);
+      this._resolvedEntities = trackers[idx].entities;
+      this._resolvedDeviceId = trackers[idx].deviceId;
+      this._resolvedEntitiesRef = this.hass.entities;
+      return this._resolvedEntities;
+    }
+    // ── Single-device (legacy) path ──
     const deviceId = this.config.device_id;
     const entitiesRef = this.hass.entities;
     if (
@@ -366,11 +473,395 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   }
 
   /** Force the next _resolveEntities() call to re-scan. Also clears the
-   *  drinks-of-substance cache so a device_id change re-scans granular drinks. */
+    *  drinks-of-substance + profile-name caches so a device_id change
+    *  re-scans granular drinks and profiles. */
   private _invalidateEntityCache(): void {
     this._resolvedEntities = null;
     this._resolvedEntitiesRef = null;
     this._drinksCache = null;
+    this._profilesCache = null;
+    this._trackersCache = null;
+  }
+
+  // ── Multi-Tracker State Machine (Phase 2/3) ──
+  // The card has two modes:
+  //   - Multi-tracker (state machine): drink_tracker_devices populated (≥1).
+  //     _resolveTrackers() builds the array; _resolveEntities() returns the
+  //     active tracker's entities; panels render unchanged.
+  //   - Single device (legacy): drink_tracker_devices empty → fall back to
+  //     device_id. _resolveEntities() uses the original device_id path.
+  //
+  // Auto-discovery (P2.2): when drink_tracker_devices is empty/absent AND the
+  // configured device_id is NOT a Drink Tracker device, scan hass.entities for
+  // all drink_master: True entities (collecting their device IDs). If the
+  // found set is a single substance → auto-whitelist all of them. If multiple
+  // substances → render the "please select" placeholder (do NOT silently mix
+  // substances). When the configured device_id IS a Drink Tracker device
+  // (legacy master card), the single-device path is used (migration in
+  // setConfig converts it to the multi-tracker array so this branch is the
+  // zero-config fallback only).
+
+  /** True when the card is running the multi-tracker state machine. */
+  private _isMultiTrackerMode(): boolean {
+    return Array.isArray(this.config?.drink_tracker_devices) &&
+      (this.config!.drink_tracker_devices!.length > 0);
+  }
+
+  /** Resolve the configured Drink Tracker devices into ResolvedTracker[].
+   *  Cached keyed by the hass.entities reference + a config-derived key (so a
+   *  config change forces a rebuild). For each selected device, resolves its
+   *  single `drink_master: True` body-mass entity and validates single-substance.
+   *  Sets _trackersError on failure and returns an empty array so render()
+   *  shows the error placeholder. */
+  private _resolveTrackers(): ResolvedTracker[] {
+    if (!this.hass || !this.config) return [];
+    const entitiesRef = this.hass.entities;
+    const configKey = this._trackerConfigKey();
+    // Cache hit.
+    if (
+      this._trackersCache &&
+      this._trackersCache.entitiesRef === entitiesRef &&
+      this._trackersCache.configKey === configKey &&
+      this._resolvedTrackers.length > 0
+    ) {
+      return this._resolvedTrackers;
+    }
+    let deviceIds = Array.isArray(this.config.drink_tracker_devices)
+      ? this.config.drink_tracker_devices.slice()
+      : [];
+    // ── Lazy legacy migrations (hass is now available) ──
+    // Both stashes were queued by setConfig (which runs pre-hass). Resolve
+    // them to device IDs here, persist into drink_tracker_devices, and clear.
+    // Dead entities / UUIDs are skipped (don't hard-fail); auto-discovery
+    // takes over if the stash resolves to nothing.
+    if (deviceIds.length === 0 && this._legacyMasterEntities) {
+      const legacyEntityIds = this._legacyMasterEntities;
+      this._legacyMasterEntities = null;
+      const migrated: string[] = [];
+      for (const entityId of legacyEntityIds) {
+        if (!entityId) continue;
+        const info = this.hass.entities[entityId];
+        if (!info) continue; // dead entity — skip
+        if (this._getAttr(entityId, 'drink_master') !== true) continue; // not a tracker
+        if (info.device_id) migrated.push(info.device_id);
+      }
+      if (migrated.length > 0) {
+        deviceIds = migrated;
+        // Persist the migration so the array is saved on next config write.
+        (this.config as any).drink_tracker_devices = migrated;
+      }
+    }
+    if (deviceIds.length === 0 && this._legacyProfileLock) {
+      const lockUuid = this._legacyProfileLock;
+      this._legacyProfileLock = null;
+      for (const [entityId, info] of Object.entries(this.hass.entities)) {
+        if (
+          this._getAttr(entityId, 'drink_master') === true &&
+          this._getAttr(entityId, 'profile_id') === lockUuid &&
+          (info as any).device_id
+        ) {
+          deviceIds = [(info as any).device_id];
+          // Persist the migration so the array is saved on next config write.
+          (this.config as any).drink_tracker_devices = deviceIds;
+          break;
+        }
+      }
+    }
+    // ── Auto-discovery fallback (zero-config) ──
+    if (deviceIds.length === 0) {
+      const did = this.config?.device_id;
+      // Only auto-discover when there is no explicit non-tracker device
+      // selected. A configured medicine / granular-drink card must NOT be
+      // hijacked by a global scan for Drink Tracker devices — that would
+      // render the mixed-substance error placeholder instead of the medicine
+      // card when the install also has Caffeine + Alcohol trackers. Empty
+      // device_id (zero-config) and a device_id that IS a Drink Tracker
+      // (legacy master card) both legitimately fall through to discovery.
+      if (!did || this._masterEntityForDevice(did)) {
+        deviceIds = this._autoDiscoverMasterDevices();
+      }
+    }
+    // Build trackers, validating each device.
+    const trackers: ResolvedTracker[] = [];
+    const seenSubstances = new Set<'caffeine' | 'alcohol'>();
+    for (const deviceId of deviceIds) {
+      if (!deviceId) continue;
+      const entityId = this._masterEntityForDevice(deviceId);
+      if (!entityId) {
+        // Not a Drink Tracker device (no drink_master: True entity on it).
+        this._trackersError = localize(this._lang, 'card.trackers_error_not_master');
+        this._resolvedTrackers = [];
+        this._trackersCache = { entitiesRef, configKey };
+        return [];
+      }
+      const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+      if (substance !== 'caffeine' && substance !== 'alcohol') {
+        this._trackersError = localize(this._lang, 'card.trackers_error_not_master');
+        this._resolvedTrackers = [];
+        this._trackersCache = { entitiesRef, configKey };
+        return [];
+      }
+      seenSubstances.add(substance as 'caffeine' | 'alcohol');
+      const profileId = (this._getAttr(entityId, 'profile_id') as string) || '';
+      const profileName = (this._getAttr(entityId, 'profile_name') as string) || 'Default';
+      const entities = this._computeEntities(deviceId);
+      trackers.push({ entityId, deviceId, profileId, profileName, substance: substance as 'caffeine' | 'alcohol', entities });
+    }
+    // ── Single-substance validation ──
+    if (seenSubstances.size > 1) {
+      this._trackersError = localize(this._lang, 'card.trackers_error_mixed_substance');
+      this._resolvedTrackers = [];
+      this._trackersCache = { entitiesRef, configKey };
+      return [];
+    }
+    this._trackersError = null;
+    this._resolvedTrackers = trackers;
+    this._trackersCache = { entitiesRef, configKey };
+    // Clamp the active index to bounds + read localStorage persistence.
+    this._activeTrackerIndex = this._readActiveTrackerIndex(trackers.length);
+    return trackers;
+  }
+
+  /** Resolve the single `drink_master: True` body-mass entity living on a
+   *  Drink Tracker device, or '' if the device is not a Drink Tracker. Only
+   *  DrinkMasterSensor carries `drink_master: True` and there is exactly one
+   *  per tracker device, so the match is unambiguous. */
+  private _masterEntityForDevice(deviceId: string): string {
+    if (!this.hass || !deviceId) return '';
+    for (const [entityId, info] of Object.entries(this.hass.entities)) {
+      if ((info as any).device_id === deviceId &&
+          this._getAttr(entityId, 'drink_master') === true) {
+        return entityId;
+      }
+    }
+    return '';
+  }
+
+  /** Auto-discover all Drink Tracker devices (devices hosting a
+   *  `drink_master: True` entity). Returns their device IDs, de-duplicated.
+   *  The caller (_resolveTrackers) validates single-substance; if multiple
+   *  substances are found, the card renders the placeholder. */
+  private _autoDiscoverMasterDevices(): string[] {
+    if (!this.hass) return [];
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const [entityId, info] of Object.entries(this.hass.entities)) {
+      if (this._getAttr(entityId, 'drink_master') !== true) continue;
+      const devId = (info as any).device_id;
+      if (devId && !seen.has(devId)) {
+        seen.add(devId);
+        ids.push(devId);
+      }
+    }
+    return ids;
+  }
+
+  /** True when auto-discovery found multiple substances (render the
+   *  placeholder). Only relevant in zero-config mode (drink_tracker_devices
+   *  empty). A configured array is validated in _resolveTrackers instead. */
+  private _autoDiscoveryIsMultiSubstance(): boolean {
+    const deviceIds = this._autoDiscoverMasterDevices();
+    if (deviceIds.length === 0) return false;
+    const substances = new Set<string>();
+    for (const deviceId of deviceIds) {
+      const entityId = this._masterEntityForDevice(deviceId);
+      if (!entityId) continue;
+      const s = (this._getAttr(entityId, 'substance') || '').toLowerCase();
+      if (s) substances.add(s);
+    }
+    return substances.size > 1;
+  }
+
+  /** A stable key derived from drink_tracker_devices for localStorage scoping. */
+  private _trackerConfigKey(): string {
+    const ids = Array.isArray(this.config?.drink_tracker_devices)
+      ? this.config!.drink_tracker_devices!
+      : [];
+    return ids.slice().sort().join('|');
+  }
+
+  /** localStorage persistence: store the last-used _activeTrackerIndex keyed by
+   *  a hash of drink_tracker_devices so a shared dashboard remembers each
+   *  browser's last view. Clamp to array bounds (handles a removed tracker). */
+  private _readActiveTrackerIndex(length: number): number {
+    if (length === 0) return 0;
+    const key = `ax-dose-logger:tracker-idx:${this._trackerConfigKey()}`;
+    let stored = 0;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw !== null) {
+        const n = parseInt(raw, 10);
+        if (!isNaN(n)) stored = n;
+      }
+    } catch { /* localStorage unavailable */ }
+    if (stored < 0 || stored >= length) return 0;
+    return stored;
+  }
+
+  /** Persist the active tracker index to localStorage (called on switch). */
+  private _persistActiveTrackerIndex(): void {
+    const key = `ax-dose-logger:tracker-idx:${this._trackerConfigKey()}`;
+    try {
+      window.localStorage.setItem(key, String(this._activeTrackerIndex));
+    } catch { /* localStorage unavailable */ }
+  }
+
+  /** The active tracker, or null when not in multi-tracker mode / no trackers. */
+  private _activeTracker(): ResolvedTracker | null {
+    if (!this._isMultiTrackerMode()) return null;
+    const trackers = this._resolveTrackers();
+    if (trackers.length === 0) return null;
+    const idx = Math.min(this._activeTrackerIndex, trackers.length - 1);
+    return trackers[idx];
+  }
+
+  /** Switch the active profile (header switcher). Persists + re-renders. */
+  private _switchTracker(index: number): void {
+    const trackers = this._resolveTrackers();
+    if (index < 0 || index >= trackers.length) return;
+    this._activeTrackerIndex = index;
+    this._persistActiveTrackerIndex();
+    this._showProfileSwitcher = false;
+    // Invalidate downstream caches so panels re-resolve for the new tracker.
+    this._resolvedEntities = null;
+    this._drinksCache = null;
+    this.requestUpdate();
+  }
+
+  /** True when the card is in zero-config auto-discovery mode:
+   *  drink_tracker_devices is empty/absent AND no explicit non-tracker
+   *  device_id is selected. The card then scans hass.entities for all
+   *  drink_master: True entities (collecting their device IDs). A configured
+   *  drink_tracker_devices array is NOT auto-discovery (it's explicit
+   *  multi-tracker). A configured medicine / granular-drink device_id is also
+   *  NOT auto-discovery — it's an explicit single-device card, and running the
+   *  global tracker scan here would hijack it (rendering the mixed-substance
+   *  error placeholder instead of the medicine card when the install also has
+   *  Caffeine + Alcohol trackers). Only an empty device_id (zero-config) OR a
+   *  device_id that already points at a Drink Tracker (legacy master card)
+   *  fall through to discovery. The discriminator reuses
+   *  _masterEntityForDevice() (returns '' for any non-tracker device). Used by
+   *  render() to decide whether to run the trackers-validation path before the
+   *  device_id fallback. */
+  private _autoDiscoveryActive(): boolean {
+    if (this._isMultiTrackerMode()) return false;
+    const did = this.config?.device_id;
+    if (did && !this._masterEntityForDevice(did)) return false;
+    return true;
+  }
+
+  /** The active tracker's display name (for the header switcher chip). Empty
+   *  when not in multi-tracker mode or no trackers resolved. */
+  private _activeTrackerName(): string {
+    return this._activeTracker()?.profileName ?? '';
+  }
+
+  /** Render the trackers error placeholder (non-master entity or mixed
+   *  substance). Shown in place of the card so the admin can fix the config. */
+  private _renderTrackersError(): TemplateResult {
+    const msg = this._trackersError || localize(this._lang, 'card.trackers_error_generic');
+    return html`
+      <ha-card>
+        <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
+          <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size: 48px; opacity: 0.5; margin-bottom: 12px;"></ha-icon>
+          <div style="font-size: 16px; font-weight: calc(500 * var(--pill-font-weight-boost, 1)); color: var(--primary-text-color);">${localize(this._lang, 'card.trackers_error_title')}</div>
+          <div style="font-size: 14px; color: var(--secondary-text-color);">${msg}</div>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  /** Render the "please select" placeholder (zero-config multi-substance
+   *  household or no master trackers found). */
+  private _renderTrackersPlaceholder(): TemplateResult {
+    return html`
+      <ha-card>
+        <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
+          <ha-icon icon="mdi:account-group" style="--mdc-icon-size: 48px; opacity: 0.5; margin-bottom: 12px;"></ha-icon>
+          <div style="font-size: 16px; font-weight: calc(500 * var(--pill-font-weight-boost, 1)); color: var(--primary-text-color);">${localize(this._lang, 'card.trackers_placeholder_title')}</div>
+          <div style="font-size: 14px; color: var(--secondary-text-color);">${localize(this._lang, 'card.trackers_placeholder_subtitle')}</div>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  /** Render the header profile switcher popup (shown when N>1). Lists the
+   *  configured trackers as buttons; tapping one switches the active profile. */
+  private _renderProfileSwitcher(): TemplateResult {
+    const trackers = this._resolveTrackers();
+    const close = () => { this._showProfileSwitcher = false; };
+    return html`
+      <ha-dialog open width="small" @closed=${close}>
+        <div slot="header" class="dialog-header">${localize(this._lang, 'card.profile_switcher_title')}</div>
+        <div class="dialog-body">
+          <div class="log-drink-grid">
+            ${trackers.map((t, i) => html`
+              <button
+                class="dialog-btn log-drink-btn ${i === this._activeTrackerIndex ? 'active' : ''}"
+                @click=${delayedAction(() => this._switchTracker(i))}
+              >
+                <ha-ripple></ha-ripple>
+                <ha-icon icon="mdi:account"></ha-icon>
+                <span class="log-drink-name">${t.profileName}</span>
+              </button>
+            `)}
+          </div>
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn dialog-btn--muted" @click=${close}>
+            ${localize(this._lang, 'dialog.cancel')}
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+  }
+
+  // ── M2M Multi-Profile — profile UUID → display-name map ──
+  // Builds a { profileId: profileName } map by scanning hass.entities for
+  // drink_master: True and reading the profile_id + profile_name state
+  // attributes (exposed by DrinkMasterSensor in the backend). The map is
+  // cached keyed by the hass.entities reference (HA replaces it on registry
+  // updates), mirroring the _drinksCache pattern. Used by:
+  //   - The Log Drink popup profile picker (shared drinks) — to show
+  //     human-readable profile names on the sub-list buttons.
+  //   - The multi-tracker header switcher (active profile display name).
+  // Fallbacks:
+  //   - profile_name null/missing → "Default" (the legacy singleton).
+  //   - A UUID in a drink's allowed_profiles with no matching master sensor
+  //     (profile deleted but not yet scrubbed) → not in the map; the popup
+  //     falls back to a truncated-UUID label. The backend _validate_profile_id
+  //     guard raises HomeAssistantError if a dead UUID is actually submitted.
+  private _getProfileNameMap(): Record<string, string> {
+    if (!this.hass) return {};
+    const entitiesRef = this.hass.entities;
+    if (
+      this._profilesCache &&
+      this._profilesCache.entitiesRef === entitiesRef
+    ) {
+      return this._profilesCache.map;
+    }
+    const map: Record<string, string> = {};
+    for (const [entityId] of Object.entries(this.hass.entities)) {
+      if (this._getAttr(entityId, 'drink_master') !== true) continue;
+      const pid = this._getAttr(entityId, 'profile_id');
+      if (typeof pid !== 'string' || !pid) continue;
+      const pname = this._getAttr(entityId, 'profile_name');
+      map[pid] = (typeof pname === 'string' && pname) ? pname : 'Default';
+    }
+    this._profilesCache = { entitiesRef, map };
+    return map;
+  }
+
+  /** Resolve a display name for a profile UUID, with a truncated-UUID
+   *  fallback when the profile is not found in the map (deleted / not yet
+   *  loaded). The fallback shows the first 4 chars + "…" so the user sees
+   *  *something* rather than a blank; the backend guard prevents a real log
+   *  to a dead UUID. */
+  private _profileDisplayName(profileId: string): string {
+    const map = this._getProfileNameMap();
+    const name = map[profileId];
+    if (name) return name;
+    return profileId.length > 8 ? `${profileId.slice(0, 4)}…` : profileId;
   }
 
   private _computeEntities(deviceId: string): ResolvedEntities {
@@ -910,15 +1401,19 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // pk_model. Avg sensors also carry window_days to distinguish 7/365.
   private _getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[] {
     if (!this.hass) return [];
-    // Cache hit: if the substance + entity-registry reference are unchanged
-    // since the last scan, return the cached result. DrinkInfo stores only
-    // entity IDs (stable), so the cache is valid until the registry reference
-    // changes or is explicitly invalidated.
+    // Cache hit: if the substance + entity-registry reference + active profile
+    // are unchanged since the last scan, return the cached result. DrinkInfo
+    // stores only entity IDs (stable), so the cache is valid until the registry
+    // reference changes or is explicitly invalidated. The active profile ID is
+    // part of the key so a profile switch re-scans with a different filter
+    // (Phase 2 multi-tracker inventory filtering).
     const entitiesRef = this.hass.entities;
+    const activeProfileId = this._activeTracker()?.profileId ?? '';
     if (
       this._drinksCache &&
       this._drinksCache.substance === substance &&
-      this._drinksCache.entitiesRef === entitiesRef
+      this._drinksCache.entitiesRef === entitiesRef &&
+      this._drinksCache.activeProfileId === activeProfileId
     ) {
       return this._drinksCache.drinks;
     }
@@ -940,7 +1435,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       // sensors). Store entity_id for state lookups / service calls.
       const role = this._getAttr(entityId, 'role');
       if (entityId.startsWith('button.')) {
-        if (role === 'log') info.logButtonEntityId = entityId;
+        if (role === 'log') {
+          info.logButtonEntityId = entityId;
+          // M2M: read allowed_profiles from the DrinkLogButton attribute so
+          // the popup can decide single-tap vs. profile-picker without a
+          // second entity lookup on every render. config_entry_id is needed
+          // for the log_drink service call (entry_id field). Both are read
+          // once here and cached in DrinkInfo.
+          const ap = this._getAttr(entityId, 'allowed_profiles');
+          if (Array.isArray(ap)) info.allowedProfiles = ap.map(String);
+          if (entityInfo.config_entry_id) info.configEntryId = entityInfo.config_entry_id;
+        }
         else if (role === 'undo') info.undoButtonEntityId = entityId;
         else if (role === 'reset') info.resetButtonEntityId = entityId;
       } else if (entityId.startsWith('number.')) {
@@ -958,10 +1463,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       }
       byDevice[deviceId] = info;
     }
-    const result = Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+    let result = Object.values(byDevice).sort((a, b) => a.name.localeCompare(b.name));
+    // ── Phase 2: inventory filtering by active profile ──
+    // In multi-tracker mode, only drinks the active profile is allowed to log
+    // render. Switching profile remounts the Drinks panel with a different
+    // drink set. Single-device mode (activeProfileId === '') skips the filter.
+    if (activeProfileId) {
+      result = result.filter(d => (d.allowedProfiles ?? []).includes(activeProfileId));
+    }
     // Cache the scan result so subsequent calls (e.g. _relevantStateChanged
     // on every HA state change while inventory pane is active) skip the scan.
-    this._drinksCache = { substance, entitiesRef, drinks: result };
+    this._drinksCache = { substance, entitiesRef, drinks: result, activeProfileId };
     return result;
   }
 
@@ -977,11 +1489,53 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     return { hasDaysSensor: true, daysSince: Math.max(0, days) };
   }
 
-  private _logDrink(logButtonEntityId: string): void {
+  /** Log a granular drink via the ax_dose_logger.log_drink service.
+   *
+   *  M2M routing: the optional targetProfile routes the PK payload to a
+   *  specific profile's Master Tracker. When omitted, the backend applies
+   *  the single-profile convenience default (single/zero-profile drinks) or
+   *  raises for shared drinks (the popup resolves the target before calling
+   *  so this path only receives an omitted target for single/zero-profile
+   *  drinks). The local inventory always decrements regardless.
+   *
+   *  Phase 2 active-profile inheritance: when no explicit targetProfile is
+   *  passed AND the card is in multi-tracker mode, the active tracker's
+   *  profileId is the implicit default — the popup's single-tap path (which
+   *  calls _logDrink with no target) routes to the active profile for shared
+   *  drinks the active profile is allowed to log. The popup's profile-picker
+   *  path passes an explicit targetProfile (the user picked a profile manually
+   *  from the sub-list restricted to _resolvedTrackers). N=1 cards never show
+   *  a sub-list — one-tap, always the sole profile.
+   *
+   *  Replaces the prior button.press call: the DrinkLogButton is stateless
+   *  and raises HomeAssistantError for multi-profile drinks (cannot carry a
+   *  per-press target_profile). The service path is the backend's documented
+   *  contract for the card. entry_id is resolved from the log button's
+   *  config_entry_id (hass.entities).
+   */
+  private _logDrink(logButtonEntityId: string, targetProfile?: string): void {
     if (!this.hass || !logButtonEntityId) return;
-    this.hass.callService('button', 'press', { entity_id: logButtonEntityId });
+    // Resolve the drink's config entry id (required for the service call).
+    const entryId = this.hass.entities[logButtonEntityId]?.config_entry_id;
+    if (!entryId) {
+      console.warn('[ax-dose-logger-card] _logDrink: no config_entry_id for', logButtonEntityId);
+      return;
+    }
+    // Phase 2: apply the active tracker's profile as the implicit default when
+    // no explicit target was passed. The popup passes an explicit target from
+    // the picker; the single-tap path passes nothing, so the active profile
+    // kicks in here for shared drinks the active profile is allowed to log.
+    // In single-device mode (no active tracker) the effective target is
+    // undefined → backend convenience default / single-profile short-circuit.
+    const activeProfileId = this._activeTracker()?.profileId;
+    const effectiveTarget = targetProfile ?? activeProfileId;
+    this.hass.callService('ax_dose_logger', 'log_drink', {
+      entry_id: entryId,
+      ...(effectiveTarget ? { target_profile: effectiveTarget } : {}),
+    });
     this._showLogDrinkDialog = false;
     this._logDrinkSubstance = null;
+    this._logDrinkProfileTarget = null;
     // Trigger the transient ACK flash on the Drinks panel's Log Drink button.
     this._triggerDrinksAck();
   }
@@ -1076,6 +1630,49 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       this._drinksAckTimer = undefined;
       this.requestUpdate();
     }, Math.max(500, duration));
+  }
+
+  /**
+   * Cancel an in-flight Daily ACK (the "Logged" flash on the Take Pill
+   * button). Called when the user navigates away from the Daily pane while
+   * the flash is still playing. Pane navigation destroys the daily-panel DOM
+   * (render is conditional on _activePane), so the CSS animation is gone —
+   * but without this cancel, the surviving _dailyAckActive flag would remount
+   * a fresh .ack-flash div on return and replay the animation from t=0. This
+   * mirrors the cleanup the fade-timer callback and disconnectedCallback
+   * already perform. No requestUpdate() here — _handlePaneChange's own
+   * _activePane mutation already triggers the render that drops the panel.
+   */
+  private _cancelDailyAck(): void {
+    if (this._dailyAckTimer !== undefined) {
+      window.clearTimeout(this._dailyAckTimer);
+      this._dailyAckTimer = undefined;
+    }
+    if (this._dailyFreezeTimer !== undefined) {
+      window.clearTimeout(this._dailyFreezeTimer);
+      this._dailyFreezeTimer = undefined;
+    }
+    this._dailyFrozenState = null;
+    this._dailyAckActive = false;
+    this._dailyAckCount = 0;
+  }
+
+  /**
+   * Cancel an in-flight Drinks ACK (the "Logged" flash on the Log Drink
+   * button). Mirrors _cancelDailyAck for the Drinks pane.
+   */
+  private _cancelDrinksAck(): void {
+    if (this._drinksAckTimer !== undefined) {
+      window.clearTimeout(this._drinksAckTimer);
+      this._drinksAckTimer = undefined;
+    }
+    if (this._drinksFreezeTimer !== undefined) {
+      window.clearTimeout(this._drinksFreezeTimer);
+      this._drinksFreezeTimer = undefined;
+    }
+    this._drinksFrozenState = null;
+    this._drinksAckActive = false;
+    this._drinksAckCount = 0;
   }
 
   /**
@@ -1416,8 +2013,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public bucketByDay(dayCount?: number): DayBucket[] { return this._bucketByDay(dayCount); }
   public daysSinceReveal(entities: ResolvedEntities): { hasDaysSensor: boolean; daysSince: number } { return this._daysSinceReveal(entities); }
   public getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[] { return this._getDrinksOfSubstance(substance); }
+  /** M2M: enumerate all profiles as dropdown options. Returns
+   *  [{ value: uuid, label: name }] sorted by name. Used by the visual editor
+   *  + the multi-tracker header switcher. Delegates to the cached
+   *  _getProfileNameMap. */
+  public getProfileOptions(): Array<{ value: string; label: string }> {
+    const map = this._getProfileNameMap();
+    return Object.entries(map)
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
   public drinkDaysSinceReveal(avg365EntityId?: string): { hasDaysSensor: boolean; daysSince: number } { return this._drinkDaysSinceReveal(avg365EntityId); }
-  public logDrink(logButtonEntityId: string): void { this._logDrink(logButtonEntityId); }
+  public logDrink(logButtonEntityId: string, targetProfile?: string): void { this._logDrink(logButtonEntityId, targetProfile); }
   public undoDrink(undoButtonEntityId: string): void { this._undoDrink(undoButtonEntityId); }
   public resetDrink(resetButtonEntityId: string): void { this._resetDrink(resetButtonEntityId); }
   public handleTakePill(entities: ResolvedEntities): void { this._handleTakePill(entities); }
@@ -1493,6 +2100,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   private _handlePaneChange(paneId: 'daily' | 'graphs' | 'stats' | 'drinks' | 'inventory' | 'tools' | 'tracking'): void {
     if (paneId === this._activePane) return; // Guard: skip redundant execution
+
+    // If leaving the Daily / Drinks pane while a "Logged" ACK flash is still
+    // playing, cancel it now. Pane navigation destroys the panel DOM (render
+    // is conditional on _activePane), so the CSS animation is gone; without
+    // this cancel, the surviving _dailyAckActive/_drinksAckActive flag would
+    // remount a fresh .ack-flash div on return and replay the animation.
+    // See plans/ack-navigate-away-replay-fix-plan.md.
+    if (this._activePane === 'daily') this._cancelDailyAck();
+    else if (this._activePane === 'drinks') this._cancelDrinksAck();
+
     this._activePane = paneId;
 
     // Default the graphs carousel to the Amount in Body line graph when the
@@ -1601,18 +2218,36 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     `;
   }
 
-  // Log Drink popup (Master Tracker Drinks panel). Shows a grid of granular
-  // drink buttons for the master's substance; pressing one calls button.press
-  // on that drink's DrinkLogButton and closes the dialog.
+  // Log Drink popup (Master Tracker Drinks panel). Phase 2 multi-tracker flow:
+  //   1. Drink grid — tap a drink to log it. The active profile is the one-tap
+  //      default for any drink the active profile is allowed to log. N=1 cards
+  //      NEVER show a sub-list (one-tap, always the sole profile). A shared
+  //      drink the active profile is NOT allowed to log (but another
+  //      configured tracker is) switches to the profile sub-list (step 2).
+  //   2. Profile sub-list — "Who is logging this?" — shows the configured
+  //      trackers ∩ the drink's allowed_profiles (view scope = logging scope)
+  //      as name buttons; tap one to log_drink with that profile's UUID. Back
+  //      returns to the drink grid.
+  // Logging calls _logDrink() which uses the ax_dose_logger.log_drink service
+  // (not button.press — the stateless button raises for shared drinks).
   private _renderLogDrinkDialog() {
     const substance = this._logDrinkSubstance;
     if (!substance) return nothing;
     const drinks = this._getDrinksOfSubstance(substance);
+    // Phase 2: the active tracker is the one-tap default for any drink the
+    // active profile is allowed to log. N=1 cards never show a sub-list
+    // (one-tap, always the sole profile). N>1 cards show a profile sub-list
+    // for shared drinks, restricted to the card's configured trackers (view
+    // scope = logging scope), NOT the drink's full allowed_profiles.
+    const trackers = this._resolveTrackers();
+    const activeProfileId = this._activeTracker()?.profileId ?? '';
+    const singleTracker = trackers.length <= 1;
     const close = () => {
       this._showLogDrinkDialog = false;
       this._logDrinkSubstance = null;
       this._drinkLowPredictions = {};
       this._predictLowToken++; // invalidate any in-flight fetch
+      this._logDrinkProfileTarget = null; // reset the profile sub-step
     };
     // Format the predicted Low-band wall-clock time as HH:MM (24-hour, no
     // date, no seconds) — matches the Stats panel's Low - Timestamp format.
@@ -1639,6 +2274,63 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       );
       return `${localize(this._lang, 'dialog.log_drink.predicted_low')}: ${hhmm}`;
     };
+
+    // ── Step 2: profile sub-list for a shared drink ──
+    // Rendered when _logDrinkProfileTarget is set (the user tapped a shared
+    // drink). Shows the configured trackers (view scope = logging scope) as
+    // name buttons + a Back button to return to the drink grid. The sub-list is
+    // restricted to _resolvedTrackers, NOT the drink's full allowed_profiles —
+    // a profile not on this card cannot be logged from this card. The active
+    // profile is NOT specially marked (it's just one option in the list); the
+    // user explicitly chose to log for a different profile by reaching step 2.
+    const target = this._logDrinkProfileTarget;
+    if (target) {
+      // Intersect the drink's allowed_profiles with the card's configured
+      // tracker profile IDs (logging scope = view scope). Falls back to the
+      // drink's allowed_profiles when not in multi-tracker mode (single-device
+      // cards still support the legacy picker for shared drinks).
+      const allowedSet = new Set(target.allowedProfiles);
+      const subListProfiles = singleTracker
+        ? target.allowedProfiles
+        : trackers
+            .map(t => t.profileId)
+            .filter(pid => allowedSet.has(pid));
+      const substanceIcon = substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine';
+      return html`
+        <ha-dialog
+          open
+          width="small"
+          @closed=${close}
+        >
+          <div slot="header" class="dialog-header">${target.drinkName}</div>
+          <div class="dialog-body">
+            <div class="tools-dialog-descriptor">${localize(this._lang, 'dialog.log_drink.select_profile')}</div>
+            <div class="log-drink-grid">
+              ${subListProfiles.map((pid) => html`
+                <button
+                  class="dialog-btn log-drink-btn"
+                  @click=${delayedAction(() => this._logDrink(target.logButtonEntityId, pid))}
+                >
+                  <ha-ripple></ha-ripple>
+                  <ha-icon icon="mdi:account"></ha-icon>
+                  <span class="log-drink-name">${this._profileDisplayName(pid)}</span>
+                </button>
+              `)}
+            </div>
+          </div>
+          <div class="custom-action-bar">
+            <button class="dialog-btn dialog-btn--muted" @click=${() => { this._logDrinkProfileTarget = null; }}>
+              ${localize(this._lang, 'dialog.log_drink.back')}
+            </button>
+            <button class="dialog-btn dialog-btn--muted" @click=${close}>
+              ${localize(this._lang, 'dialog.cancel')}
+            </button>
+          </div>
+        </ha-dialog>
+      `;
+    }
+
+    // ── Step 1: drink grid ──
     return html`
       <ha-dialog
         open
@@ -1650,18 +2342,50 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           ${drinks.length === 0
             ? html`<div class="tools-dialog-descriptor">${localize(this._lang, 'dialog.log_drink.empty')}</div>`
             : html`<div class="log-drink-grid">
-                ${drinks.map((d) => html`
-                  <button
-                    class="dialog-btn log-drink-btn"
-                    ?disabled=${!d.logButtonEntityId}
-                    @click=${delayedAction(() => d.logButtonEntityId && this._logDrink(d.logButtonEntityId))}
-                  >
-                    <ha-ripple ?disabled=${!d.logButtonEntityId}></ha-ripple>
-                    <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
-                    <span class="log-drink-name">${d.name}</span>
-                    <span class="log-drink-low">${formatLow(d.logButtonEntityId)}</span>
-                  </button>
-                `)}
+                ${drinks.map((d) => {
+                  // Decide single-tap vs. profile-picker (Phase 2):
+                  //   - N=1 (single tracker or single-device) → NEVER show a
+                  //     sub-list. One-tap log to the sole/active profile.
+                  //   - The active profile is in the drink's allowed_profiles
+                  //     → one-tap log to the active profile (the common case).
+                  //   - Otherwise (a shared drink the active profile is NOT
+                  //     allowed to log, but another configured tracker is) →
+                  //     switch to the profile sub-list (step 2), restricted to
+                  //     _resolvedTrackers ∩ the drink's allowed_profiles.
+                  //   - allowedProfiles length ≤ 1 → one-tap (backend
+                  //     convenience default / inventory only for zero-profile).
+                  const ap = d.allowedProfiles ?? [];
+                  const activeCanLog = activeProfileId !== '' && ap.includes(activeProfileId);
+                  const isShared = !singleTracker && ap.length >= 2 && !activeCanLog;
+                  return html`
+                    <button
+                      class="dialog-btn log-drink-btn"
+                      ?disabled=${!d.logButtonEntityId}
+                      @click=${delayedAction(() => {
+                        if (!d.logButtonEntityId) return;
+                        if (isShared) {
+                          // Show the profile sub-list for this shared drink.
+                          this._logDrinkProfileTarget = {
+                            drinkName: d.name,
+                            logButtonEntityId: d.logButtonEntityId,
+                            allowedProfiles: d.allowedProfiles!,
+                          };
+                        } else {
+                          // One-tap log: active profile (multi-tracker) or
+                          // backend default (single/zero-profile). The active
+                          // profile is applied inside _logDrink when no explicit
+                          // targetProfile is passed.
+                          this._logDrink(d.logButtonEntityId);
+                        }
+                      })}
+                    >
+                      <ha-ripple ?disabled=${!d.logButtonEntityId}></ha-ripple>
+                      <ha-icon icon=${substance === 'caffeine' ? 'mdi:coffee' : 'mdi:glass-wine'}></ha-icon>
+                      <span class="log-drink-name">${d.name}</span>
+                      <span class="log-drink-low">${formatLow(d.logButtonEntityId)}</span>
+                    </button>
+                  `;
+                })}
               </div>`}
         </div>
         <div class="custom-action-bar">
@@ -2479,8 +3203,35 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       return html`<ha-card><div class="card-content">${localize('en', 'card.loading')}</div></ha-card>`;
     }
 
+    // ── Multi-tracker state machine (Phase 3) ──
+    // When drink_tracker_devices is populated (or auto-discovery is active),
+    // the card runs the state machine and ignores device_id. Validation
+    // failures (non-master entity, mixed substance) render an error placeholder.
+    // Zero-config multi-substance discovery renders a "please select" placeholder.
+    // A multi-tracker card may legitimately have an empty device_id, so these
+    // checks run BEFORE the device_id empty-check below.
+    if (this._isMultiTrackerMode() || this._autoDiscoveryActive()) {
+      const trackers = this._resolveTrackers();
+      // Validation error (non-master entity or mixed substance).
+      if (this._trackersError) {
+        return this._renderTrackersError();
+      }
+      // Zero-config auto-discovery found multiple substances → placeholder.
+      if (trackers.length === 0 && this._autoDiscoveryIsMultiSubstance()) {
+        return this._renderTrackersPlaceholder();
+      }
+      // No master trackers found at all (zero-config, empty household).
+      if (trackers.length === 0 && !this.config.device_id) {
+        return this._renderTrackersPlaceholder();
+      }
+      // Trackers resolved → fall through to the main render (entities resolved
+      // by _resolveEntities() return the active tracker's bundle). The header
+      // profile switcher is rendered when N>1 (added to the main render below).
+    }
+
     // Graceful fallback when the card is first added and no device is selected
-    if (!this.config.device_id) {
+    // (single-device mode). Multi-tracker mode bypassed this above.
+    if (!this.config.device_id && !this._isMultiTrackerMode()) {
       return html`
         <ha-card>
           <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
@@ -2518,9 +3269,68 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // this._activePane always points at a valid pane for the current device
     // before render() runs.
 
+    // Unified card title — shown at the top of .card-content on every pane
+    // for both card types, so the title is consistent across all panels:
+    //   - Drink Master (N>=1): [ Substance ]  -  [ ProfileName (chevron N>1) ]
+    //     The substance button opens the device-info dialog; the profile button
+    //     opens the profile-switcher popup when N>1, or the device-info dialog
+    //     when N=1 (keeps the row visually consistent so single-user cards still
+    //     show "Caffeine - Adam" rather than a bare substance label). The '-' is
+    //     a non-interactive divider.
+    //   - Medicine (default): a single centered button showing
+    //     "MedName - Strength" (e.g. "Ritalin - 10 mg") that opens device-info.
+    //     This supersedes the old per-Daily-pane .med-name div — the title now
+    //     appears on Graphs, Stats, Tools, and Tracking too, matching the Drink
+    //     Master card's consistent title across all panes.
+    let cardTitle: TemplateResult | typeof nothing = nothing;
+    if (entities.deviceType === 'drink_master') {
+      const substanceLabel = entities.substance === 'alcohol'
+        ? localize(this._lang, 'drinks.alcohol')
+        : localize(this._lang, 'drinks.caffeine');
+      const trackers = this._resolveTrackers();
+      const profileName = this._activeTrackerName() || localize(this._lang, 'drinks.default_profile');
+      const multi = trackers.length > 1;
+      cardTitle = html`
+        <div class="card-title-row">
+          <button class="card-title-btn"
+            role="button" tabindex="0"
+            aria-label=${substanceLabel}
+            @click=${delayedAction(() => this.showDeviceInfo())}
+            @keydown=${(ev: KeyboardEvent) => this.onKeyActivate(ev, () => this.showDeviceInfo())}
+          ><ha-ripple></ha-ripple>${substanceLabel}</button>
+          <span class="card-title-divider" aria-hidden="true">-</span>
+          <button class="card-title-btn${multi ? ' is-selector' : ''}"
+            role="button" tabindex="0"
+            aria-label=${profileName}
+            @click=${delayedAction(() => multi
+              ? (this._showProfileSwitcher = true)
+              : this.showDeviceInfo())}
+            @keydown=${(ev: KeyboardEvent) => this.onKeyActivate(ev, () => multi
+              ? (this._showProfileSwitcher = true)
+              : this.showDeviceInfo())}
+          ><ha-ripple></ha-ripple><span class="card-title-name">${profileName}</span>${multi
+            ? html`<ha-icon icon="mdi:chevron-down" class="card-title-chevron"></ha-icon>`
+            : nothing}</button>
+        </div>
+      `;
+    } else {
+      // Medicine card — single centered title button (MedName - Strength).
+      const medName = this._getMedName(entities);
+      cardTitle = html`
+        <div class="card-title-row">
+          <button class="card-title-btn"
+            role="button" tabindex="0"
+            aria-label=${medName}
+            @click=${delayedAction(() => this.showDeviceInfo())}
+            @keydown=${(ev: KeyboardEvent) => this.onKeyActivate(ev, () => this.showDeviceInfo())}
+          ><ha-ripple></ha-ripple>${medName}</button>
+        </div>
+      `;
+    }
     return html`
       <ha-card style="${this._getColorOverrides()}; --pill-text-offset: ${this.config?.big_text === true ? '0px' : '-2px'}; --pill-font-weight-boost: ${this.config?.bold_text === true ? '1.5' : '1'};">
         <div class="card-content">
+          ${cardTitle}
           ${this._activePane === 'daily' ? html`<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive} .ackCount=${this._dailyAckCount}></ax-dose-daily-panel>` : nothing}
           ${this._activePane === 'graphs' ? html`<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : nothing}
           ${this._activePane === 'stats' ? html`<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : nothing}
@@ -2530,6 +3340,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           ${this._activePane === 'tracking' ? html`<ax-dose-tracking-panel .controller=${this} .entities=${entities} .hass=${this.hass}></ax-dose-tracking-panel>` : nothing}
         </div>
         ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector(entities) : nothing}
+        ${this._showProfileSwitcher ? this._renderProfileSwitcher() : nothing}
         ${this._showDeviceInfo ? this._renderDeviceInfoDialog(entities) : nothing}
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : nothing}
         ${this._showLogDrinkDialog ? this._renderLogDrinkDialog() : nothing}
@@ -2712,6 +3523,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       '_toolsDialog',
       '_overrideDialog',
       '_trackingOverrideDialog',
+      // Profile switcher + multi-tracker state machine. Without these three
+      // keys in the whitelist, shouldUpdate returns false on the @state
+      // mutation (no hass change, no other whitelisted prop) and the dialog
+      // open/close + profile selection is deferred until the next whitelisted
+      // event (the 30s _tick timer), matching the reported ~40s delay.
+      // _showProfileSwitcher gates the popup open/close; _activeTrackerIndex
+      // gates the profile switch re-render; _logDrinkProfileTarget gates the
+      // Log Drink popup profile sub-step.
+      '_showProfileSwitcher',
+      '_activeTrackerIndex',
+      '_logDrinkProfileTarget',
       // ACK flash state — the fade-timer expiry sets _dailyAckActive = false
       // and _dailyAckCount = 0, then calls requestUpdate(). Without these in
       // the whitelist, shouldUpdate returns false (no hass change, no other
@@ -2919,6 +3741,55 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       --ha-ripple-color: var(--primary-color, #03a9f4);
       --ha-ripple-hover-opacity: 0.04;
       --ha-ripple-pressed-opacity: 0.12;
+    }
+
+    /* ── Unified Card Title ──
+       Shown at the top of .card-content on every pane for both card types
+       (Drink Master and Medicine), so the title is consistent across all
+       panels. For Drink Master (N>=1): two invisible buttons (substance +
+       profile) separated by a '-' divider, with a trailing chevron-down on
+       the profile button when N>1. For Medicine: a single centered button
+       showing "MedName - Strength". Typography: 20px, weight 600, with
+       ha-ripple press feedback. Replaces the old card-header
+       .profile-switcher-bar (N>1 only), the per-pane .drinks-title, and the
+       per-Daily-pane .med-name div. */
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: calc(20px + var(--pill-text-offset, 0px));
+      font-weight: 600;
+      color: var(--primary-text-color, #222);
+      z-index: 1;  /* global z-axis protection — glow bleeds behind title */
+    }
+    .card-title-btn {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--ha-card-border-radius, 12px);
+      border: none;
+      background: none;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+    }
+    .card-title-btn:hover {
+      background: var(--secondary-background-color, rgba(0,0,0,0.04));
+    }
+    .card-title-divider {
+      opacity: 0.5;
+      user-select: none;
+    }
+    .card-title-name {
+       /* profile name text — inherits title typography from the button */
+     }
+    .card-title-chevron {
+      --mdc-icon-size: 18px;
+      opacity: 0.6;
     }
 
     *, *::before, *::after {

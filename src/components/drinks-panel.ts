@@ -3,8 +3,8 @@
 // ──────────────────────────────────────────────
 // Shown when the selected device is a Master Tracker (Caffeine Tracker /
 // Alcohol Tracker). Layout mirrors the Daily pane exactly:
-//   - Centered .drinks-title (20px, weight 600, opens device-info dialog)
-//     — identical to Daily's .med-name.
+//   - Title row is rendered by the card container (ax-dose-logger-card.ts)
+//     as a unified Substance - Profile row shown on every pane.
 //   - .daily-main two-column row:
 //       Left  (.log-drink-btn, flex:1): tinted-primary "Log Drink" button
 //              styled like Daily's .take-pill-btn.safe (icon + label column).
@@ -137,10 +137,6 @@ export class AxDoseDrinksPanel extends LitElement {
     const e = this.entities;
     const substance = e.substance;
     const cfg = c.config;
-    const substanceLabel = substance === 'alcohol'
-      ? localize(this._lang, 'drinks.alcohol')
-      : localize(this._lang, 'drinks.caffeine');
-
     // Log Drink button overrides — icon/label fall back to substance-aware
     // defaults when unset (mdi:coffee for caffeine, mdi:glass-mug-variant for
     // alcohol; "Log Drink" label). Mirrors the Daily panel's take_pill_icon /
@@ -259,12 +255,6 @@ export class AxDoseDrinksPanel extends LitElement {
 
     return html`
       <div class="pane pane-drinks">
-        <div class="drinks-title"
-             role="button" tabindex="0"
-             aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${delayedAction(() => c.showDeviceInfo())}
-             @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showDeviceInfo())}
-        ><ha-ripple></ha-ripple>${substanceLabel}</div>
 
         <div class="daily-main">
           <div class="log-drink-wrap${this._logDrinkGlowWrapClass() ? ' ' + this._logDrinkGlowWrapClass() : ''}"
@@ -400,19 +390,6 @@ export class AxDoseDrinksPanel extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 12px;
-    }
-
-    .drinks-title {
-      font-size: calc(20px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-      text-align: center;
-      cursor: pointer;
-      /* position:relative + overflow:hidden clip the ha-ripple surface. */
-      position: relative;
-      overflow: hidden;
-      border-radius: var(--ha-card-border-radius, 12px);
-      z-index: 1;  /* global z-axis protection — glow bleeds behind title (Patch 1, belt-and-suspenders) */
     }
 
     /* ── .daily-main / .stats-column — verbatim from daily-panel.ts ── */

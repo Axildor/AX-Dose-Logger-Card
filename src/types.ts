@@ -190,8 +190,45 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
    *  in milliseconds. Default 3000. */
   drink_button_ack_duration_ms?: number;
   /** Speed of the rotating ring animation on the Log Drink button.
-   *  'slow' (6s) / 'medium' (4s, default) / 'fast' (2.2s). */
+    *  'slow' (6s) / 'medium' (4s, default) / 'fast' (2.2s). */
   drink_button_ring_speed?: RingSpeed;
+
+  // ── Multi-User (M2M) — Multi-Tracker State Machine ──
+  /** M2M multi-tracker binding: an array of 1..N **Drink Tracker device IDs**
+   *  (the Caffeine Tracker / Alcohol Tracker virtual devices, whose single
+   *  body-mass `DrinkMasterSensor` carries `drink_master: True`). All selected
+   *  devices MUST share the same substance (Caffeine OR Alcohol — the card
+   *  validates at load and renders an error placeholder if mixed).
+   *
+   *  When populated (≥1 entry), the card runs the multi-profile state machine:
+   *  - `_activeTrackerIndex` selects the active profile whose sensors drive
+   *    all panels (Graph, Stats, Drinks, Inventory, Tools).
+   *  - A header profile switcher toggles the active profile when N>1.
+   *  - The Log Drink popup one-tap-defaults to the active profile; a shared
+   *    drink may still be logged for a different configured tracker via a
+   *    profile sub-list restricted to this array (view scope = logging scope).
+   *  - localStorage persists the last-used index per card config.
+   *
+   *  When empty/absent, the card falls back to `device_id` (single medicine /
+   *  granular drink card — unchanged behavior). Zero-config single-substance
+   *  households auto-discover all matching Drink Tracker devices;
+   *  multi-substance households render a "please select" placeholder.
+   *
+   *  Configured via the "Drink Trackers" device multi-select below the
+   *  Medicine Device selector in the visual editor. Lazy migration from the
+   *  legacy `drink_master_entities` (entity IDs) and `drink_target_profile`
+   *  (Profile Lock UUID) fields happens in _resolveTrackers() on first load.
+   *  See plans/drink-tracker-selector-rename-plan.md. */
+  drink_tracker_devices?: string[];
+
+  /** @deprecated Legacy form of drink_tracker_devices holding entity IDs
+   *  (the body-mass sensors) instead of device IDs. Kept only so setConfig can
+   *  read it once and lazily migrate to drink_tracker_devices (resolved via
+   *  hass.entities[id].device_id on first _resolveTrackers call, since
+   *  setConfig runs before hass is available). Removed from persisted config
+   *  immediately on setConfig so it doesn't linger in YAML. Do NOT add new
+   *  reads of this field outside the migration path. */
+  drink_master_entities?: string[];
 }
 
 /**
@@ -326,6 +363,33 @@ export interface ResolvedEntities {
 }
 
 /**
+ * One resolved Drink Tracker in the multi-tracker state machine (Phase 2).
+ * Built by _resolveTrackers() from drink_tracker_devices (or auto-discovery).
+ * The active tracker's `entities` drives ALL panels — the state machine swaps
+ * the entity bundle ahead of the panels, so panels receive a normal
+ * ResolvedEntities and need zero internal change. profileId/profileName/
+ * substance are read from the Drink Tracker body-mass sensor's state
+ * attributes (drink_master: True).
+ */
+export interface ResolvedTracker {
+  /** The body-mass sensor entity_id (`drink_master: True`, no role) — the
+   *  canonical Drink Tracker entity resolved from the selected device, whose
+   *  device_id feeds _computeEntities(). */
+  entityId: string;
+  /** The device_id of this Drink Tracker device — passed to _computeEntities()
+   *  and the source of the selector config (drink_tracker_devices entry). */
+  deviceId: string;
+  /** Immutable profile UUID (backend profile_id attribute). */
+  profileId: string;
+  /** Mutable display name (backend profile_name attribute). */
+  profileName: string;
+  /** Substance shared by all trackers in the array (validated single). */
+  substance: 'caffeine' | 'alcohol';
+  /** Resolved entity bundle for this tracker's device. */
+  entities: ResolvedEntities;
+}
+
+/**
  * One granular drink of a substance, as enumerated by
  * CardController.getDrinksOfSubstance() for the Master Tracker Drinks popup +
  * Inventory + Tools panels.  Each field is the entity_id of the granular
@@ -343,8 +407,17 @@ export interface DrinkInfo {
   avg7EntityId?: string;
   avg365EntityId?: string;
   /** Per-granular-drink "Est. days left" sensor (DrinkDaysLeftSensor,
-   *  role=days_left). Powers the Inventory panel's col-1 2nd line. */
+    *  role=days_left). Powers the Inventory panel's col-1 2nd line. */
   daysLeftEntityId?: string;
+  /** M2M: list of profile UUIDs allowed to route PK from this drink.
+   *  Read from the DrinkLogButton / DrinkTotalSensor `allowed_profiles`
+   *  attribute. Undefined for backends predating M2M (treated as
+   *  ["default"]). Length ≤ 1 = single/zero-profile (one-tap log); ≥ 2 =
+   *  shared drink (profile picker). */
+  allowedProfiles?: string[];
+  /** The granular drink's config entry id (resolved from hass.entities).
+   *  Required for the log_drink service call (entry_id field). */
+  configEntryId?: string;
 }
 
 /**
@@ -445,6 +518,15 @@ export interface CardController {
    */
   getDrinksOfSubstance(substance: 'caffeine' | 'alcohol'): DrinkInfo[];
   /**
+   * M2M: enumerate all profiles (Drink Settings entries) as dropdown options
+   * for the Profile Lock config field. Returns [{ value: uuid, label: name }]
+   * by scanning hass.entities for drink_master: True and reading the
+   * profile_id + profile_name attributes. Used by the visual editor so the
+   * admin can pick which profile a card is locked to. Cached keyed by the
+   * hass.entities reference (mirrors the drinks cache pattern).
+   */
+  getProfileOptions(): Array<{ value: string; label: string }>;
+  /**
    * Days-since-first-dose reveal for a granular drink, mirroring
    * daysSinceReveal() but reading the `history_start_date` attribute on the
    * drink's 365-day avg sensor (DrinkAvgDosesSensor exposes it) instead of a
@@ -464,8 +546,12 @@ export interface CardController {
   showLogDrinkDialog(substance: 'caffeine' | 'alcohol'): void;
   /** Open the substance-aware Sleep Disruption popup (Master Tracker Drinks panel). */
   showSleepDisruptionDialog(substance: 'caffeine' | 'alcohol'): void;
-  /** Press a granular drink's Log Drink button (Master Tracker Drinks popup). */
-  logDrink(logButtonEntityId: string): void;
+  /** Log a granular drink via the ax_dose_logger.log_drink service
+   *  (Master Tracker Drinks popup). The optional targetProfile routes the
+   *  PK payload to a specific profile's master (M2M). When omitted, the
+   *  backend applies the single-profile convenience default or raises for
+   *  shared drinks (the popup resolves the target before calling). */
+  logDrink(logButtonEntityId: string, targetProfile?: string): void;
   /** Press a granular drink's Undo button (Master Tracker Tools panel). */
   undoDrink(undoButtonEntityId: string): void;
   /** Press a granular drink's Reset button (Master Tracker Tools panel). */

@@ -2,10 +2,12 @@
 // AX Dose Logger Card — Daily Pane (Pane 1)
 // ──────────────────────────────────────────────
 // Presentational component extracted from AxDoseLoggerCard._renderPane1.
-// The highest event-surface pane: med-name (device-info dialog), take-pill
-// button (press / override dialog), safe-to-take box (tap/hold/double-tap
-// actions), pills-left stat-pill (refill dialog), custom chips. Every action
-// calls back into the controller so the container owns the dialog state.
+// The highest event-surface pane: take-pill button (press / override
+// dialog), safe-to-take box (tap/hold/double-tap actions), pills-left
+// stat-pill (refill dialog), custom chips. The medicine title is rendered
+// by the card container (ax-dose-logger-card.ts) as a unified .card-title-row
+// shown on every pane — no title markup here. Every action calls back into
+// the controller so the container owns the dialog state.
 
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -262,13 +264,6 @@ export class AxDoseDailyPanel extends LitElement {
 
     return html`
       <div class="pane pane-daily">
-        <div class="med-name"
-             role="button" tabindex="0"
-             aria-label=${localize(this._lang, 'dialog.device_info.aria')}
-             @click=${delayedAction(() => c.showDeviceInfo())}
-             @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showDeviceInfo())}
-        ><ha-ripple></ha-ripple>${c.getMedName(e)}</div>
-
         <div class="daily-main">
           <div class="take-pill-wrap${this._takeGlowWrapClass() ? ' ' + this._takeGlowWrapClass() : ''}"
                style=${`--ring-duration: ${this._ringDuration()}`}
@@ -445,19 +440,6 @@ export class AxDoseDailyPanel extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 12px;
-    }
-
-    .med-name {
-      font-size: calc(20px + var(--pill-text-offset, 0px));
-      font-weight: 600;
-      color: var(--primary-text-color, #222);
-      text-align: center;
-      cursor: pointer;
-      /* position:relative + overflow:hidden clip the ha-ripple surface. */
-      position: relative;
-      overflow: hidden;
-      border-radius: var(--ha-card-border-radius, 12px);
-      z-index: 1;  /* global z-axis protection — glow bleeds behind title (Patch 1, belt-and-suspenders) */
     }
 
     .daily-main {

@@ -219,30 +219,49 @@ export function uninstallEditorGridAlignment(): void {
 export function buildEditorForm(): { schema: any; computeLabel: any; computeHelper: any } {
   return {
     schema: [
-      // ── Row 1: Device | Name Override ──
-      // Device + Name share a 2-column row; color_scheme moved to its own
-      // full-width row below so its helper text has room to render on one
-      // line (the device picker renders fine in a grid — same width as the
-      // Top/Bottom Box device/entity pickers elsewhere in the editor).
+      // ── Top row: Medicine Device (single) ──
+      // Medicine / granular-drink device selector. Render-time validation
+      // rejects Drink Tracker (Caffeine/Alcohol Tracker) devices here —
+      // those belong in the Drink Trackers selector below. HA's device
+      // selector only supports `integration` filtering (no negative/
+      // attribute filter), so the selector stays unfiltered and the card
+      // renders an error placeholder if a tracker device lands in this slot.
       {
-        type: 'grid',
-        name: '',
-        column_min_width: '200px',
-        schema: [
-          {
-            name: 'device_id',
-            required: true,
-            selector: {
-              device: {
-                filter: { integration: 'ax_dose_logger' },
-              },
-            },
+        name: 'device_id',
+        required: true,
+        selector: {
+          device: {
+            filter: { integration: 'ax_dose_logger' },
           },
-          {
-            name: 'name',
-            selector: { text: {} },
+        },
+      },
+      // ── Middle row: Drink Trackers (multi-device) ──
+      // Drink Tracker device multi-select (the Caffeine Tracker / Alcohol
+      // Tracker virtual devices). When populated (≥1 device), the card runs
+      // the multi-profile state machine and ignores the Medicine Device
+      // selector above. When empty/absent, the card falls back to the
+      // Medicine Device (single medicine / granular drink card — unchanged
+      // behavior). The selector is unfiltered (HA's static ha-form device
+      // selector cannot filter by a custom device model); the card resolves
+      // each selected device to its single `drink_master: True` body-mass
+      // sensor and validates single-substance at load, rendering an error
+      // placeholder on mismatch. Lazy migration from the legacy
+      // `drink_master_entities` (entity IDs) and `drink_target_profile`
+      // (Profile Lock UUID) is handled in setConfig() + _resolveTrackers().
+      // See plans/drink-tracker-selector-rename-plan.md.
+      {
+        name: 'drink_tracker_devices',
+        selector: {
+          device: {
+            multiple: true,
+            filter: { integration: 'ax_dose_logger' },
           },
-        ],
+        },
+      },
+      // ── Below both selectors: Name Override ──
+      {
+        name: 'name',
+        selector: { text: {} },
       },
       // ── Row 2: Color Scheme | Default View ──
       // Color Scheme shares a row with Default View; its one-line helper
@@ -820,6 +839,11 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               },
             ],
           },
+          // Profile Lock removed — subsumed by the Drink Trackers device
+          // multi-select below the Medicine Device selector. N=1 is the new
+          // "lock"; N>1 shows the header profile switcher. Migration handles
+          // legacy drink_target_profile / drink_master_entities configs
+          // transparently in setConfig() + _resolveTrackers().
           {
             type: 'expandable',
             name: 'in_body_box',
