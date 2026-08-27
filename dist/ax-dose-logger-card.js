@@ -1151,6 +1151,40 @@ function resolveButtonState(input) {
     }
     return 'idle';
 }
+/**
+ * Map a backend Dose Status enum sensor state to a ButtonState.
+ *
+ * The backend PillDoseStatusSensor computes the same precedence chain as
+ * resolveButtonState() (limit_reached → limit_24h → not_due/due/overdue →
+ * ok) with point-in-time timers, so the card can consume it directly as the
+ * single source of truth instead of re-deriving the state from 4 entities.
+ *
+ * Returns null for unavailable/unknown/empty states so the caller can fall
+ * back to the legacy derivation (older backends without the sensor).
+ * 'ok' (As-Needed available) maps to 'idle' — the card's no-color default
+ * for an available PRN med, matching the legacy resolver's as-needed path.
+ */
+function mapDoseStatusToButtonState(status) {
+    if (!status || status === 'unavailable' || status === 'unknown')
+        return null;
+    switch (status) {
+        case 'limit_reached':
+            return 'lockout';
+        case 'limit_24h':
+            return 'limit_24h';
+        case 'overdue':
+            return 'latency';
+        case 'due':
+            return 'execution';
+        case 'not_due':
+        case 'ok':
+            return 'idle';
+        default:
+            // Unrecognized enum value (future backend state) — fail open to the
+            // legacy derivation rather than guessing.
+            return null;
+    }
+}
 /** Fixed duration (ms) of the ACK overlay press-in intro (ax-btn-ack-intro /
  *  ax-drink-btn-ack-intro CSS keyframes). The container freezes the resolved
  *  ButtonState for this long after an ACK trigger so the underlying state
@@ -7477,6 +7511,10 @@ class AxDoseLoggerCard extends i$2 {
                     result.strength = entityId;
                 else if (entityId.endsWith('_24h_limit_exceeded'))
                     result.limit24hExceeded = entityId;
+                // Dose Status enum sensor (backend single source of truth for the
+                // button state machine: not_due/due/overdue/limit_reached/limit_24h/ok).
+                else if (entityId.endsWith('_dose_status'))
+                    result.doseStatus = entityId;
             }
             else if (entityId.startsWith('button.')) {
                 if (entityId.endsWith('_take'))
@@ -8300,6 +8338,20 @@ class AxDoseLoggerCard extends i$2 {
         if (this._dailyFrozenState !== null) {
             return this._dailyFrozenState;
         }
+        // ── Primary path: backend Dose Status enum sensor ──
+        // Single source of truth: the backend computes the same state machine
+        // (limit_reached → limit_24h → not_due/due/overdue → ok) with
+        // point-in-time timers, so card and automations can never disagree.
+        // Fail-open: when the sensor is missing (older backend) or
+        // unavailable/unknown, fall through to the legacy 4-entity derivation.
+        if (entities.doseStatus) {
+            const statusState = this._getState(entities.doseStatus);
+            const mapped = mapDoseStatusToButtonState(statusState);
+            if (mapped !== null) {
+                return mapped;
+            }
+        }
+        // ── Legacy fallback: derive from 4 entities (pre-dose_status backends) ──
         // Lockout — always reads the REAL pillsSafeToTake sensor (never the
         // display-swapped entity) so the safety gate is decoupled from the box.
         const safeState = this._getState(entities.pillsSafeToTake);

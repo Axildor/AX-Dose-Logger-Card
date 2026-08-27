@@ -14,6 +14,7 @@ import {
   getAttr as getAttrHelper,
   getTimeframeHours as getTimeframeHoursHelper,
   ACK_INTRO_MS,
+  mapDoseStatusToButtonState,
   resolveButtonState as resolveButtonStateHelper,
 } from './helpers.js';
 import type { ButtonState, ButtonStateInput } from './helpers.js';
@@ -922,6 +923,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         }
         else if (entityId.endsWith('_strength')) result.strength = entityId;
         else if (entityId.endsWith('_24h_limit_exceeded')) result.limit24hExceeded = entityId;
+        // Dose Status enum sensor (backend single source of truth for the
+        // button state machine: not_due/due/overdue/limit_reached/limit_24h/ok).
+        else if (entityId.endsWith('_dose_status')) result.doseStatus = entityId;
       } else if (entityId.startsWith('button.')) {
         if (entityId.endsWith('_take')) result.takeButton = entityId;
         else if (entityId.endsWith('_reset_history')) result.resetButton = entityId;
@@ -1726,6 +1730,21 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     if (this._dailyFrozenState !== null) {
       return this._dailyFrozenState;
     }
+    // ── Primary path: backend Dose Status enum sensor ──
+    // Single source of truth: the backend computes the same state machine
+    // (limit_reached → limit_24h → not_due/due/overdue → ok) with
+    // point-in-time timers, so card and automations can never disagree.
+    // Fail-open: when the sensor is missing (older backend) or
+    // unavailable/unknown, fall through to the legacy 4-entity derivation.
+    if (entities.doseStatus) {
+      const statusState = this._getState(entities.doseStatus);
+      const mapped = mapDoseStatusToButtonState(statusState);
+      if (mapped !== null) {
+        return mapped;
+      }
+    }
+
+    // ── Legacy fallback: derive from 4 entities (pre-dose_status backends) ──
     // Lockout — always reads the REAL pillsSafeToTake sensor (never the
     // display-swapped entity) so the safety gate is decoupled from the box.
     const safeState = this._getState(entities.pillsSafeToTake);

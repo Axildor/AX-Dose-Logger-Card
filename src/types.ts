@@ -329,6 +329,13 @@ export interface ResolvedEntities {
    *  (medicine only, created when daily_limit > 0). Resolved via entity_id
    *  suffix `_24h_limit_exceeded`. Powers the `limit_24h` ButtonState. */
   limit24hExceeded?: string;
+  /** Dose Status enum sensor (backend single source of truth for the button
+   *  state machine). Resolved via entity_id suffix `_dose_status`. States:
+   *  not_due / due / overdue / limit_reached / limit_24h / ok. When present
+   *  and available, the card maps it directly to a ButtonState instead of
+   *  re-deriving the state from 4 entities; the legacy derivation remains
+   *  as a fail-open fallback for older backends. */
+  doseStatus?: string;
   takeButton?: string;
   resetButton?: string;
   undoButton?: string;
