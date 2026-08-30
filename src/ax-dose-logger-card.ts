@@ -1081,9 +1081,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   /** Render the header medicine switcher popup (shown when N>1). Lists the
    *  configured medicines as buttons; tapping one switches the active
-   *  medicine. */
+   *  medicine. Below the grid: the same "To Device Info" + "Medical Color
+   *  Indicators" buttons the single-medicine title popup (device-info dialog)
+   *  offers — the multi-medicine title opens this switcher instead of that
+   *  dialog, so without these the two actions were unreachable. "To Device
+   *  Info" navigates to the ACTIVE medicine's device page (the medicine whose
+   *  bundle drives all panels); omitted when no active medicine resolves
+   *  (transient states). The color-indicator button is gated on
+   *  `show_color_indicator_explainer !== false`, mirroring the device-info
+   *  dialog. */
   private _renderMedicineSwitcher(): TemplateResult {
     const medicines = this._resolveMedicines();
+    const activeDeviceId = this._activeMedicine()?.deviceId;
     const close = () => { this._showMedicineSwitcher = false; };
     return html`
       <ha-dialog open width="small" @closed=${close}>
@@ -1101,6 +1110,24 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
               </button>
             `)}
           </div>
+          ${activeDeviceId ? html`
+            <div class="dialog-body dialog-body--center">
+              <button class="dialog-btn" @click=${delayedAction(() => { close(); this._navigateToDevice(activeDeviceId); })}>
+                <ha-ripple></ha-ripple>
+                <ha-icon icon="mdi:information-outline"></ha-icon>
+                <span>${localize(this._lang, 'dialog.device_info.button')}</span>
+              </button>
+            </div>
+          ` : nothing}
+          ${this.config?.show_color_indicator_explainer !== false ? html`
+            <div class="dialog-body dialog-body--center">
+              <button class="dialog-btn" aria-label=${localize(this._lang, 'dialog.device_info.color_indicators_aria')} @click=${delayedAction(() => { close(); this.showColorExplainerDialog(); })}>
+                <ha-ripple></ha-ripple>
+                <ha-icon icon="mdi:palette-outline"></ha-icon>
+                <span>${localize(this._lang, 'dialog.device_info.color_indicators')}</span>
+              </button>
+            </div>
+          ` : nothing}
         </div>
         <div class="custom-action-bar">
           <button class="dialog-btn dialog-btn--muted" @click=${close}>

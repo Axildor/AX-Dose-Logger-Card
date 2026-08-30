@@ -2521,8 +2521,8 @@ const et=Ee(class extends Ce{constructor(){super(...arguments),this.key=V}render
           <div style="font-size: 14px; color: var(--secondary-text-color);">${e}</div>
         </div>
       </ha-card>
-    `}_renderMedicineSwitcher(){const e=this._resolveMedicines(),t=()=>{this._showMedicineSwitcher=!1};return W`
-      <ha-dialog open width="small" @closed=${t}>
+    `}_renderMedicineSwitcher(){const e=this._resolveMedicines(),t=this._activeMedicine()?.deviceId,i=()=>{this._showMedicineSwitcher=!1};return W`
+      <ha-dialog open width="small" @closed=${i}>
         <div slot="header" class="dialog-header">${Te(this._lang,"card.medicine_switcher_title")}</div>
         <div class="dialog-body">
           <div class="log-drink-grid">
@@ -2537,9 +2537,27 @@ const et=Ee(class extends Ce{constructor(){super(...arguments),this.key=V}render
               </button>
             `)}
           </div>
+          ${t?W`
+            <div class="dialog-body dialog-body--center">
+              <button class="dialog-btn" @click=${He(()=>{i(),this._navigateToDevice(t)})}>
+                <ha-ripple></ha-ripple>
+                <ha-icon icon="mdi:information-outline"></ha-icon>
+                <span>${Te(this._lang,"dialog.device_info.button")}</span>
+              </button>
+            </div>
+          `:V}
+          ${!1!==this.config?.show_color_indicator_explainer?W`
+            <div class="dialog-body dialog-body--center">
+              <button class="dialog-btn" aria-label=${Te(this._lang,"dialog.device_info.color_indicators_aria")} @click=${He(()=>{i(),this.showColorExplainerDialog()})}>
+                <ha-ripple></ha-ripple>
+                <ha-icon icon="mdi:palette-outline"></ha-icon>
+                <span>${Te(this._lang,"dialog.device_info.color_indicators")}</span>
+              </button>
+            </div>
+          `:V}
         </div>
         <div class="custom-action-bar">
-          <button class="dialog-btn dialog-btn--muted" @click=${t}>
+          <button class="dialog-btn dialog-btn--muted" @click=${i}>
             ${Te(this._lang,"dialog.cancel")}
           </button>
         </div>
