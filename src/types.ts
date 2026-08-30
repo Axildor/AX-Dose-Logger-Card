@@ -15,6 +15,14 @@ import type { HomeAssistant, LovelaceCardConfig, ActionConfig } from 'custom-car
 // ──────────────────────────────────────────────
 
 export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
+  /** @deprecated Legacy single-medicine device ID. The single Medicine Picker
+   *  was removed from the visual editor (the Medicines Picker
+   *  `medicine_devices` is now the only medicine picker). Kept only so
+   *  setConfig/willUpdate can read it once and lazily migrate it into
+   *  `medicine_devices` (a legacy device_id pointing at a Drink Tracker keeps
+   *  the legacy master-card path instead). Deleted from persisted config
+   *  after migration. Do NOT add new reads outside the migration path and
+   *  _effectiveDeviceId(). */
   device_id?: string;
   name?: string;
   color_scheme?: string;
@@ -221,6 +229,37 @@ export interface AxDoseLoggerCardConfig extends LovelaceCardConfig {
    *  See plans/drink-tracker-selector-rename-plan.md. */
   drink_tracker_devices?: string[];
 
+  // ── Multi-Medicine State Machine ──
+  /** An array of 1..N **medicine device IDs** for the all-in-one medicine
+   *  card. Unlike the drinks side there is NO substance constraint — any set
+   *  of valid medicine devices is allowed (medicines are independent).
+   *
+   *  This is the ONLY medicine picker in the visual editor (the former single
+   *  `device_id` picker was removed; legacy `device_id` configs are lazily
+   *  migrated into this array in willUpdate via _migrateLegacyDeviceId()).
+   *
+   *  When populated (≥1 entry), the card runs the multi-medicine state
+   *  machine:
+   *  - `_activeMedicineIndex` selects the active medicine whose entity
+   *    bundle drives all panels (Daily, Graphs, Stats, Tracking, Tools) —
+   *    the same entity-swap seam the multi-tracker machine uses, so panels
+   *    need zero internal change.
+   *  - A header title switcher (`MedName ▾`) toggles the active medicine
+   *    when N>1; N=1 renders the plain title (device info on tap).
+   *  - localStorage persists the last-used index per card config.
+   *
+   *  When empty/absent (and no legacy `device_id` migration is pending), the
+   *  card renders the "please select a device" placeholder.
+   *
+   *  Validation (error placeholder on failure): each selected device must be
+   *  an ax_dose_logger device that is NOT a Drink Tracker (no
+   *  `drink_master: True` entity on it — those belong in the Drink Tracker
+   *  picker) and must resolve at least one entity (dead/removed device).
+   *
+   *  Configured via the "Medicines Picker" device multi-select at the top of
+   *  the visual editor. See plans/medicine-multi-select-plan.md. */
+  medicine_devices?: string[];
+
   /** @deprecated Legacy form of drink_tracker_devices holding entity IDs
    *  (the body-mass sensors) instead of device IDs. Kept only so setConfig can
    *  read it once and lazily migrate to drink_tracker_devices (resolved via
@@ -342,6 +381,10 @@ export interface ResolvedEntities {
   adherenceResetButton?: string;
   adherenceCoverButton?: string;
   skipButton?: string;
+  /** Reset Averages button (medicine + granular drink + Master Tracker
+   *  devices). Resolved via the backend `role: "averages_reset"` state
+   *  attribute — the robust pattern shared with the cover/skip buttons. */
+  averagesResetButton?: string;
   pillsLeft?: string;
   addRefill?: string;
   metrics: MetricEntity[];
@@ -393,6 +436,24 @@ export interface ResolvedTracker {
   /** Substance shared by all trackers in the array (validated single). */
   substance: 'caffeine' | 'alcohol';
   /** Resolved entity bundle for this tracker's device. */
+  entities: ResolvedEntities;
+}
+
+/**
+ * One resolved Medicine in the multi-medicine state machine. Built by
+ * _resolveMedicines() from medicine_devices. The active medicine's `entities`
+ * drives ALL panels — the state machine swaps the entity bundle ahead of the
+ * panels (same seam as the multi-tracker machine), so panels receive a normal
+ * ResolvedEntities and need zero internal change. `name` comes from the
+ * device registry and labels the header switcher.
+ */
+export interface ResolvedMedicine {
+  /** The device_id of this medicine device — passed to _computeEntities()
+   *  and the source of the selector config (medicine_devices entry). */
+  deviceId: string;
+  /** Device registry display name (switcher label + title row). */
+  name: string;
+  /** Resolved entity bundle for this medicine's device. */
   entities: ResolvedEntities;
 }
 

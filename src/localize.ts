@@ -16,6 +16,11 @@ const translations: Record<string, Record<string, string>> = {
     'card.trackers_placeholder_title': 'Select Drink Trackers',
     'card.trackers_placeholder_subtitle': 'Please select Caffeine Tracker or Alcohol Tracker devices in the visual editor.',
     'card.profile_switcher_title': 'Switch profile',
+    // ── Multi-Medicine State Machine ──
+    'card.medicines_error_title': 'Invalid Medicine selection',
+    'card.medicines_error_generic': 'The selected Medicines are invalid. Please reconfigure in the visual editor.',
+    'card.medicines_error_not_medicine': 'One or more selected devices are not medicine devices (or are Drink Trackers). Please select only medicine devices.',
+    'card.medicine_switcher_title': 'Switch medicine',
 
     // ── Pane tabs ──
     'pane.daily': 'Daily',
@@ -124,6 +129,7 @@ const translations: Record<string, Record<string, string>> = {
     'tools.dose_header': 'Dose Tools',
     'tools.general_header': 'General Tools',
     'tools.reset_adherence': 'Reset Adherence %',
+    'tools.reset_averages': 'Reset Averages',
     'tools.mark_adherence_taken': 'Mark Last Adherence Taken',
     'tools.skip_dose': 'Skip Dose',
     'tools.reset_history': 'Reset History',
@@ -132,6 +138,7 @@ const translations: Record<string, Record<string, string>> = {
 
     // ── Tools dialog descriptors ──
     'tools.desc.reset_adherence': 'Clears the adherence percentage history for all windows. Does NOT affect Amount in Body, dose count, or any other sensor.',
+    'tools.desc.reset_averages': 'Resets the 7/14/30/365-day averages only. Doses logged before the reset stop counting toward the averages; no dose data is deleted — Total Doses, Amount in Body, and Adherence % are untouched.',
     'tools.desc.mark_adherence_taken': 'Marks the most recent missed dose slot as taken for adherence calculation only. Does NOT add a dose to the pharmacokinetics model or dose count.',
     'tools.desc.skip_dose': 'Skips the current missed scheduled dose slot — clears the overdue alarm and advances the next-dose schedule WITHOUT logging a dose. Amount in Body, pill inventory, total doses, and last dose are untouched. Adherence stays penalized; press "Mark Last Adherence Taken" afterwards for a prescriber-directed skip.',
     'tools.desc.reset_history': 'Clears ALL dose history across every sensor — adherence, Amount in Body, totals, and last dose. This cannot be undone.',
@@ -159,6 +166,7 @@ const translations: Record<string, Record<string, string>> = {
     'dialog.log_drink.unknown_profile': 'Unknown profile',
     'dialog.override.body_scheduled': 'Your next scheduled dose is not until {time}. Take a dose now anyway?',
     'dialog.override.body_as_needed': 'Your next safe dose is not until {time}. Take a dose now anyway?',
+    'dialog.override.body_window': 'Your dose limit resets at {time}. Take a dose now anyway?',
     'dialog.override.body_24h_exceeded': 'You have already exceeded the 24h strength limit for this medication ({time}). Taking another dose increases the risk of adverse effects. Press Override to log the dose anyway.',
     'dialog.override.body_24h_would_exceed': 'Your next dose ({next} {unit}) would push the 24h total to {projected} {unit}, exceeding the {limit} {unit} limit (currently {current} {unit}). Press Override to log the dose anyway.',
     'dialog.override.confirm': 'Override',
@@ -230,7 +238,9 @@ const translations: Record<string, Record<string, string>> = {
     ].join('\n'),
 
     // ── Config form labels ──
-    'config.device_id': 'Medicine Picker',
+    // ('config.device_id' removed — the single Medicine Picker was replaced by
+    // the Medicines Picker (config.medicine_devices); no schema field named
+    // device_id remains in the editor.)
     'config.big_text': 'Large Text',
     'config.bold_text': 'Bold Text',
     'config.default_view': 'Default View',
@@ -277,6 +287,8 @@ const translations: Record<string, Record<string, string>> = {
     'config.drink_chips': 'Custom Boxes',
     // ── M2M Multi-User — Multi-Tracker State Machine ──
     'config.drink_tracker_devices': 'Drink Tracker Picker',
+    // ── Multi-Medicine State Machine ──
+    'config.medicine_devices': 'Medicines Picker',
     // Drink box field labels (the box titles reuse config.chip_N_box above)
     'config.drink_chip_1': 'Box 1 (optional)',
     'config.drink_chip_1_label': 'Box 1 Label',
@@ -410,7 +422,6 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.default_view': 'Falls back to Daily if invalid.',
 
     // ── Config form helpers ──
-    'config.helper.device_id': 'Choose a medicine device. Do NOT select a Caffeine/Alcohol Tracker here — use the Drink Tracker Picker below.',
     'config.helper.big_text': 'Enlarges all card text for easier reading.',
     'config.helper.take_pill_icon': 'Icon for the Take Pill button. Defaults to mdi:pill.',
     'config.helper.take_pill_label': 'Button text. Defaults to "Take Pill". E.g. "Inject Dose", "Apply Cream".',
@@ -452,6 +463,8 @@ const translations: Record<string, Record<string, string>> = {
     'config.helper.drink_chips': 'Show as a box on the Drinks tab.',
     // ── M2M Multi-User — Multi-Tracker helper ──
     'config.helper.drink_tracker_devices': 'Choose Caffeine or Alcohol Tracker devices. Multiple can be selected (all must be the same substance). Leave empty for a single medicine card.',
+    // ── Multi-Medicine State Machine helper ──
+    'config.helper.medicine_devices': 'Choose one or more medicine devices. Multiple devices combine into one card with a title switcher. Do NOT select Caffeine/Alcohol Trackers here — use the Drink Tracker Picker below.',
     'config.helper.drink_chip': 'Show as a box on the Drinks tab.',
     'config.helper.drink_chip_label': "Leave empty to use the entity's name.",
     'config.helper.color_scheme': 'Accent color for the card. *Press card title for more info on indicator colors and the starred colors.',

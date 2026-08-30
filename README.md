@@ -87,7 +87,7 @@ This card is the purpose-built UI for the [**AX Dose Logger**](https://github.co
 ### Visual Editor
 
 1. Edit your dashboard → Add Card → Search for "AX Dose Logger"
-2. Select your **Medicine Device** (top selector), or select one or more **Drink Trackers** (Caffeine/Alcohol Tracker) in the lower selector
+2. Select one or more **Medicines** (top selector — all-in-one medicine card with a switcher when you pick more than one) or one or more **Drink Trackers** (Caffeine/Alcohol Tracker) in the lower selector
 3. Configure color scheme, custom boxes, graph options, and per-box overrides as desired
 
 The visual editor is organized into expandable sections: **Daily Tab**, **Drinks Tab**, and **Graphs Tab**, each with collapsable per-box menus. The full reference table of every config option is in [Advanced-Users.md](Advanced-Users.md#configuration-options).
@@ -225,13 +225,27 @@ A per-granular-drink list of **Undo** and **Reset** buttons. Each opens a confir
 
 ---
 
+### 💊 All-in-One Medicine Card (Multi-Medicine)
+
+Just like the Drinks side, a single card can host **multiple medicine devices**. In the visual editor, pick one or more medicine devices in the **Medicines Picker** (the top selector):
+
+- **Two or more medicines selected** — the card runs the multi-medicine state machine. The card title becomes a switcher (`MedName ▾`) — tap it to pick which medicine the Daily, Graphs, Stats, Tracking, and Tools panes show. Your last-viewed medicine is remembered per browser.
+- **One medicine selected** — the card always renders that single medicine.
+- **No Medicines selected** — the card renders a "please select a device" placeholder.
+
+Selecting a Caffeine/Alcohol Tracker in the Medicines Picker renders an "Invalid Medicine selection" error — trackers belong in the Drink Trackers picker.
+
+> **Upgrading from an older version?** Cards configured with the old single **Medicine Device** selector are migrated automatically — the selected device moves into the Medicines Picker on first load. No manual reconfiguration needed.
+
+---
+
 ### 👥 Multi-Profile (Multi-User)
 
-In a multi-user household using the backend's [M2M multi-profile topology](https://github.com/Axildor/AX-Dose-Logger), each person can have their own **Drink Tracker** device (a Caffeine Tracker or Alcohol Tracker, with a per-profile PK curve). The card's visual editor exposes a **Drink Trackers** device multi-select (just below the **Medicine Device** selector) where you pick one or more of these tracker devices.
+In a multi-user household using the backend's [M2M multi-profile topology](https://github.com/Axildor/AX-Dose-Logger), each person can have their own **Drink Tracker** device (a Caffeine Tracker or Alcohol Tracker, with a per-profile PK curve). The card's visual editor exposes a **Drink Trackers** device multi-select (just below the **Medicines Picker**) where you pick one or more of these tracker devices.
 
 - **One tracker selected** — the card always renders that single profile. Logging a shared drink (e.g. a Coca-Cola device assigned to multiple profiles) is one-tap; it always logs to the selected profile.
 - **Two or more trackers selected (same substance)** — the card runs the multi-profile state machine. A header profile switcher lets you switch the active view, and shared drinks show a **"Who is logging this?"** picker when you tap them so the PK payload routes to the right person. All selected trackers must be the same substance (all Caffeine **or** all Alcohol); mixed selections render an "Invalid Drink Tracker selection" error.
-- **No Drink Trackers selected** — the card falls back to the **Medicine Device** selector (single medicine / granular drink card). Zero-config single-substance households auto-discover all matching tracker devices.
+- **No Drink Trackers selected** — the card falls back to the **Medicines Picker** (single medicine / granular drink card). Zero-config single-substance households auto-discover all matching tracker devices.
 
 Legacy configs that used the old **Master Trackers** entity selector or the **Profile Lock** UUID field are migrated automatically on first load — no manual reconfiguration needed.
 

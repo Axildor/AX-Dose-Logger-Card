@@ -34,6 +34,7 @@ import type {
   CardController,
   ResolvedEntities,
   ResolvedTracker,
+  ResolvedMedicine,
   MetricEntity,
   DayBucket,
   DrinkInfo,
@@ -227,6 +228,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   @state() private _overrideDialog: {
     timeLabel: string;
     bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed'
+      | 'dialog.override.body_window'
       | 'dialog.override.body_24h_exceeded' | 'dialog.override.body_24h_would_exceed';
     entities: ResolvedEntities;
   } | null = null;
@@ -308,9 +310,28 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // Legacy drink_master_entities (entity IDs) stashed by setConfig migration
   // for lazy resolution to drink_tracker_devices (device IDs) in
   // _resolveTrackers. setConfig runs before hass is available, so the
-  // entity→device mapping (hass.entities[id].device_id) cannot run there.
-  // Consumed once then cleared; auto-discovery takes over for dead entities.
+  //   entity→device mapping (hass.entities[id].device_id) cannot run there.
+  //   Consumed once then cleared; auto-discovery takes over for dead entities.
   private _legacyMasterEntities: string[] | null = null;
+
+  // ── Multi-Medicine State Machine ──
+  // Mirrors the multi-tracker machine above for the all-in-one medicine card
+  // (medicine_devices populated). The active medicine's ResolvedEntities
+  // drives ALL panels via the same entity-swap seam (zero panel-internal
+  // change). _activeMedicineIndex is @state so a switch re-renders; it is
+  // persisted to localStorage keyed by a hash of medicine_devices.
+  // _medicinesError is @state so a validation failure (Drink Tracker device
+  // selected, or a dead device) renders the error placeholder.
+  // See plans/medicine-multi-select-plan.md.
+  @state() private _activeMedicineIndex: number = 0;
+  private _resolvedMedicines: ResolvedMedicine[] = [];
+  @state() private _medicinesError: string | null = null;
+  private _medicinesCache: { entitiesRef: object; configKey: string } | null = null;
+  // Header medicine-switcher popup (shown only when N>1).
+  @state() private _showMedicineSwitcher: boolean = false;
+  // One-shot flag for the legacy device_id → medicine_devices migration
+  // (runs in willUpdate once hass is available; see _migrateLegacyDeviceId).
+  private _legacyDeviceIdMigrated: boolean = false;
 
   // In-flight fetch management (#3 + #4):
   //  - Separate per-fetch-type tokens prevent cross-stream invalidation. When
@@ -379,6 +400,13 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     } else if (!Array.isArray(raw2.drink_tracker_devices)) {
       raw2.drink_tracker_devices = [];
     }
+    // Normalize medicine_devices to an array (same HA multi-select quirk).
+    // See plans/medicine-multi-select-plan.md.
+    if (typeof raw2.medicine_devices === 'string') {
+      raw2.medicine_devices = raw2.medicine_devices ? [raw2.medicine_devices] : [];
+    } else if (!Array.isArray(raw2.medicine_devices)) {
+      raw2.medicine_devices = [];
+    }
     // Stash legacy drink_master_entities (entity IDs) for lazy migration.
     if (Array.isArray(raw2.drink_master_entities) && raw2.drink_master_entities.length > 0 &&
         raw2.drink_tracker_devices.length === 0) {
@@ -399,28 +427,34 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     delete raw2.drink_target_profile;
     // HA contract: throw on invalid config so HA renders an error card with
     // the message. We check for null/undefined (key missing in YAML) but NOT
-    // empty string — getStubConfig() returns { device_id: '' } when the card
-    // is first added in the visual editor, and that stub case should render
-    // the friendly "Please select a device" placeholder in render(), not an
-    // error card. A multi-tracker card may legitimately have an empty
-    // device_id, so the check is skipped when drink_tracker_devices is set
-    // (or a legacy migration is pending).
+    // empty string — getStubConfig() returns { medicine_devices: [] } when
+    // the card is first added in the visual editor, and that stub case should
+    // render the friendly "Please select a device" placeholder in render(),
+    // not an error card. A multi-tracker card may legitimately have no
+    // medicine devices, so the check is skipped when drink_tracker_devices is
+    // set (or a legacy migration is pending). A legacy device_id-only config
+    // also passes (it migrates into medicine_devices in willUpdate).
     if (config.device_id == null &&
         !(config as any).drink_tracker_devices?.length &&
+        !(config as any).medicine_devices?.length &&
         !this._legacyMasterEntities) {
       throw new Error(localize('en', 'setconfig.error.device_required'));
     }
     const prevDeviceId = this.config?.device_id;
     const prevTrackersKey = this._trackerConfigKey();
+    const prevMedicinesKey = this._medicineConfigKey();
     // Store the raw user config without baking in defaults (#18). All read
     // sites already use the `!== false` pattern (treating undefined as true),
     // so the defaults were redundant — and baking them in polluted persisted
     // YAML and masked future default changes. Now the stored config contains
     // only what the user explicitly set.
     this.config = config;
-    // If the device changed OR the trackers config changed, the cached entity
-    // map is stale — drop it so the next _resolveEntities() call re-scans.
-    if (prevDeviceId !== this.config.device_id || prevTrackersKey !== this._trackerConfigKey()) {
+    // If the device changed OR the trackers/medicines config changed, the
+    // cached entity map is stale — drop it so the next _resolveEntities()
+    // call re-scans.
+    if (prevDeviceId !== this.config.device_id ||
+        prevTrackersKey !== this._trackerConfigKey() ||
+        prevMedicinesKey !== this._medicineConfigKey()) {
       this._invalidateEntityCache();
     }
   }
@@ -437,6 +471,23 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   private _resolveEntities(): ResolvedEntities {
     if (!this.hass || !this.config) {
       return { medicationName: 'Medication', metrics: [] };
+    }
+    // ── Multi-medicine state machine ──
+    // When medicine_devices is populated, return the active medicine's
+    // pre-computed entities (same entity-swap seam as the tracker machine —
+    // panels need zero internal change). Validation failures set
+    // _medicinesError; the caller (render) checks it and shows the error
+    // placeholder instead. See plans/medicine-multi-select-plan.md.
+    if (this._isMultiMedicineMode()) {
+      const medicines = this._resolveMedicines();
+      if (medicines.length === 0) {
+        return { medicationName: 'Medication', metrics: [] };
+      }
+      const idx = Math.min(this._activeMedicineIndex, medicines.length - 1);
+      this._resolvedEntities = medicines[idx].entities;
+      this._resolvedDeviceId = medicines[idx].deviceId;
+      this._resolvedEntitiesRef = this.hass.entities;
+      return this._resolvedEntities;
     }
     // ── Multi-tracker state machine (Phase 3) ──
     // When drink_tracker_devices is populated, return the active tracker's
@@ -570,7 +621,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
     // ── Auto-discovery fallback (zero-config) ──
     if (deviceIds.length === 0) {
-      const did = this.config?.device_id;
+      // _effectiveDeviceId() returns '' in multi-medicine mode (medicines are
+      // never trackers, so discovery must not hijack that mode) and the legacy
+      // device_id otherwise.
+      const did = this._effectiveDeviceId();
       // Only auto-discover when there is no explicit non-tracker device
       // selected. A configured medicine / granular-drink card must NOT be
       // hijacked by a global scan for Drink Tracker devices — that would
@@ -729,6 +783,229 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this.requestUpdate();
   }
 
+  // ── Multi-Medicine State Machine ──
+  // Mirrors the multi-tracker machine for the all-in-one medicine card
+  // (medicine_devices populated). No substance constraint — medicines are
+  // independent; the only validation is that each selected device is an
+  // ax_dose_logger device that is NOT a Drink Tracker and resolves at least
+  // one entity. See plans/medicine-multi-select-plan.md.
+
+  /** True when the card is running the multi-medicine state machine. */
+  private _isMultiMedicineMode(): boolean {
+    return Array.isArray(this.config?.medicine_devices) &&
+      (this.config!.medicine_devices!.length > 0);
+  }
+
+  /** A stable key derived from medicine_devices for localStorage scoping. */
+  private _medicineConfigKey(): string {
+    const ids = Array.isArray(this.config?.medicine_devices)
+      ? this.config!.medicine_devices!
+      : [];
+    return ids.slice().sort().join('|');
+  }
+
+  /** One-shot lazy migration: legacy single `device_id` → `medicine_devices`.
+   *  The single Medicine Picker was removed from the editor (its required:true
+   *  blocked saving a multi-picker-only config), so existing configs that
+   *  persisted `device_id` are absorbed into `medicine_devices` here on the
+   *  first render pass where hass is available (needed to distinguish a real
+   *  medicine device from a legacy Drink Tracker device — the latter keeps the
+   *  legacy master-card path via auto-discovery). Runs once per element
+   *  instance; the migrated config is written back through setConfig() so the
+   *  persisted YAML is updated and `device_id` is deleted. Called from
+   *  willUpdate(). See plans/medicine-multi-select-plan.md. */
+  private _migrateLegacyDeviceId(): void {
+    if (this._legacyDeviceIdMigrated) return;
+    if (!this.hass || !this.config) return;
+    this._legacyDeviceIdMigrated = true;
+    const did = (this.config as any).device_id;
+    // Nothing to migrate (fresh config / stub / already migrated).
+    if (!did || (Array.isArray(this.config.medicine_devices) && this.config.medicine_devices.length > 0)) {
+      return;
+    }
+    // A legacy device_id pointing at a Drink Tracker device is the legacy
+    // master-card path — leave it for the tracker auto-discovery machinery
+    // (it is NOT a medicine and must not enter medicine_devices).
+    if (this._masterEntityForDevice(did)) return;
+    // Seed medicine_devices with the legacy device and drop device_id from
+    // the persisted config. setConfig() re-normalizes + invalidates caches.
+    this.setConfig({ ...this.config, medicine_devices: [did], device_id: undefined } as any);
+  }
+
+  /** The device the card's single-device code paths should operate on:
+   *  the active medicine's deviceId in multi-medicine mode, else the legacy
+   *  config.device_id (pre-migration configs / legacy master card). Empty
+   *  string when neither is available. */
+  private _effectiveDeviceId(): string {
+    if (this._isMultiMedicineMode()) {
+      return this._activeMedicine()?.deviceId ?? '';
+    }
+    return this.config?.device_id ?? '';
+  }
+
+  /** Resolve the configured medicine devices into ResolvedMedicine[].
+   *  Cached keyed by the hass.entities reference + a config-derived key (so a
+   *  config change forces a rebuild). For each selected device, validates it
+   *  is NOT a Drink Tracker device and resolves its entity bundle. Sets
+   *  _medicinesError on failure and returns an empty array so render()
+   *  shows the error placeholder. */
+  private _resolveMedicines(): ResolvedMedicine[] {
+    if (!this.hass || !this.config) return [];
+    const entitiesRef = this.hass.entities;
+    const configKey = this._medicineConfigKey();
+    // Cache hit.
+    if (
+      this._medicinesCache &&
+      this._medicinesCache.entitiesRef === entitiesRef &&
+      this._medicinesCache.configKey === configKey &&
+      this._resolvedMedicines.length > 0
+    ) {
+      return this._resolvedMedicines;
+    }
+    const deviceIds = Array.isArray(this.config.medicine_devices)
+      ? this.config.medicine_devices.filter((id) => !!id)
+      : [];
+    // Build medicines, validating each device.
+    const medicines: ResolvedMedicine[] = [];
+    for (const deviceId of deviceIds) {
+      // Reject Drink Tracker devices — they belong in the Drink Tracker
+      // picker (the multi-tracker machine handles them).
+      if (this._masterEntityForDevice(deviceId)) {
+        this._medicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
+        this._resolvedMedicines = [];
+        this._medicinesCache = { entitiesRef, configKey };
+        return [];
+      }
+      // Reject devices with no resolvable entities (dead/removed device).
+      const entities = this._computeEntities(deviceId);
+      if (!entities || Object.keys(entities).length === 0) {
+        this._medicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
+        this._resolvedMedicines = [];
+        this._medicinesCache = { entitiesRef, configKey };
+        return [];
+      }
+      const name = this.hass.devices?.[deviceId]?.name
+        || entities.medicationName
+        || 'Medication';
+      medicines.push({ deviceId, name, entities });
+    }
+    if (medicines.length === 0) {
+      this._medicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
+      this._resolvedMedicines = [];
+      this._medicinesCache = { entitiesRef, configKey };
+      return [];
+    }
+    this._medicinesError = null;
+    this._resolvedMedicines = medicines;
+    this._medicinesCache = { entitiesRef, configKey };
+    // Clamp the active index to bounds + read localStorage persistence.
+    this._activeMedicineIndex = this._readActiveMedicineIndex(medicines.length);
+    return medicines;
+  }
+
+  /** localStorage persistence: store the last-used _activeMedicineIndex keyed
+   *  by a hash of medicine_devices so a shared dashboard remembers each
+   *  browser's last view. Clamp to array bounds (handles a removed medicine). */
+  private _readActiveMedicineIndex(length: number): number {
+    if (length === 0) return 0;
+    const key = `ax-dose-logger:medicine-idx:${this._medicineConfigKey()}`;
+    let stored = 0;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw !== null) {
+        const n = parseInt(raw, 10);
+        if (!isNaN(n)) stored = n;
+      }
+    } catch { /* localStorage unavailable */ }
+    if (stored < 0 || stored >= length) return 0;
+    return stored;
+  }
+
+  /** Persist the active medicine index to localStorage (called on switch). */
+  private _persistActiveMedicineIndex(): void {
+    const key = `ax-dose-logger:medicine-idx:${this._medicineConfigKey()}`;
+    try {
+      window.localStorage.setItem(key, String(this._activeMedicineIndex));
+    } catch { /* localStorage unavailable */ }
+  }
+
+  /** The active medicine, or null when not in multi-medicine mode / no
+   *  medicines resolved. */
+  private _activeMedicine(): ResolvedMedicine | null {
+    if (!this._isMultiMedicineMode()) return null;
+    const medicines = this._resolveMedicines();
+    if (medicines.length === 0) return null;
+    const idx = Math.min(this._activeMedicineIndex, medicines.length - 1);
+    return medicines[idx];
+  }
+
+  /** The active medicine's display name (for the header switcher chip). Empty
+   *  when not in multi-medicine mode or no medicines resolved. */
+  private _activeMedicineName(): string {
+    return this._activeMedicine()?.name ?? '';
+  }
+
+  /** Switch the active medicine (header switcher). Persists + re-renders. */
+  private _switchMedicine(index: number): void {
+    const medicines = this._resolveMedicines();
+    if (index < 0 || index >= medicines.length) return;
+    this._activeMedicineIndex = index;
+    this._persistActiveMedicineIndex();
+    this._showMedicineSwitcher = false;
+    // Invalidate downstream caches so panels re-resolve for the new medicine.
+    this._resolvedEntities = null;
+    this._drinksCache = null;
+    this.requestUpdate();
+  }
+
+  /** Render the medicines error placeholder (Drink Tracker device selected or
+   *  a dead device). Shown in place of the card so the admin can fix the
+   *  config. */
+  private _renderMedicinesError(): TemplateResult {
+    const msg = this._medicinesError || localize(this._lang, 'card.medicines_error_generic');
+    return html`
+      <ha-card>
+        <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
+          <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size: 48px; opacity: 0.5; margin-bottom: 12px;"></ha-icon>
+          <div style="font-size: 16px; font-weight: calc(500 * var(--pill-font-weight-boost, 1)); color: var(--primary-text-color);">${localize(this._lang, 'card.medicines_error_title')}</div>
+          <div style="font-size: 14px; color: var(--secondary-text-color);">${msg}</div>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  /** Render the header medicine switcher popup (shown when N>1). Lists the
+   *  configured medicines as buttons; tapping one switches the active
+   *  medicine. */
+  private _renderMedicineSwitcher(): TemplateResult {
+    const medicines = this._resolveMedicines();
+    const close = () => { this._showMedicineSwitcher = false; };
+    return html`
+      <ha-dialog open width="small" @closed=${close}>
+        <div slot="header" class="dialog-header">${localize(this._lang, 'card.medicine_switcher_title')}</div>
+        <div class="dialog-body">
+          <div class="log-drink-grid">
+            ${medicines.map((m, i) => html`
+              <button
+                class="dialog-btn log-drink-btn ${i === this._activeMedicineIndex ? 'active' : ''}"
+                @click=${delayedAction(() => this._switchMedicine(i))}
+              >
+                <ha-ripple></ha-ripple>
+                <ha-icon icon="mdi:pill"></ha-icon>
+                <span class="log-drink-name">${m.name}</span>
+              </button>
+            `)}
+          </div>
+        </div>
+        <div class="custom-action-bar">
+          <button class="dialog-btn dialog-btn--muted" @click=${close}>
+            ${localize(this._lang, 'dialog.cancel')}
+          </button>
+        </div>
+      </ha-dialog>
+    `;
+  }
+
   /** True when the card is in zero-config auto-discovery mode:
    *  drink_tracker_devices is empty/absent AND no explicit non-tracker
    *  device_id is selected. The card then scans hass.entities for all
@@ -746,6 +1023,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    *  device_id fallback. */
   private _autoDiscoveryActive(): boolean {
     if (this._isMultiTrackerMode()) return false;
+    if (this._isMultiMedicineMode()) return false;
     const did = this.config?.device_id;
     if (did && !this._masterEntityForDevice(did)) return false;
     return true;
@@ -943,6 +1221,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           const btnRole = this._getAttr(entityId, 'role');
           if (btnRole === 'cover') result.adherenceCoverButton = entityId;
           else if (btnRole === 'skip') result.skipButton = entityId;
+          else if (btnRole === 'averages_reset') result.averagesResetButton = entityId;
         }
       } else if (entityId.startsWith('number.')) {
         if (entityId.endsWith('_pills_left')) result.pillsLeft = entityId;
@@ -1320,7 +1599,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       const isAsNeeded = tt === 'as_needed' || tt === 'as needed';
 
       let timeLabel: string;
-      let bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed';
+      let bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed'
+        | 'dialog.override.body_window';
 
       if (isAsNeeded) {
         const expiresAt = this._getAttr(entities.pillsSafeToTake, 'window_expires_at');
@@ -1337,7 +1617,26 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         const nextDoseState = this._getState(entities.nextDose);
         const nextDate = (nextDoseState && nextDoseState !== 'unavailable' && nextDoseState !== 'unknown')
           ? new Date(nextDoseState) : null;
-        if (nextDate && !isNaN(nextDate.getTime()) && nextDate > new Date()) {
+
+        // Pill-count window reset (scheduled meds): when the lockout is caused
+        // by the 24h sliding window (not the schedule), the next_dose sensor
+        // can point at a far-future slot (e.g. tomorrow 13:00) while the
+        // actual binding constraint — the rolling window — lifts much sooner
+        // (e.g. oldest dose + 24h − buffer, minutes away). Prefer
+        // window_expires_at when it is valid, in the future, and EARLIER than
+        // the next scheduled slot, so the dialog shows when the limit actually
+        // resets. Mirrors the As-Needed branch above; falls back to the
+        // scheduled message for older backends without the attribute.
+        const windowExpiresAt = this._getAttr(entities.pillsSafeToTake, 'window_expires_at');
+        const windowExpiry = windowExpiresAt ? new Date(windowExpiresAt as string) : null;
+        const windowResetsFirst = windowExpiry !== null && !isNaN(windowExpiry.getTime())
+          && windowExpiry > new Date()
+          && (!nextDate || isNaN(nextDate.getTime()) || windowExpiry < nextDate);
+
+        if (windowResetsFirst) {
+          timeLabel = this._formatOverrideTime(windowExpiry!);
+          bodyKey = 'dialog.override.body_window';
+        } else if (nextDate && !isNaN(nextDate.getTime()) && nextDate > new Date()) {
           timeLabel = this._formatOverrideTime(nextDate);
           bodyKey = 'dialog.override.body_scheduled';
         } else {
@@ -2164,7 +2463,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // ── Device Info Dialog ─────────────────────
 
   private _navigateToDevice(deviceId?: string) {
-    const target = deviceId ?? this.config?.device_id;
+    const target = deviceId ?? this._effectiveDeviceId();
     if (!target) return;
     window.history.pushState(null, '', `/config/devices/device/${target}`);
     window.dispatchEvent(new CustomEvent('location-changed'));
@@ -2789,9 +3088,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   }
 
   private async _fetchDoseHistory(entities: ResolvedEntities) {
-    if (!this.hass || !this.config?.device_id) return;
-
-    const deviceId = this.config.device_id;
+    // _effectiveDeviceId() resolves the active medicine's device in
+    // multi-medicine mode (config.device_id is empty there) — without this,
+    // the Graphs dose-history stream would silently never fetch.
+    const deviceId = this._effectiveDeviceId();
+    if (!this.hass || !deviceId) return;
     // Same race guard as _fetchAmountHistory (both are triggered together on
     // pane entry; a new pane/timeframe change invalidates both via the token).
     const token = ++this._doseFetchToken;
@@ -3202,6 +3503,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    */
   protected willUpdate(changedProps: PropertyValues): void {
     if (!this.config || !this.hass) return;
+    // One-shot legacy device_id → medicine_devices migration (needs hass to
+    // distinguish a medicine device from a legacy Drink Tracker device).
+    // Runs before _resolveEntities() so the very first render already uses
+    // the migrated config.
+    this._migrateLegacyDeviceId();
     if (!(changedProps.has('_activePane') || changedProps.has('config') || changedProps.has('hass'))) return;
     const entities = this._resolveEntities();
     if (entities.deviceType === 'drink') return; // granular drink → placeholder, no fallback
@@ -3222,6 +3528,26 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       return html`<ha-card><div class="card-content">${localize('en', 'card.loading')}</div></ha-card>`;
     }
 
+    // ── Multi-medicine state machine ──
+    // When medicine_devices is populated, the card runs the multi-medicine
+    // state machine and ignores device_id. Validation failures (Drink Tracker
+    // device selected, dead device) render an error placeholder. A
+    // multi-medicine card may legitimately have an empty device_id, so this
+    // check runs BEFORE the device_id empty-check below.
+    // See plans/medicine-multi-select-plan.md.
+    if (this._isMultiMedicineMode()) {
+      const medicines = this._resolveMedicines();
+      if (this._medicinesError) {
+        return this._renderMedicinesError();
+      }
+      // Medicines resolved → fall through to the main render (entities
+      // resolved by _resolveEntities() return the active medicine's bundle).
+      // The header medicine switcher is rendered when N>1 (below).
+      if (medicines.length === 0 && !this._medicinesError) {
+        return this._renderMedicinesError();
+      }
+    }
+
     // ── Multi-tracker state machine (Phase 3) ──
     // When drink_tracker_devices is populated (or auto-discovery is active),
     // the card runs the state machine and ignores device_id. Validation
@@ -3240,7 +3566,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         return this._renderTrackersPlaceholder();
       }
       // No master trackers found at all (zero-config, empty household).
-      if (trackers.length === 0 && !this.config.device_id) {
+      if (trackers.length === 0 && !this._effectiveDeviceId()) {
         return this._renderTrackersPlaceholder();
       }
       // Trackers resolved → fall through to the main render (entities resolved
@@ -3249,8 +3575,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
 
     // Graceful fallback when the card is first added and no device is selected
-    // (single-device mode). Multi-tracker mode bypassed this above.
-    if (!this.config.device_id && !this._isMultiTrackerMode()) {
+    // (single-device mode). Multi-tracker / multi-medicine modes bypassed
+    // this above.
+    if (!this._effectiveDeviceId() && !this._isMultiTrackerMode() && !this._isMultiMedicineMode()) {
       return html`
         <ha-card>
           <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
@@ -3333,16 +3660,27 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         </div>
       `;
     } else {
-      // Medicine card — single centered title button (MedName - Strength).
-      const medName = this._getMedName(entities);
+      // Medicine card — title button (MedName - Strength). In multi-medicine
+      // mode with N>1 the title becomes a switcher chip (chevron + tap opens
+      // the medicine switcher popup), mirroring the drinks profile switcher.
+      // N=1 (or single-device mode) keeps the plain title (device info on
+      // tap). See plans/medicine-multi-select-plan.md.
+      const multiMed = this._isMultiMedicineMode() && this._resolveMedicines().length > 1;
+      const medName = multiMed ? this._activeMedicineName() : this._getMedName(entities);
       cardTitle = html`
         <div class="card-title-row">
-          <button class="card-title-btn"
+          <button class="card-title-btn${multiMed ? ' is-selector' : ''}"
             role="button" tabindex="0"
             aria-label=${medName}
-            @click=${delayedAction(() => this.showDeviceInfo())}
-            @keydown=${(ev: KeyboardEvent) => this.onKeyActivate(ev, () => this.showDeviceInfo())}
-          ><ha-ripple></ha-ripple>${medName}</button>
+            @click=${delayedAction(() => multiMed
+              ? (this._showMedicineSwitcher = true)
+              : this.showDeviceInfo())}
+            @keydown=${(ev: KeyboardEvent) => this.onKeyActivate(ev, () => multiMed
+              ? (this._showMedicineSwitcher = true)
+              : this.showDeviceInfo())}
+          ><ha-ripple></ha-ripple><span class="card-title-name">${medName}</span>${multiMed
+            ? html`<ha-icon icon="mdi:chevron-down" class="card-title-chevron"></ha-icon>`
+            : nothing}</button>
         </div>
       `;
     }
@@ -3360,6 +3698,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         </div>
         ${this.config?.hide_nav_bar !== true ? this._renderPaneSelector(entities) : nothing}
         ${this._showProfileSwitcher ? this._renderProfileSwitcher() : nothing}
+        ${this._showMedicineSwitcher ? this._renderMedicineSwitcher() : nothing}
         ${this._showDeviceInfo ? this._renderDeviceInfoDialog(entities) : nothing}
         ${this._showRefillDialog ? this._renderRefillDialog(entities) : nothing}
         ${this._showLogDrinkDialog ? this._renderLogDrinkDialog() : nothing}
@@ -3553,6 +3892,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       '_showProfileSwitcher',
       '_activeTrackerIndex',
       '_logDrinkProfileTarget',
+      // Medicine switcher + multi-medicine state machine. Same failure mode as
+      // the profile switcher above: without these keys, shouldUpdate returns
+      // false on the @state mutation (no hass change, no other whitelisted
+      // prop) and the MedName ▾ popup open/close + medicine switch is deferred
+      // until the next whitelisted event (the 30s _tick timer), matching the
+      // reported ~40s delay. _showMedicineSwitcher gates the popup open/close;
+      // _activeMedicineIndex gates the medicine switch re-render;
+      // _medicinesError gates the error placeholder render.
+      '_showMedicineSwitcher',
+      '_activeMedicineIndex',
+      '_medicinesError',
       // ACK flash state — the fade-timer expiry sets _dailyAckActive = false
       // and _dailyAckCount = 0, then calls requestUpdate(). Without these in
       // the whitelist, shouldUpdate returns false (no hass change, no other
@@ -3744,7 +4094,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
 
   static getStubConfig() {
     return {
-      device_id: '',
+      medicine_devices: [],
       show_amount_in_body: true,
     };
   }

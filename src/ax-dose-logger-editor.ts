@@ -219,18 +219,24 @@ export function uninstallEditorGridAlignment(): void {
 export function buildEditorForm(): { schema: any; computeLabel: any; computeHelper: any } {
   return {
     schema: [
-      // ── Top row: Medicine Device (single) ──
-      // Medicine / granular-drink device selector. Render-time validation
-      // rejects Drink Tracker (Caffeine/Alcohol Tracker) devices here —
-      // those belong in the Drink Trackers selector below. HA's device
-      // selector only supports `integration` filtering (no negative/
-      // attribute filter), so the selector stays unfiltered and the card
-      // renders an error placeholder if a tracker device lands in this slot.
+      // ── Top row: Medicines (multi-device) — the ONLY medicine picker ──
+      // Medicine device multi-select for the all-in-one medicine card.
+      // This replaced the former single `device_id` picker (removed — its
+      // required:true blocked saving a multi-picker-only config, and the
+      // two pickers were redundant). Legacy configs that persisted
+      // `device_id` are lazily migrated into `medicine_devices` in
+      // setConfig() on first load, so no existing card breaks. The selector
+      // is unfiltered (HA's static ha-form device selector cannot filter by
+      // a custom device model); the card validates each selected device at
+      // load — it must be an ax_dose_logger device that is NOT a Drink
+      // Tracker (no drink_master: True entity on it) and must resolve at
+      // least one entity — rendering an error placeholder on mismatch.
+      // See plans/medicine-multi-select-plan.md.
       {
-        name: 'device_id',
-        required: true,
+        name: 'medicine_devices',
         selector: {
           device: {
+            multiple: true,
             filter: { integration: 'ax_dose_logger' },
           },
         },
@@ -384,11 +390,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               },
               {
                 name: 'safe_to_take_entity',
-                selector: {
-                  entity: {
-                    context: { filter_device_id: 'device_id' },
-                  },
-                },
+                selector: { entity: {} },
               },
               {
                 type: 'grid',
@@ -437,11 +439,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               },
               {
                 name: 'pills_left_entity',
-                selector: {
-                  entity: {
-                    context: { filter_device_id: 'device_id' },
-                  },
-                },
+                selector: { entity: {} },
               },
               {
                 type: 'grid',
@@ -504,11 +502,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'chip_1',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',
@@ -553,11 +547,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'chip_2',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',
@@ -602,11 +592,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'chip_3',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',
@@ -651,11 +637,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'chip_4',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',
@@ -852,11 +834,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
             schema: [
               {
                 name: 'in_body_entity',
-                selector: {
-                  entity: {
-                    context: { filter_device_id: 'device_id' },
-                  },
-                },
+                selector: { entity: {} },
               },
               {
                 type: 'grid',
@@ -913,11 +891,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
               },
               {
                 name: 'disruption_entity',
-                selector: {
-                  entity: {
-                    context: { filter_device_id: 'device_id' },
-                  },
-                },
+                selector: { entity: {} },
               },
               {
                 type: 'grid',
@@ -977,11 +951,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'drink_chip_1',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',
@@ -1026,11 +996,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'drink_chip_2',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',
@@ -1075,11 +1041,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'drink_chip_3',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',
@@ -1124,11 +1086,7 @@ export function buildEditorForm(): { schema: any; computeLabel: any; computeHelp
                   },
                   {
                     name: 'drink_chip_4',
-                    selector: {
-                      entity: {
-                        context: { filter_device_id: 'device_id' },
-                      },
-                    },
+                    selector: { entity: {} },
                   },
                   {
                     type: 'grid',

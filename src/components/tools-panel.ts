@@ -83,6 +83,17 @@ export class AxDoseToolsPanel extends LitElement {
     );
   }
 
+  private _handleResetAverages(entities: ResolvedEntities): void {
+    if (!this.controller.hass || !entities.averagesResetButton) return;
+    this.controller.runToolAction(
+      localize(this._lang, 'tools.reset_averages'),
+      localize(this._lang, 'tools.desc.reset_averages'),
+      () => {
+        this.controller.hass!.callService('button', 'press', { entity_id: entities.averagesResetButton });
+      },
+    );
+  }
+
   private _handleUndoDoseConfirm(entities: ResolvedEntities): void {
     if (!this.controller.hass || !entities.undoButton) return;
     this.controller.runToolAction(
@@ -116,6 +127,17 @@ export class AxDoseToolsPanel extends LitElement {
     );
   }
 
+  private _handleResetAveragesEntity(entityId: string): void {
+    if (!this.controller.hass || !entityId) return;
+    this.controller.runToolAction(
+      localize(this._lang, 'tools.reset_averages'),
+      localize(this._lang, 'tools.desc.reset_averages'),
+      () => {
+        this.controller.hass!.callService('button', 'press', { entity_id: entityId });
+      },
+    );
+  }
+
   private _renderMasterTools(): unknown {
     const substance = this.entities.substance;
     if (!substance) {
@@ -128,7 +150,20 @@ export class AxDoseToolsPanel extends LitElement {
     }
     return html`
       <div class="tools-panel">
-        <div class="tools-section-header">${localize(this._lang, 'tools.drinks_header')}</div>
+        ${this.entities.averagesResetButton ? html`
+          <div class="tools-section-header">${localize(this._lang, 'tools.general_header')}</div>
+          <div class="tools-grid">
+            <button
+              class="tool-btn"
+              @click=${delayedAction(() => this._handleResetAveragesEntity(this.entities.averagesResetButton!))}
+            >
+              <ha-ripple></ha-ripple>
+              <ha-icon icon="mdi:chart-bell-curve-remove"></ha-icon>
+              <span>${localize(this._lang, 'tools.reset_averages')}</span>
+            </button>
+          </div>
+        ` : nothing}
+        <div class="tools-section-header ${this.entities.averagesResetButton ? 'tools-section-header--spaced' : ''}">${localize(this._lang, 'tools.drinks_header')}</div>
         ${drinks.map((d) => html`
           <div class="drink-tool-row">
             <div class="drink-tool-name">
@@ -166,7 +201,7 @@ export class AxDoseToolsPanel extends LitElement {
     const e = this.entities;
     const hasAdhTools = !!(e.adherenceResetButton || e.adherenceCoverButton);
     const hasDoseTools = !!(e.skipButton || e.undoButton);
-    const hasGenTools = !!e.resetButton;
+    const hasGenTools = !!(e.resetButton || e.averagesResetButton);
 
     if (!hasAdhTools && !hasDoseTools && !hasGenTools) {
       return html`
@@ -233,9 +268,19 @@ export class AxDoseToolsPanel extends LitElement {
         ${hasGenTools ? html`
           <div class="tools-section-header tools-section-header--spaced">${localize(this._lang, 'tools.general_header')}</div>
           <div class="tools-grid">
-            ${e.resetButton ? html`
+            ${e.averagesResetButton ? html`
               <button
                 class="tool-btn"
+                @click=${delayedAction(() => this._handleResetAverages(e))}
+              >
+                <ha-ripple></ha-ripple>
+                <ha-icon icon="mdi:chart-bell-curve-remove"></ha-icon>
+                <span>${localize(this._lang, 'tools.reset_averages')}</span>
+              </button>
+            ` : nothing}
+            ${e.resetButton ? html`
+              <button
+                class="tool-btn danger"
                 @click=${delayedAction(() => this._handleResetHistory(e))}
               >
                 <ha-ripple></ha-ripple>
