@@ -1877,12 +1877,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           info.logButtonEntityId = entityId;
           // M2M: read allowed_profiles from the DrinkLogButton attribute so
           // the popup can decide single-tap vs. profile-picker without a
-          // second entity lookup on every render. config_entry_id is needed
-          // for the log_drink service call (entry_id field). Both are read
-          // once here and cached in DrinkInfo.
+          // second entity lookup on every render. The log_drink service call
+          // uses entity_id (server-side registry resolution), so
+          // config_entry_id is no longer needed here.
           const ap = this._getAttr(entityId, 'allowed_profiles');
           if (Array.isArray(ap)) info.allowedProfiles = ap.map(String);
-          if (entityInfo.config_entry_id) info.configEntryId = entityInfo.config_entry_id;
         }
         else if (role === 'undo') info.undoButtonEntityId = entityId;
         else if (role === 'reset') info.resetButtonEntityId = entityId;
@@ -1948,17 +1947,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    *  Replaces the prior button.press call: the DrinkLogButton is stateless
    *  and raises HomeAssistantError for multi-profile drinks (cannot carry a
    *  per-press target_profile). The service path is the backend's documented
-   *  contract for the card. entry_id is resolved from the log button's
-   *  config_entry_id (hass.entities).
+   *  contract for the card. The drink is identified by its log button's
+   *  entity_id; the backend resolves the config entry server-side via the
+   *  entity registry (authoritative — hass.entities[...].config_entry_id is
+   *  NOT reliably serialized by every HA frontend version, which silently
+   *  broke this popup before the entity_id contract was introduced).
    */
   private _logDrink(logButtonEntityId: string, targetProfile?: string): void {
     if (!this.hass || !logButtonEntityId) return;
-    // Resolve the drink's config entry id (required for the service call).
-    const entryId = this.hass.entities[logButtonEntityId]?.config_entry_id;
-    if (!entryId) {
-      console.warn('[ax-dose-logger-card] _logDrink: no config_entry_id for', logButtonEntityId);
-      return;
-    }
     // Phase 2: apply the active tracker's profile as the implicit default when
     // no explicit target was passed. The popup passes an explicit target from
     // the picker; the single-tap path passes nothing, so the active profile
@@ -1968,7 +1964,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     const activeProfileId = this._activeTracker()?.profileId;
     const effectiveTarget = targetProfile ?? activeProfileId;
     this.hass.callService('ax_dose_logger', 'log_drink', {
-      entry_id: entryId,
+      entity_id: logButtonEntityId,
       ...(effectiveTarget ? { target_profile: effectiveTarget } : {}),
     });
     this._showLogDrinkDialog = false;

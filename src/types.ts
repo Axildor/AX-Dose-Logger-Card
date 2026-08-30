@@ -330,7 +330,6 @@ export interface AxDoseLoggerHass extends HomeAssistant {
     device_id?: string;
     platform?: string;
     name?: string;
-    config_entry_id?: string;
   }>;
   devices?: Record<string, { name?: string }>;
 }
@@ -498,9 +497,6 @@ export interface DrinkInfo {
    *  ["default"]). Length ≤ 1 = single/zero-profile (one-tap log); ≥ 2 =
    *  shared drink (profile picker). */
   allowedProfiles?: string[];
-  /** The granular drink's config entry id (resolved from hass.entities).
-   *  Required for the log_drink service call (entry_id field). */
-  configEntryId?: string;
 }
 
 /**
