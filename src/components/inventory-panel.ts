@@ -68,7 +68,10 @@ export class AxDoseInventoryPanel extends LitElement {
     const leftLabel = `${d.name}${unitSegment} ${localize(this._lang, 'inventory.left')}`;
     const stockNum = parseInt(stockState, 10);
     const stockDisplay = isNaN(stockNum) ? '-' : c.formatInteger(String(stockNum));
-    const canRefill = !!d.addStockEntityId;
+    // Capture into a const so the closure below keeps the compiler's narrowing
+    // (property narrowing doesn't survive into arrow-function closures).
+    const addStockEntityId = d.addStockEntityId;
+    const canRefill = !!addStockEntityId;
     // Per-drink "Est. days left" (DrinkDaysLeftSensor). Plain number, no unit
     // suffix (mirrors the master Stats panel's days-left value discipline but
     // without the "days" text — the label already conveys the unit).
@@ -95,10 +98,10 @@ export class AxDoseInventoryPanel extends LitElement {
         <div
           class="stat-pill ${canRefill ? 'clickable' : ''}"
           role=${canRefill ? 'button' : nothing}
-          tabindex=${canRefill ? '0' : nothing}
+          tabindex=${canRefill ? 0 : -1}
           aria-label=${localize(this._lang, 'dialog.refill.aria')}
-          @click=${canRefill && d.addStockEntityId ? delayedAction(() => c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
-          @keydown=${canRefill ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => d.addStockEntityId && c.showRefillDialogFor(d.addStockEntityId, d.name)) : null}
+          @click=${canRefill ? delayedAction(() => c.showRefillDialogFor(addStockEntityId!, d.name)) : null}
+          @keydown=${canRefill ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.showRefillDialogFor(addStockEntityId!, d.name)) : null}
         >
           ${canRefill ? html`<ha-ripple></ha-ripple>` : nothing}
           <div class="stat-pill-header">

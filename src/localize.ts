@@ -37,6 +37,11 @@ const translations: Record<string, Record<string, string>> = {
     'daily.last': 'Last',
     'daily.next': 'Next',
     'daily.overdue': 'Overdue',
+    // Multi-pill slots (backend pills_per_slot > 1): pills still owed in the
+    // current slot, shown on the Take Pill button sub-line in place of the
+    // Next countdown. Never rendered when the attribute is absent (older
+    // backends) or pills_per_slot <= 1 (backend sends null).
+    'daily.slot_remaining': '{count} left this slot',
     'daily.safe_to_take': 'Safe to take',
     'daily.pills_left': 'Pills left',
     'daily.na': 'N/A',
@@ -80,9 +85,16 @@ const translations: Record<string, Record<string, string>> = {
     'stats.adherence_365_day': '365-Day Adherence',
     'stats.adherence_running': '{days}-Day Adherence',
     'stats.amount_last_24h': 'Amount in Last 24h',
+    'stats.daily_remaining': 'Daily Remaining',
+    'stats.safe_to_take': 'Pills Safe to Take',
+    'stats.next_dose': 'Next Dose',
+    'stats.overdue': 'Overdue',
     'stats.sleep_disruption': 'Sleep Disruption',
     'stats.low_timestamp': 'Low - Timestamp',
     'stats.low_hours_until': 'Low - Hours Until',
+    'stats.none_timestamp': 'Sleep-Safe Time',
+    'stats.next_band': 'Next Band',
+    'stats.next_band_in': 'in {minutes}m',
     'stats.days_left': 'Days left',
     'stats.days_left_est': 'Est. days left',
 

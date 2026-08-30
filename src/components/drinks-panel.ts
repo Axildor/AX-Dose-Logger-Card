@@ -289,9 +289,9 @@ export class AxDoseDrinksPanel extends LitElement {
           <div class="stats-column">
             <div class="stat-pill ${inBodyClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex=${inBodyClickable ? '0' : nothing}
+                 tabindex=${inBodyClickable ? 0 : -1}
                  aria-label=${cfg?.in_body_label || localize(this._lang, 'drinks.in_body')}
-                 @click=${inBodyClickable ? delayedAction((ev: MouseEvent) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
+                 @click=${inBodyClickable ? delayedAction((ev: Event) => c.handleInBodyBoxAction(ev, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
                  @keydown=${inBodyClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleInBodyBoxAction(null, 'tap', inBodyActionConfig, inBodyDisplayEntity)) : null}
                  @contextmenu=${ibHasHold ? (ev: Event) => { ev.preventDefault(); c.handleInBodyBoxAction(null, 'hold', inBodyActionConfig, inBodyDisplayEntity); } : null}
                  @dblclick=${ibHasDblClick ? () => c.handleInBodyBoxAction(null, 'double_tap', inBodyActionConfig, inBodyDisplayEntity) : null}>
@@ -302,9 +302,9 @@ export class AxDoseDrinksPanel extends LitElement {
             </div>
             <div class="stat-pill ${disruptionClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex=${disruptionClickable ? '0' : nothing}
+                 tabindex=${disruptionClickable ? 0 : -1}
                  aria-label=${cfg?.disruption_label || disruptionDefaultLabel}
-                 @click=${disruptionClickable ? delayedAction((ev: MouseEvent) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
+                 @click=${disruptionClickable ? delayedAction((ev: Event) => c.handleDisruptionBoxAction(ev, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
                  @keydown=${disruptionClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleDisruptionBoxAction(null, 'tap', disruptionActionConfig, disruptionDisplayEntity, disruptionTapFallback)) : null}
                  @contextmenu=${dHasHold ? (ev: Event) => { ev.preventDefault(); c.handleDisruptionBoxAction(null, 'hold', disruptionActionConfig, disruptionDisplayEntity); } : null}
                  @dblclick=${dHasDblClick ? () => c.handleDisruptionBoxAction(null, 'double_tap', disruptionActionConfig, disruptionDisplayEntity) : null}>
@@ -357,7 +357,7 @@ export class AxDoseDrinksPanel extends LitElement {
                       role="button"
                       tabindex="0"
                       aria-label=${chipName}
-                      @click=${delayedAction((ev: MouseEvent) => c.handleDrinkChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
+                      @click=${delayedAction((ev: Event) => c.handleDrinkChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
                       @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleDrinkChipAction(null, 'tap', chipActionCfg, chip.entityId))}
                       @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleDrinkChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
                       @dblclick=${hasDblClick ? () => c.handleDrinkChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>

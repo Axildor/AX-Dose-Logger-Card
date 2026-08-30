@@ -292,6 +292,15 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // Log Drink popup profile picker + the multi-tracker header switcher.
   private _profilesCache: { entitiesRef: object; map: Record<string, string> } | null = null;
 
+  // Cache for _masterEntityForDevice() — mirrors the _profilesCache pattern.
+  // Maps deviceId → the device's `drink_master: True` entity id. Built once
+  // per hass.entities reference (HA replaces hass.entities on registry
+  // updates, which invalidates the cache) instead of scanning every entity
+  // on every call — _masterEntityForDevice() is invoked in loops from
+  // _resolveTrackers(), _autoDiscoveryIsMultiSubstance(), _migrateLegacyDeviceId()
+  // and _resolveMedicines(), which made lookups O(devices × entities) per render.
+  private _masterEntityCache: { entitiesRef: object; map: Map<string, string> } | null = null;
+
   // ── Multi-Tracker State Machine (Phase 2) ──
   // Resolved tracker array + active index. Built once per drink_tracker_devices
   // config change or hass.entities registry change. The active tracker's
@@ -331,6 +340,66 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   private _resolvedMedicines: ResolvedMedicine[] = [];
   @state() private _medicinesError: string | null = null;
   private _medicinesCache: { entitiesRef: object; configKey: string } | null = null;
+
+  // Pending render-path resolution writes (audit A2/A3 fix).
+  // _resolveTrackers() / _resolveMedicines() run inside the render path
+  // (willUpdate() → _resolveEntities(), and render() itself), so they must
+  // NOT mutate @state — Lit forbids reactive-property writes during render().
+  // Instead they stage their error string / clamped active index in these
+  // PLAIN (non-reactive) fields, and willUpdate() commits them via
+  // _commitResolutionState() BEFORE render() runs, so the same render pass
+  // already sees the final values. undefined = "no pending write" (null is a
+  // meaningful staged value: "error cleared").
+  private _pendingTrackersError: string | null | undefined;
+  private _pendingTrackerIndex: number | undefined;
+  private _pendingMedicinesError: string | null | undefined;
+  private _pendingMedicineIndex: number | undefined;
+
+  // Pending-aware views. willUpdate() commits the staged values BEFORE
+  // render(), so in multi-tracker / multi-medicine mode the reactive fields
+  // are already fresh when render() reads them. But in auto-discovery mode
+  // _resolveTrackers() runs ONLY from render() — its staged writes would
+  // otherwise be invisible until the NEXT update cycle (a missed render /
+  // delayed-update bug of exactly the class the shouldUpdate whitelist was
+  // built to prevent). These views prefer the staged value so every read
+  // within the current pass is self-consistent.
+  private _viewTrackersError(): string | null {
+    return this._pendingTrackersError !== undefined ? this._pendingTrackersError : this._trackersError;
+  }
+  private _viewActiveTrackerIndex(): number {
+    return this._pendingTrackerIndex !== undefined ? this._pendingTrackerIndex : this._activeTrackerIndex;
+  }
+  private _viewMedicinesError(): string | null {
+    return this._pendingMedicinesError !== undefined ? this._pendingMedicinesError : this._medicinesError;
+  }
+  private _viewActiveMedicineIndex(): number {
+    return this._pendingMedicineIndex !== undefined ? this._pendingMedicineIndex : this._activeMedicineIndex;
+  }
+
+  /** Commit the @state writes staged by _resolveTrackers()/_resolveMedicines()
+   *  (audit A2/A3: those resolvers run inside the render path, where mutating
+   *  reactive properties violates Lit's contract). Called from willUpdate()
+   *  BEFORE render() — the same sanctioned pattern as the _activePane
+   *  auto-fallback — so the committed values are reflected in the same render
+   *  pass. Writing an unchanged @state value is a Lit no-op (no extra cycle). */
+  private _commitResolutionState(): void {
+    if (this._pendingTrackersError !== undefined) {
+      this._trackersError = this._pendingTrackersError;
+      this._pendingTrackersError = undefined;
+    }
+    if (this._pendingTrackerIndex !== undefined) {
+      this._activeTrackerIndex = this._pendingTrackerIndex;
+      this._pendingTrackerIndex = undefined;
+    }
+    if (this._pendingMedicinesError !== undefined) {
+      this._medicinesError = this._pendingMedicinesError;
+      this._pendingMedicinesError = undefined;
+    }
+    if (this._pendingMedicineIndex !== undefined) {
+      this._activeMedicineIndex = this._pendingMedicineIndex;
+      this._pendingMedicineIndex = undefined;
+    }
+  }
   // Header medicine-switcher popup (shown only when N>1).
   @state() private _showMedicineSwitcher: boolean = false;
   // One-shot flag for the legacy device_id → medicine_devices migration
@@ -487,7 +556,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       if (medicines.length === 0) {
         return { medicationName: 'Medication', metrics: [] };
       }
-      const idx = Math.min(this._activeMedicineIndex, medicines.length - 1);
+      const idx = Math.min(this._viewActiveMedicineIndex(), medicines.length - 1);
       this._resolvedEntities = medicines[idx].entities;
       this._resolvedDeviceId = medicines[idx].deviceId;
       this._resolvedEntitiesRef = this.hass.entities;
@@ -505,7 +574,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       if (trackers.length === 0) {
         return { medicationName: 'Medication', metrics: [] };
       }
-      const idx = Math.min(this._activeTrackerIndex, trackers.length - 1);
+      const idx = Math.min(this._viewActiveTrackerIndex(), trackers.length - 1);
       this._resolvedEntities = trackers[idx].entities;
       this._resolvedDeviceId = trackers[idx].deviceId;
       this._resolvedEntitiesRef = this.hass.entities;
@@ -513,6 +582,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
     // ── Single-device (legacy) path ──
     const deviceId = this.config.device_id;
+    // Zero-config (no device_id): return the empty bundle instead of scanning.
+    // Previously (pre-strict) `undefined` flowed into _computeEntities(), where
+    // `entityInfo.device_id !== deviceId` matched entities with NO device at all
+    // — a latent bug this guard closes (render() shows the "please select"
+    // placeholder for this case anyway, via the _effectiveDeviceId() check).
+    if (!deviceId) {
+      return { medicationName: 'Medication', metrics: [] };
+    }
     const entitiesRef = this.hass.entities;
     if (
       this._resolvedEntities &&
@@ -536,6 +613,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._resolvedEntitiesRef = null;
     this._drinksCache = null;
     this._profilesCache = null;
+    this._masterEntityCache = null;
     this._trackersCache = null;
   }
 
@@ -567,8 +645,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    *  Cached keyed by the hass.entities reference + a config-derived key (so a
    *  config change forces a rebuild). For each selected device, resolves its
    *  single `drink_master: True` body-mass entity and validates single-substance.
-   *  Sets _trackersError on failure and returns an empty array so render()
-   *  shows the error placeholder. */
+   *  Stages _trackersError / _activeTrackerIndex writes in the pending fields
+   *  (committed by willUpdate() → _commitResolutionState()) and returns an
+   *  empty array on failure so render() shows the error placeholder. */
   private _resolveTrackers(): ResolvedTracker[] {
     if (!this.hass || !this.config) return [];
     const entitiesRef = this.hass.entities;
@@ -648,14 +727,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       const entityId = this._masterEntityForDevice(deviceId);
       if (!entityId) {
         // Not a Drink Tracker device (no drink_master: True entity on it).
-        this._trackersError = localize(this._lang, 'card.trackers_error_not_master');
+        // Stage the @state writes — this runs inside the render path, so
+        // mutating reactive properties here violates Lit's contract (A2/A3).
+        this._pendingTrackersError = localize(this._lang, 'card.trackers_error_not_master');
         this._resolvedTrackers = [];
         this._trackersCache = { entitiesRef, configKey };
         return [];
       }
       const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
       if (substance !== 'caffeine' && substance !== 'alcohol') {
-        this._trackersError = localize(this._lang, 'card.trackers_error_not_master');
+        this._pendingTrackersError = localize(this._lang, 'card.trackers_error_not_master');
         this._resolvedTrackers = [];
         this._trackersCache = { entitiesRef, configKey };
         return [];
@@ -668,16 +749,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     }
     // ── Single-substance validation ──
     if (seenSubstances.size > 1) {
-      this._trackersError = localize(this._lang, 'card.trackers_error_mixed_substance');
+      this._pendingTrackersError = localize(this._lang, 'card.trackers_error_mixed_substance');
       this._resolvedTrackers = [];
       this._trackersCache = { entitiesRef, configKey };
       return [];
     }
-    this._trackersError = null;
+    this._pendingTrackersError = null;
     this._resolvedTrackers = trackers;
     this._trackersCache = { entitiesRef, configKey };
     // Clamp the active index to bounds + read localStorage persistence.
-    this._activeTrackerIndex = this._readActiveTrackerIndex(trackers.length);
+    // Staged, not written: _activeTrackerIndex is @state and this method runs
+    // inside the render path (willUpdate → _resolveEntities / render()).
+    this._pendingTrackerIndex = this._readActiveTrackerIndex(trackers.length);
     return trackers;
   }
 
@@ -687,13 +770,26 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    *  per tracker device, so the match is unambiguous. */
   private _masterEntityForDevice(deviceId: string): string {
     if (!this.hass || !deviceId) return '';
-    for (const [entityId, info] of Object.entries(this.hass.entities)) {
-      if ((info as any).device_id === deviceId &&
-          this._getAttr(entityId, 'drink_master') === true) {
-        return entityId;
-      }
+    return this._masterEntityMap().get(deviceId) ?? '';
+  }
+
+  /** Build (once per hass.entities reference) the deviceId → master-entity map
+   *  backing _masterEntityForDevice(). Iterates hass.entities in insertion
+   *  order and keeps the FIRST `drink_master: True` entity per device — the
+   *  same selection the previous per-call linear scan returned. */
+  private _masterEntityMap(): Map<string, string> {
+    const entitiesRef = this.hass!.entities;
+    if (this._masterEntityCache && this._masterEntityCache.entitiesRef === entitiesRef) {
+      return this._masterEntityCache.map;
     }
-    return '';
+    const map = new Map<string, string>();
+    for (const [entityId, info] of Object.entries(entitiesRef)) {
+      if (this._getAttr(entityId, 'drink_master') !== true) continue;
+      const devId = (info as any).device_id;
+      if (devId && !map.has(devId)) map.set(devId, entityId);
+    }
+    this._masterEntityCache = { entitiesRef, map };
+    return map;
   }
 
   /** Auto-discover all Drink Tracker devices (devices hosting a
@@ -770,7 +866,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     if (!this._isMultiTrackerMode()) return null;
     const trackers = this._resolveTrackers();
     if (trackers.length === 0) return null;
-    const idx = Math.min(this._activeTrackerIndex, trackers.length - 1);
+    const idx = Math.min(this._viewActiveTrackerIndex(), trackers.length - 1);
     return trackers[idx];
   }
 
@@ -850,9 +946,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   /** Resolve the configured medicine devices into ResolvedMedicine[].
    *  Cached keyed by the hass.entities reference + a config-derived key (so a
    *  config change forces a rebuild). For each selected device, validates it
-   *  is NOT a Drink Tracker device and resolves its entity bundle. Sets
-   *  _medicinesError on failure and returns an empty array so render()
-   *  shows the error placeholder. */
+   *  is NOT a Drink Tracker device and resolves its entity bundle. Stages
+   *  _medicinesError / _activeMedicineIndex writes in the pending fields
+   *  (committed by willUpdate() → _commitResolutionState()) and returns an
+   *  empty array on failure so render() shows the error placeholder. */
   private _resolveMedicines(): ResolvedMedicine[] {
     if (!this.hass || !this.config) return [];
     const entitiesRef = this.hass.entities;
@@ -875,7 +972,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       // Reject Drink Tracker devices — they belong in the Drink Tracker
       // picker (the multi-tracker machine handles them).
       if (this._masterEntityForDevice(deviceId)) {
-        this._medicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
+        // Stage the @state writes — this runs inside the render path, so
+        // mutating reactive properties here violates Lit's contract (A2/A3).
+        this._pendingMedicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
         this._resolvedMedicines = [];
         this._medicinesCache = { entitiesRef, configKey };
         return [];
@@ -883,7 +982,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       // Reject devices with no resolvable entities (dead/removed device).
       const entities = this._computeEntities(deviceId);
       if (!entities || Object.keys(entities).length === 0) {
-        this._medicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
+        this._pendingMedicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
         this._resolvedMedicines = [];
         this._medicinesCache = { entitiesRef, configKey };
         return [];
@@ -894,16 +993,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       medicines.push({ deviceId, name, entities });
     }
     if (medicines.length === 0) {
-      this._medicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
+      this._pendingMedicinesError = localize(this._lang, 'card.medicines_error_not_medicine');
       this._resolvedMedicines = [];
       this._medicinesCache = { entitiesRef, configKey };
       return [];
     }
-    this._medicinesError = null;
+    this._pendingMedicinesError = null;
     this._resolvedMedicines = medicines;
     this._medicinesCache = { entitiesRef, configKey };
     // Clamp the active index to bounds + read localStorage persistence.
-    this._activeMedicineIndex = this._readActiveMedicineIndex(medicines.length);
+    // Staged, not written: _activeMedicineIndex is @state and this method runs
+    // inside the render path (willUpdate → _resolveEntities / render()).
+    this._pendingMedicineIndex = this._readActiveMedicineIndex(medicines.length);
     return medicines;
   }
 
@@ -939,7 +1040,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     if (!this._isMultiMedicineMode()) return null;
     const medicines = this._resolveMedicines();
     if (medicines.length === 0) return null;
-    const idx = Math.min(this._activeMedicineIndex, medicines.length - 1);
+    const idx = Math.min(this._viewActiveMedicineIndex(), medicines.length - 1);
     return medicines[idx];
   }
 
@@ -966,7 +1067,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    *  a dead device). Shown in place of the card so the admin can fix the
    *  config. */
   private _renderMedicinesError(): TemplateResult {
-    const msg = this._medicinesError || localize(this._lang, 'card.medicines_error_generic');
+    const msg = this._viewMedicinesError() || localize(this._lang, 'card.medicines_error_generic');
     return html`
       <ha-card>
         <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
@@ -991,7 +1092,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           <div class="log-drink-grid">
             ${medicines.map((m, i) => html`
               <button
-                class="dialog-btn log-drink-btn ${i === this._activeMedicineIndex ? 'active' : ''}"
+                class="dialog-btn log-drink-btn ${i === this._viewActiveMedicineIndex() ? 'active' : ''}"
                 @click=${delayedAction(() => this._switchMedicine(i))}
               >
                 <ha-ripple></ha-ripple>
@@ -1042,7 +1143,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   /** Render the trackers error placeholder (non-master entity or mixed
    *  substance). Shown in place of the card so the admin can fix the config. */
   private _renderTrackersError(): TemplateResult {
-    const msg = this._trackersError || localize(this._lang, 'card.trackers_error_generic');
+    const msg = this._viewTrackersError() || localize(this._lang, 'card.trackers_error_generic');
     return html`
       <ha-card>
         <div class="graph-placeholder" style="padding: 40px 16px; text-align: center;">
@@ -1080,7 +1181,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           <div class="log-drink-grid">
             ${trackers.map((t, i) => html`
               <button
-                class="dialog-btn log-drink-btn ${i === this._activeTrackerIndex ? 'active' : ''}"
+                class="dialog-btn log-drink-btn ${i === this._viewActiveTrackerIndex() ? 'active' : ''}"
                 @click=${delayedAction(() => this._switchTracker(i))}
               >
                 <ha-ripple></ha-ripple>
@@ -1206,8 +1307,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         else if (entityId.endsWith('_strength')) result.strength = entityId;
         else if (entityId.endsWith('_24h_limit_exceeded')) result.limit24hExceeded = entityId;
         // Dose Status enum sensor (backend single source of truth for the
-        // button state machine: not_due/due/overdue/limit_reached/limit_24h/ok).
+        // button state machine: not_due/due/overdue/limit_24h/ok).
         else if (entityId.endsWith('_dose_status')) result.doseStatus = entityId;
+        else {
+          // Medicine sensors resolved by the backend `role` STATE ATTRIBUTE,
+          // NOT entity_id suffix — the same rename-safe pattern the button
+          // branch below uses (cover/skip/averages_reset). HA derives
+          // entity_id from slugify(translated_name), so suffix matching
+          // silently fails for renamed or name-drifted entities.
+          const sensorRole = this._getAttr(entityId, 'role');
+          if (sensorRole === 'daily_amount') result.amountLast24h = entityId;
+          else if (sensorRole === 'daily_remaining') result.dailyRemaining = entityId;
+        }
       } else if (entityId.startsWith('button.')) {
         if (entityId.endsWith('_take')) result.takeButton = entityId;
         else if (entityId.endsWith('_reset_history')) result.resetButton = entityId;
@@ -1281,8 +1392,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         // list_for_display websocket omits).
         const masterRole = this._getAttr(entityId, 'role');
         if (masterRole === 'daily_amount') result.amountLast24h = entityId;
+        else if (masterRole === 'daily_remaining') result.dailyRemaining = entityId;
         else if (masterRole === 'sleep_disruption') result.sleepDisruption = entityId;
+        else if (masterRole === 'next_band') result.nextBand = entityId;
         else if (masterRole === 'estimated_low_time') result.estimatedLowTime = entityId;
+        else if (masterRole === 'estimated_none_time') result.estimatedNoneTime = entityId;
         else if (masterRole === 'low_hours_until') result.lowHoursUntil = entityId;
         // Dedicated Master Tracker last-dose TIMESTAMP sensor — its state IS
         // the last-dose timestamp (single source of truth), so the Daily
@@ -1305,11 +1419,28 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         isGranularDrink = true;
         const substance = (this._getAttr(entityId, 'substance') || '').toLowerCase();
         if (substance === 'caffeine' || substance === 'alcohol') result.substance = substance;
-        // Granular drink days-left sensor (classified by role like the master
-        // variant). Granular devices redirect to the Master Tracker so the
-        // Stats panel never renders for them, but resolving the field keeps
-        // the classifier complete and available for any future surface.
-        if (this._getAttr(entityId, 'role') === 'days_left') {
+        // Granular drink sensors are classified by the backend `role` STATE
+        // ATTRIBUTE, NOT entity_id suffix — the medicine suffix block above
+        // matches `_total_doses` / `_avg_daily_doses_*` / `_last_dose`, but
+        // granular drink entity names use "drinks" (`_total_drinks`,
+        // `_avg_daily_drinks_7_days`, `_last_drink`), so suffix matching
+        // silently failed. Role attributes survive renames (same pattern as
+        // the master + button branches). Granular devices redirect to the
+        // Master Tracker so the Stats panel never renders for them, but
+        // resolving the fields keeps the classifier complete and available
+        // for any future surface.
+        const drinkRole = this._getAttr(entityId, 'role');
+        if (drinkRole === 'total') result.totalDoses = entityId;
+        else if (drinkRole === 'last_dose') result.lastDose = entityId;
+        else if (drinkRole === 'avg') {
+          const wd = this._getAttr(entityId, 'window_days');
+          if (wd === 7) result.avg7Days = entityId;
+          else if (wd === 14) result.avg14Days = entityId;
+          else if (wd === 30) result.avg30Days = entityId;
+          else if (wd === 365) result.avgYearly = entityId;
+        }
+        else if (drinkRole === 'cooldown') result.pillsSafeToTake = entityId;
+        else if (drinkRole === 'days_left') {
           result.daysLeft = entityId;
           result.daysLeftEst = true;
         }
@@ -2037,6 +2168,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // Single source of truth: the backend computes the same state machine
     // (limit_reached → limit_24h → not_due/due/overdue → ok) with
     // point-in-time timers, so card and automations can never disagree.
+    // Multi-pill parity (backend pills_per_slot > 1): the backend state
+    // machine consumes the multi-pill slot model (a slot stays due/overdue
+    // until pills_per_slot doses are assigned), so this mapping inherits the
+    // correct button behavior with no card-side change — the button stays
+    // blue "Dose Due" until the slot is fully covered. The legacy fallback
+    // below only runs on older backends, which have no pills_per_slot at all.
     // Fail-open: when the sensor is missing (older backend) or
     // unavailable/unknown, fall through to the legacy 4-entity derivation.
     if (entities.doseStatus) {
@@ -2110,8 +2247,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    * Compute the resolved ButtonState for the Drinks (Log Drink) button.
    * Drinks are PRN/as-needed with no schedule → execution/latency never active;
    * only lockout (daily limit reached) + idle + transient ack are possible.
-   * Lockout reads the master daily-amount sensor's `remaining` attribute
-   * (caffeine/alcohol daily limit); absent sensor/limit → never locks out.
+   * Lockout reads the Daily Remaining sensor's state (daily_limit −
+   * amount_24h; negative = overage) when resolved — the promoted standalone
+   * entity. Falls back to the master daily-amount sensor's `remaining`
+   * attribute for older backends without the new sensor. Absent
+   * sensor/limit → never locks out.
    */
   private _computeDrinksButtonState(entities: ResolvedEntities): ButtonState {
     // While the ACK intro freeze is active, return the captured pre-press
@@ -2120,7 +2260,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       return this._drinksFrozenState;
     }
     let isLockedOut = false;
-    if (entities.amountLast24h) {
+    if (entities.dailyRemaining) {
+      // New backend path: the standalone Daily Remaining sensor's state IS
+      // the remaining allowance (may be negative = overage).
+      const st = this._getState(entities.dailyRemaining);
+      if (st && st !== 'unavailable' && st !== 'unknown') {
+        const r = parseFloat(st);
+        if (!isNaN(r) && r <= 0) isLockedOut = true;
+      }
+    } else if (entities.amountLast24h) {
+      // Legacy fallback: the `remaining` attribute on the daily-amount
+      // sensor (deprecated on the backend but kept for older backends).
       const remaining = this._getAttr(entities.amountLast24h, 'remaining');
       if (typeof remaining === 'number' && remaining <= 0) {
         isLockedOut = true;
@@ -3079,10 +3229,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           this._amountHistorySampled = true;
           return;
         }
-      } catch (e) {
-        // Older backends (pre graph endpoint) 404 — fall through to the
-        // recorder fetch below. Log for debuggability.
-        console.debug('[ax-dose-logger-card] graph endpoint unavailable, falling back to recorder:', e);
+      } catch {
+        // Older backends (pre graph endpoint) 404 — this is an expected,
+        // legitimate path, so fall through to the recorder fetch below
+        // without logging (the fallback result is visible in the graph).
       }
     }
 
@@ -3108,10 +3258,18 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       if (token !== this._amountFetchToken) return;
 
       // data is an array of arrays: [[{entity_id, state, last_changed, attributes}, ...]]
-      if (data && data[0]) {
-        const filteredData = data[0]
-          .filter((entry: any) => entry.state && !isNaN(parseFloat(entry.state)))
-          .map((entry: any) => ({
+      // callApi<T> is typed loosely by custom-card-helpers (the recorder history
+      // endpoint has no first-class type), so a targeted cast to the documented
+      // shape is used here rather than a blanket `any`.
+      interface HistoryEntry {
+        state: string;
+        last_changed: string;
+      }
+      const history = data as HistoryEntry[][] | null;
+      if (history && history[0]) {
+        const filteredData = history[0]
+          .filter((entry) => entry.state && !isNaN(parseFloat(entry.state)))
+          .map((entry) => ({
             timestamp: entry.last_changed,
             value: parseFloat(entry.state)
           }));
@@ -3203,8 +3361,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           this._initEffectivenessVisible(entities);
           return;
         }
-      } catch (e) {
-        console.debug('[ax-dose-logger-card] graph endpoint unavailable, falling back to recorder:', e);
+      } catch {
+        // Older backends (pre graph endpoint) 404 — expected path; fall
+        // through to the recorder fetch below without logging.
       }
     }
 
@@ -3589,6 +3748,11 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
    */
   protected willUpdate(changedProps: PropertyValues): void {
     if (!this.config || !this.hass) return;
+    // Commit the @state writes staged by the previous cycle's render-path
+    // resolver calls (audit A2/A3) BEFORE render() — the same sanctioned
+    // pattern as the _activePane auto-fallback below. Writing an unchanged
+    // value is a Lit no-op, so this never schedules an extra update cycle.
+    this._commitResolutionState();
     // One-shot legacy device_id → medicine_devices migration (needs hass to
     // distinguish a medicine device from a legacy Drink Tracker device).
     // Runs before _resolveEntities() so the very first render already uses
@@ -3623,13 +3787,13 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     // See plans/medicine-multi-select-plan.md.
     if (this._isMultiMedicineMode()) {
       const medicines = this._resolveMedicines();
-      if (this._medicinesError) {
+      if (this._viewMedicinesError()) {
         return this._renderMedicinesError();
       }
       // Medicines resolved → fall through to the main render (entities
       // resolved by _resolveEntities() return the active medicine's bundle).
       // The header medicine switcher is rendered when N>1 (below).
-      if (medicines.length === 0 && !this._medicinesError) {
+      if (medicines.length === 0 && !this._viewMedicinesError()) {
         return this._renderMedicinesError();
       }
     }
@@ -3644,7 +3808,7 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     if (this._isMultiTrackerMode() || this._autoDiscoveryActive()) {
       const trackers = this._resolveTrackers();
       // Validation error (non-master entity or mixed substance).
-      if (this._trackersError) {
+      if (this._viewTrackersError()) {
         return this._renderTrackersError();
       }
       // Zero-config auto-discovery found multiple substances → placeholder.
@@ -3725,14 +3889,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       cardTitle = html`
         <div class="card-title-row">
           <button class="card-title-btn"
-            role="button" tabindex="0"
             aria-label=${substanceLabel}
             @click=${delayedAction(() => this.showDeviceInfo())}
             @keydown=${(ev: KeyboardEvent) => this.onKeyActivate(ev, () => this.showDeviceInfo())}
           ><ha-ripple></ha-ripple>${substanceLabel}</button>
           <span class="card-title-divider" aria-hidden="true">-</span>
           <button class="card-title-btn${multi ? ' is-selector' : ''}"
-            role="button" tabindex="0"
             aria-label=${profileName}
             @click=${delayedAction(() => multi
               ? (this._showProfileSwitcher = true)
@@ -3756,7 +3918,6 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       cardTitle = html`
         <div class="card-title-row">
           <button class="card-title-btn${multiMed ? ' is-selector' : ''}"
-            role="button" tabindex="0"
             aria-label=${medName}
             @click=${delayedAction(() => multiMed
               ? (this._showMedicineSwitcher = true)
@@ -3868,10 +4029,12 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     this._stopTickTimer();
     // Invalidate any in-flight fetch so it can't write state to a detached
     // element. Bumping the token makes every pending _fetchAmountHistory /
-    // _fetchDoseHistory result discard itself after its `await` resolves.
+    // _fetchDoseHistory / _fetchEffectivenessHistory / _fetchDrinkLowPredictions
+    // result discard itself after its `await` resolves.
     this._amountFetchToken++;
     this._doseFetchToken++;
     this._effectivenessFetchToken++;
+    this._predictLowToken++;
     // Cancel any pending debounced graphs re-fetch so it doesn't fire after
     // the card is detached (the token bumps above would discard its result
     // anyway, but cancelling the timer avoids a needless detached fetch).
@@ -3978,6 +4141,13 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       '_showProfileSwitcher',
       '_activeTrackerIndex',
       '_logDrinkProfileTarget',
+      // _trackersError gates the multi-tracker error placeholder render
+      // (non-master device / mixed substance). Committed in willUpdate() via
+      // _commitResolutionState() (audit A2/A3); without this key a commit that
+      // only changes _trackersError (e.g. a device stops being a Drink Tracker
+      // with no hass change on watched entities) would be gated until the 30s
+      // _tick timer — the same delayed-render class as the bugs above.
+      '_trackersError',
       // Medicine switcher + multi-medicine state machine. Same failure mode as
       // the profile switcher above: without these keys, shouldUpdate returns
       // false on the @state mutation (no hass change, no other whitelisted

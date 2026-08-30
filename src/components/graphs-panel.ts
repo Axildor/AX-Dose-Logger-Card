@@ -12,7 +12,7 @@ import { LitElement, html, svg, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { CardController, ResolvedEntities, DayBucket, AxDoseLoggerHass, MetricEntity } from '../types.js';
 import { localize } from '../localize.js';
-import { bridgeGaps, getTimeframeHours } from '../helpers.js';
+import { bridgeGaps, getTimeframeHours, toLocalDateKey } from '../helpers.js';
 
 @customElement('ax-dose-graphs-panel')
 export class AxDoseGraphsPanel extends LitElement {
@@ -510,24 +510,33 @@ export class AxDoseGraphsPanel extends LitElement {
   // Resample a metric's raw history into one value per day. Effectiveness is
   // daily-locked so there's at most a few points per day; we take the last
   // known value of each calendar day. Days with no points stay absent → gaps.
+  //
+  // Single-pass implementation (O(M + days)): first group every point into a
+  // Map<dateKey, value> (later points overwrite → last wins), then emit the
+  // last `days` local calendar days in the same newest-first order the
+  // previous day-loop produced. Day keys use toLocalDateKey() (local
+  // timezone), NOT .toISOString() UTC slicing, so points near midnight are
+  // bucketed into the day the user actually experienced.
   private _bucketByDay(
     series: Array<{ timestamp: string; value: number }>,
     days: number,
   ): Map<string, number> {
     const buckets = new Map<string, number>();
     if (!series.length) return buckets;
+
+    // Pass 1: group points by local day key (last point of a day wins).
+    const byDay = new Map<string, number>();
+    for (const p of series) {
+      byDay.set(toLocalDateKey(new Date(p.timestamp)), p.value);
+    }
+
+    // Pass 2: emit today → oldest, only for days that have data (same
+    // insertion order as the previous per-day rescan loop).
     const now = new Date();
     for (let d = 0; d < days; d++) {
-      const day = new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
-      const key = day.toISOString().slice(0, 10);
-      let dayValue: number | null = null;
-      for (const p of series) {
-        const pd = new Date(p.timestamp);
-        if (pd.toISOString().slice(0, 10) === key) {
-          dayValue = p.value; // later points overwrite → last wins
-        }
-      }
-      if (dayValue !== null) buckets.set(key, dayValue);
+      const key = toLocalDateKey(new Date(now.getTime() - d * 24 * 60 * 60 * 1000));
+      const v = byDay.get(key);
+      if (v !== undefined) buckets.set(key, v);
     }
     return buckets;
   }
@@ -557,7 +566,7 @@ export class AxDoseGraphsPanel extends LitElement {
     else labelStep = 5;
     for (let d = days - 1; d >= 0; d -= 1) {
       const day = new Date(now.getTime() - d * 24 * 60 * 60 * 1000);
-      const key = day.toISOString().slice(0, 10);
+      const key = toLocalDateKey(day);
       // Day-of-month only (no month) so the font can be bigger and the date
       // numbers stay uniform with the Day tracker bar graph.
       const label = d % labelStep === 0

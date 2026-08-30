@@ -136,11 +136,28 @@ class DelayedActionDirective extends AsyncDirective {
 }
 
 /**
- * The directive factory. Use in Lit templates:
+ * The internal directive factory. Lit memoizes the directive instance per
+ * binding position, so the same DelayedActionDirective (and its stable
+ * _wrapper) is reused across re-renders — only the callback argument is
+ * refreshed.
+ */
+const _delayedActionDirective = directive(DelayedActionDirective);
+
+/**
+ * Public typed wrapper. Use in Lit templates:
  *   @click=${delayedAction(() => doThing())}
  *
- * Lit memoizes the directive instance per binding position, so the same
- * DelayedActionDirective (and its stable _wrapper) is reused across
- * re-renders — only the callback argument is refreshed.
+ * WHY THE WRAPPER EXISTS: lit-analyzer cannot see through a directive
+ * factory's DirectiveResult<...> return type in an event-listener binding
+ * position, so every `@click=${directive(...)}` usage is flagged with
+ * "You are setting up an event listener with a non-callable type". At
+ * runtime Lit fully supports directives in event bindings — the directive
+ * IS the listener (its render() returns the stable wrapper function) — so
+ * this is purely a static-analysis limitation. Casting the result to the
+ * listener signature in ONE place (here) satisfies the analyzer for every
+ * call site without changing any runtime behavior: the DirectiveResult
+ * value flows through unchanged and Lit unwraps it exactly as before.
  */
-export const delayedAction = directive(DelayedActionDirective);
+export function delayedAction(callback: (ev: Event) => void): (ev: Event) => void {
+  return _delayedActionDirective(callback) as unknown as (ev: Event) => void;
+}

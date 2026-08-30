@@ -73,6 +73,36 @@ export class AxDoseStatsPanel extends LitElement {
         : c.formatInteger(aibRaw) + ' ' + strengthUnit;
       rows.push({ label: localize(this._lang, 'stats.amount_in_body'), value: aibDisplay, icon: 'mdi:chart-bell-curve', entityId: e.amountInBody });
     }
+    // Medicine-only rows (resolved via the backend `role` state attribute).
+    // Amount in Last 24h: medicine devices now populate the same field the
+    // master branch already used, so this single guard serves both device
+    // types (no duplicate row).
+    if (e.amountLast24h) {
+      const v = c.getState(e.amountLast24h);
+      rows.push({ label: localize(this._lang, 'stats.amount_last_24h'), value: (v === 'unknown' || v === 'unavailable' ? '-' : v + ' ' + c.getStrengthUnit(e)), icon: 'mdi:calendar-clock', entityId: e.amountLast24h });
+    }
+    // Daily Remaining (daily_limit − amount_24h; negative = overage).
+    // Created by the backend only when a daily limit is configured, so the
+    // guard also skips the row for unlimited meds.
+    if (e.dailyRemaining) {
+      const v = c.getState(e.dailyRemaining);
+      rows.push({ label: localize(this._lang, 'stats.daily_remaining'), value: (v === 'unknown' || v === 'unavailable' ? '-' : c.formatInteger(v) + ' ' + c.getStrengthUnit(e)), icon: 'mdi:progress-clock', entityId: e.dailyRemaining });
+    }
+    // Pills Safe to Take — the rolling-window lockout counter (Daily tab's
+    // top box), surfaced here for the at-a-glance Stats grid.
+    if (e.pillsSafeToTake) {
+      rows.push({ label: localize(this._lang, 'stats.safe_to_take'), value: c.formatInteger(c.getState(e.pillsSafeToTake)), icon: 'mdi:pill', entityId: e.pillsSafeToTake });
+    }
+    // Next Dose + Overdue — the Daily tab's sub-line facts as standalone
+    // rows. computeNextDose/computeOverTime are the existing controller
+    // helpers (no new formatting logic).
+    if (e.nextDose) {
+      rows.push({ label: localize(this._lang, 'stats.next_dose'), value: c.computeNextDose(e), icon: 'mdi:clock-plus', entityId: e.nextDose });
+    }
+    if (e.overdue) {
+      const over = c.computeOverTime(e);
+      rows.push({ label: localize(this._lang, 'stats.overdue'), value: over ?? '-', icon: 'mdi:clock-alert', entityId: e.overdue });
+    }
     if (e.steadyState) {
       const ss = c.getState(e.steadyState);
       const display = (ss === '0.0' || ss === '0') ? localize(this._lang, 'stats.steady_state_reached') : localize(this._lang, 'stats.steady_state_days', { days: ss });
@@ -101,11 +131,8 @@ export class AxDoseStatsPanel extends LitElement {
     // ── Master Tracker (Caffeine/Alcohol) extra rows ──
     // These fields are only populated by the master-tracker branch of
     // _computeEntities; medicine + granular drink devices leave them
-    // undefined so the guards skip the rows.
-    if (e.amountLast24h) {
-      const v = c.getState(e.amountLast24h);
-      rows.push({ label: localize(this._lang, 'stats.amount_last_24h'), value: (v === 'unknown' || v === 'unavailable' ? '-' : v + ' ' + c.getStrengthUnit(e)), icon: 'mdi:calendar-clock', entityId: e.amountLast24h });
-    }
+    // undefined so the guards skip the rows. (Amount in Last 24h is
+    // emitted once by the unified rows above — not repeated here.)
     if (e.sleepDisruption) {
       const v = c.getState(e.sleepDisruption);
       rows.push({ label: localize(this._lang, 'stats.sleep_disruption'), value: (v === 'unknown' || v === 'unavailable' ? '-' : v), icon: 'mdi:bed-clock', entityId: e.sleepDisruption });
@@ -136,6 +163,36 @@ export class AxDoseStatsPanel extends LitElement {
       }
       rows.push({ label: localize(this._lang, 'stats.low_hours_until'), value: display, icon: 'mdi:timer-sand', entityId: e.lowHoursUntil });
     }
+    // ── Promoted-entity rows (master None Time + Next Band) ──
+    // (Daily Remaining is emitted once by the unified rows above —
+    // not repeated here.)
+    if (e.estimatedNoneTime) {
+      const v = c.getState(e.estimatedNoneTime);
+      let display = '-';
+      if (v && v !== 'unknown' && v !== 'unavailable') {
+        const dt = new Date(v);
+        if (!isNaN(dt.getTime())) {
+          // HH:MM only (24-hour) — mirrors the estimatedLowTime row; the
+          // backend keeps the TIMESTAMP device class for automations.
+          display = dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+      }
+      rows.push({ label: localize(this._lang, 'stats.none_timestamp'), value: display, icon: 'mdi:bed-clock', entityId: e.estimatedNoneTime });
+    }
+    if (e.nextBand) {
+      const v = c.getState(e.nextBand);
+      let display = '-';
+      if (v && v !== 'unknown' && v !== 'unavailable' && v !== 'None') {
+        // State = the next-lower band label; append the countdown segment
+        // when the backend computed one (e.g. "Low in 45m").
+        display = v;
+        const mins = c.getAttr(e.nextBand, 'minutes_until_next_band');
+        if (typeof mins === 'number' && mins > 0) {
+          display += ' ' + localize(this._lang, 'stats.next_band_in', { minutes: mins });
+        }
+      }
+      rows.push({ label: localize(this._lang, 'stats.next_band'), value: display, icon: 'mdi:transition', entityId: e.nextBand });
+    }
 
     return html`
       <div class="pane pane-stats">
@@ -143,8 +200,8 @@ export class AxDoseStatsPanel extends LitElement {
           ${rows.map((row) => html`
             <div
               class="stat-cell ${row.entityId ? 'clickable' : ''}"
-              role=${row.entityId ? 'button' : nothing}
-              tabindex=${row.entityId ? '0' : nothing}
+              role=${row.entityId ? 'button' : undefined}
+              tabindex=${row.entityId ? 0 : -1}
               @click=${row.entityId ? delayedAction(() => this.controller.openMoreInfo(row.entityId!)) : undefined}
               @keydown=${row.entityId ? (ev: KeyboardEvent) => this.controller.onStatCellKeydown(ev, row.entityId!) : undefined}
             >

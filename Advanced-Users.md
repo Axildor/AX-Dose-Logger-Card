@@ -33,7 +33,7 @@ The Take Pill (Daily tab) and Log Drink (Drinks tab) buttons follow a 6-state co
 
 The **24H Limit Reached** state inherits all **Limit Reached** style config — same red color, same CSS, same `take_button_lockout_style` / `take_button_lockout_icon_style` editor fields. Only the button label ("24H LIMIT REACHED") and the override dialog text differ (the dialog explains it's the 24h strength cap, not the pill count, that is reached).
 
-The overdue boundary is derived from the **On-Time Window** (the "on-time buffer" you configured for the medication, in minutes) — the button stays blue for the **first half** of the window (on-time, no rush) and turns amber at the **halfway point** (proactive heads-up that the window is closing). This applies to **all scheduled medications**, whether or not adherence tracking is enabled. It fixes a prior disconnect where the card warned "overdue" the instant a dose was due while the adherence system still considered it on-time.
+The overdue boundary is derived from the **On-Time Window** (the "on-time buffer" you configured for the medication, in minutes) — the button stays blue for the **first half** of the window (on-time, no rush) and turns amber at the **halfway point** (proactive heads-up that the window is closing). This applies to **all scheduled medications**, whether or not adherence tracking is enabled.
 
 These options live in the visual editor under the **Daily Tab → Button** and **Drinks Tab → Button** expandables. Inside each Button expandable, the aspect fields are a flat list where each Style dropdown is paired side-by-side with its Icon Style dropdown in a grid row, so it is visually obvious which dropdown belongs to which aspect. Every dropdown renders as a single dropdown box (not a stack of radio buttons) and is pre-populated with its default value (Default). The Drinks submenu only offers Limit Reached and Logged Dose Indicator (drinks are PRN/as-needed with no schedule, so Take Pill and Overdue Warning never apply). The Idle state has no color and is intentionally not shown in the editor.
 
@@ -201,7 +201,7 @@ git tag 1.0.1
 git push --tags   # triggers release.yaml → auto-attached JS asset
 ```
 
-To attach the JS to an **existing** release (e.g. an older release created before
-the workflow existed), build locally and upload `dist/ax-dose-logger-card.js` via
-*Release → Edit → Attach binaries*. The asset filename must be exactly
+To attach the JS to an **existing** release, build locally and upload
+`dist/ax-dose-logger-card.js` via *Release → Edit → Attach binaries*. The asset
+filename must be exactly
 `ax-dose-logger-card.js` to match the `filename` declared in [`hacs.json`](hacs.json).

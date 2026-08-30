@@ -186,6 +186,28 @@ export class AxDoseDailyPanel extends LitElement {
     const overTime = c.computeOverTime(e);
     const chipEntities = c.getChipEntities();
 
+    // ── Multi-pill slot progress (backend pills_per_slot > 1) ──
+    // The dose_status enum sensor exposes `slot_remaining` (pills still owed
+    // in the most recently reached slot) only when pills_per_slot > 1; it is
+    // null for the single-pill model, Cyclic, and As-Needed, and absent on
+    // older backends — in every one of those cases the segment below simply
+    // never renders (full back-compat, no config migration).
+    // Tracking-type nuance: for Time of Day, next_dose stays pinned to the
+    // current uncovered slot (a past timestamp) until it is fully covered, so
+    // the Overdue segment shows mid-slot; for Regular Interval, next_dose
+    // advances to the next future chained deadline, so the Next countdown
+    // would show mid-slot. In both cases the slot-progress segment replaces
+    // the Next segment (Overdue, when present, keeps its place before it).
+    // Defensive parse: the attribute arrives as a number or numeric string;
+    // null/undefined/''/NaN → no segment.
+    const slotRemainingRaw = c.getAttr(e.doseStatus, 'slot_remaining');
+    const slotRemainingNum = typeof slotRemainingRaw === 'number'
+      ? slotRemainingRaw
+      : (slotRemainingRaw !== null && slotRemainingRaw !== undefined && slotRemainingRaw !== ''
+        ? parseFloat(String(slotRemainingRaw))
+        : NaN);
+    const slotRemaining = Number.isFinite(slotRemainingNum) && slotRemainingNum > 0 ? Math.floor(slotRemainingNum) : 0;
+
     // Display entity for the Pills Left box. Priority:
     //   1. pills_left_show_days_left === true → backend days_left sensor
     //   2. pills_left_entity configured (≠ default sensor) → user's entity
@@ -289,6 +311,8 @@ export class AxDoseDailyPanel extends LitElement {
               : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
             <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
               ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
+              : nothing}${slotRemaining > 0
+              ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.slot_remaining', { count: String(slotRemaining) })}</span>`
               : (nextDose !== 'Unavailable' && nextDose !== 'now'
                 ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`
                 : nothing)}</span>
@@ -308,9 +332,9 @@ export class AxDoseDailyPanel extends LitElement {
           <div class="stats-column">
             <div class="stat-pill ${safeBoxClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex=${safeBoxClickable ? '0' : nothing}
+                 tabindex=${safeBoxClickable ? 0 : -1}
                  aria-label=${c.config?.safe_to_take_label || topDefaultLabel}
-                 @click=${safeBoxClickable ? delayedAction((ev: MouseEvent) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity)) : null}
+                 @click=${safeBoxClickable ? delayedAction((ev: Event) => c.handleSafeBoxAction(ev, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @keydown=${safeBoxClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleSafeBoxAction(null, 'tap', safeBoxActionConfig, displayEntity)) : null}
                  @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleSafeBoxAction(null, 'hold', safeBoxActionConfig, displayEntity); } : null}
                  @dblclick=${hasDblClick ? () => c.handleSafeBoxAction(null, 'double_tap', safeBoxActionConfig, displayEntity) : null}>
@@ -338,9 +362,9 @@ export class AxDoseDailyPanel extends LitElement {
             </div>
             <div class="stat-pill ${pillsLeftClickable ? 'clickable' : ''}"
                  role="button"
-                 tabindex=${pillsLeftClickable ? '0' : nothing}
+                 tabindex=${pillsLeftClickable ? 0 : -1}
                  aria-label=${c.config?.pills_left_label || pillsLeftDefaultLabel}
-                 @click=${pillsLeftClickable ? delayedAction((ev: MouseEvent) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
+                 @click=${pillsLeftClickable ? delayedAction((ev: Event) => c.handlePillsLeftBoxAction(ev, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
                  @keydown=${pillsLeftClickable ? (ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handlePillsLeftBoxAction(null, 'tap', pillsLeftActionConfig, pillsLeftDisplayEntity, pillsLeftTapFallback)) : null}
                  @contextmenu=${plHasHold ? (ev: Event) => { ev.preventDefault(); c.handlePillsLeftBoxAction(null, 'hold', pillsLeftActionConfig, pillsLeftDisplayEntity); } : null}
                  @dblclick=${plHasDblClick ? () => c.handlePillsLeftBoxAction(null, 'double_tap', pillsLeftActionConfig, pillsLeftDisplayEntity) : null}>
@@ -403,7 +427,7 @@ export class AxDoseDailyPanel extends LitElement {
                       role="button"
                       tabindex="0"
                       aria-label=${chipName}
-                      @click=${delayedAction((ev: MouseEvent) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
+                      @click=${delayedAction((ev: Event) => c.handleChipAction(ev, 'tap', chipActionCfg, chip.entityId))}
                       @keydown=${(ev: KeyboardEvent) => c.onKeyActivate(ev, () => c.handleChipAction(null, 'tap', chipActionCfg, chip.entityId))}
                       @contextmenu=${hasHold ? (ev: Event) => { ev.preventDefault(); c.handleChipAction(null, 'hold', chipActionCfg, chip.entityId); } : null}
                       @dblclick=${hasDblClick ? () => c.handleChipAction(null, 'double_tap', chipActionCfg, chip.entityId) : null}>
@@ -941,12 +965,6 @@ export class AxDoseDailyPanel extends LitElement {
       position: relative;
     }
 
-    .chip.with-icon {
-      /* gap stays 2px (label→value spacing unchanged); the icon gets its own
-         breathing room via .chip-icon margin-bottom so toggling the icon on
-         doesn't alter the label-to-value gap. */
-    }
-
     .chip.clickable {
       cursor: pointer;
     }
@@ -955,6 +973,9 @@ export class AxDoseDailyPanel extends LitElement {
       background-image: linear-gradient(rgba(var(--rgb-primary-color, 3, 169, 244), 0.12), rgba(var(--rgb-primary-color, 3, 169, 244), 0.12));
     }
 
+    /* .with-icon modifier: gap stays 2px (label→value spacing unchanged); the
+       icon gets its own breathing room via .chip-icon margin-bottom so
+       toggling the icon on doesn't alter the label-to-value gap. */
     .chip-icon {
       --mdc-icon-size: 20px;
       width: 20px;

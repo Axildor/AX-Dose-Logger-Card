@@ -393,8 +393,23 @@ export interface ResolvedEntities {
   // selected device is a Master Tracker. Medicine + granular drink devices
   // leave these undefined so the Stats/Drinks panels' `if (e.x)` guards skip
   // the master-specific rows.
-  /** 24h sum-of-strengths sensor (mg caffeine / g alcohol). */
+  /** 24h sum-of-strengths sensor (mg caffeine / g alcohol). Medicine
+   *  devices populate this via the backend `role: "daily_amount"` state
+   *  attribute (PillDailyAmountSensor); masters via the master role. */
   amountLast24h?: string;
+  /** Daily-limit remaining sensor (daily_limit − amount_24h; negative =
+   *  overage). Medicine + master; created by the backend only when a daily
+   *  limit is configured. Resolved via the `role: "daily_remaining"` state
+   *  attribute. */
+  dailyRemaining?: string;
+  /** Master only: TIMESTAMP sensor predicting when body-mass enters the
+   *  sleep-safe None band (Estimated None Time). Resolved via the
+   *  `role: "estimated_none_time"` state attribute. */
+  estimatedNoneTime?: string;
+  /** Master only: categorical next-lower disruption band sensor (state =
+   *  band label; attrs minutes_until_next_band + next_band_at). Resolved
+   *  via the `role: "next_band"` state attribute. */
+  nextBand?: string;
   /** Categorical sleep-disruption sensor state (None/Low/Moderate/High). */
   sleepDisruption?: string;
   /** Timestamp sensor predicting when body-mass enters the Low band (Low - Timestamp). */

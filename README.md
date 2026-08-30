@@ -109,7 +109,8 @@ The card adapts its tabs to the selected device type:
 ### 📅 Daily
 
 - **Take Pill button** with next-dose countdown. The button color encodes the system's current status:
-  - 🔴 **Red** — limit reached (an override confirmation dialog appears)
+  - 💊 **Multi-pill slots** — when your medication is configured with more than one pill per dose time (backend *Pills per dose time* setting), the button shows **"N left this slot"** in place of the next-dose countdown until the current dose time is fully taken. The button stays blue "due" until every pill of the slot is taken.
+  - � **Red** — limit reached (an override confirmation dialog appears)
   - 🔵 **Blue** — a scheduled dose is due now
   - 🟠 **Amber** — overdue (the on-time window is closing)
   - 🟢 **Green** — brief "Logged" flash after a successful press
@@ -141,6 +142,8 @@ The card adapts its tabs to the selected device type:
 - Adherence percentages (7, 14, 30, 365 days)
 - Total doses and days since first dose
 - Days left / Est. days left (inventory burn rate)
+- Medicines also show: Amount in Last 24h, Daily Remaining (when a daily limit is set), Pills Safe to Take, Next Dose, and Overdue
+- Drink Trackers also show: Daily Remaining (when a daily limit is set), Sleep-Safe Time, and Next Band (with countdown)
 - Every row is clickable → opens the entity's more-info dialog
 
 <!-- SCREENSHOT: Stats tab -->
@@ -177,7 +180,7 @@ Selecting a **Caffeine Tracker** or **Alcohol Tracker** device renders a dedicat
 - A centered substance title (Caffeine / Alcohol) at the top — tapping opens the device-info dialog.
 - A two-column main row identical in layout to the Daily tab:
   - **Left:** a tinted **Log Drink** button. Opens a popup listing every granular drink of that substance (e.g. Coffee, Espresso, Energy Drink for caffeine). Each drink shows a predictive **"Low: hh:mm"** line — the wall-clock time body-mass would drop into the *Low* sleep band *if logged now*. "Low: —" means the drink is safe. Pressing a drink logs it.
-    - **Multi-user households:** if a drink is shared across multiple profiles (the backend M2M topology), tapping it reveals a **"Who is logging this?"** sub-list so you pick which profile receives the PK payload. Drinks assigned to a single profile (or none) log immediately with one tap — unchanged. See [Profile Lock](#profile-lock-multi-user) below.
+    - **Multi-user households:** if a drink is shared across multiple profiles (the backend M2M topology), tapping it reveals a **"Who is logging this?"** sub-list so you pick which profile receives the PK payload. Drinks assigned to a single profile (or none) log immediately with one tap. See [Profile Lock](#profile-lock-multi-user) below.
   - **Right:** two boxes — **In Body** (current body-mass + substance unit) on top and **Disruption** on the bottom. Tapping either opens its more-info dialog (or the Sleep Disruption popup, depending on the Disruption mode).
 - The **Disruption box** has three display modes (Sleep Disruption, Low - Timestamp, Low - Hours Until) — see [Advanced-Users.md](Advanced-Users.md#disruption-box-display-modes) for the mode details.
 - **Top Box** and **Bottom Box** — fully overridable via the visual editor's Drinks Tab expandable (entity swap, custom icon/label, actions). Top Box defaults to In Body; Bottom Box defaults to Sleep Disruption (with a selector to switch to the Low timestamp/hours sensors).
@@ -235,8 +238,6 @@ Just like the Drinks side, a single card can host **multiple medicine devices**.
 
 Selecting a Caffeine/Alcohol Tracker in the Medicines Picker renders an "Invalid Medicine selection" error — trackers belong in the Drink Trackers picker.
 
-> **Upgrading from an older version?** Cards configured with the old single **Medicine Device** selector are migrated automatically — the selected device moves into the Medicines Picker on first load. No manual reconfiguration needed.
-
 ---
 
 ### 👥 Multi-Profile (Multi-User)
@@ -246,8 +247,6 @@ In a multi-user household using the backend's [M2M multi-profile topology](https
 - **One tracker selected** — the card always renders that single profile. Logging a shared drink (e.g. a Coca-Cola device assigned to multiple profiles) is one-tap; it always logs to the selected profile.
 - **Two or more trackers selected (same substance)** — the card runs the multi-profile state machine. A header profile switcher lets you switch the active view, and shared drinks show a **"Who is logging this?"** picker when you tap them so the PK payload routes to the right person. All selected trackers must be the same substance (all Caffeine **or** all Alcohol); mixed selections render an "Invalid Drink Tracker selection" error.
 - **No Drink Trackers selected** — the card falls back to the **Medicines Picker** (single medicine / granular drink card). Zero-config single-substance households auto-discover all matching tracker devices.
-
-Legacy configs that used the old **Master Trackers** entity selector or the **Profile Lock** UUID field are migrated automatically on first load — no manual reconfiguration needed.
 
 ---
 
