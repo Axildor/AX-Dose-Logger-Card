@@ -4369,6 +4369,12 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i$
         // panel re-render. Binding them here lets timeframe-chip clicks, carousel
         // nav, and async history-fetch completion re-render the panel immediately.
         this.amountHistory = [];
+        // True when amountHistory came from the recorder-independent graph endpoint
+        // (evenly sampled PK curve — no gaps). The line graph then skips
+        // bridgeGaps(), which would double the node count with hold points that
+        // the sampling already makes unnecessary. False for the recorder fallback
+        // (sparse same-value-discarding samples — bridging still required).
+        this.amountHistorySampled = false;
         this.doseHistory = [];
         this.activeGraph = 0;
         this.activeTimeframe = '48h';
@@ -4629,8 +4635,12 @@ let AxDoseGraphsPanel = AxDoseGraphsPanel_1 = class AxDoseGraphsPanel extends i$
         const timeframeHours = this._getTimeframeHours();
         const startTime = new Date(now.getTime() - timeframeHours * 60 * 60 * 1000);
         // Bridge gaps in history so the polyline renders flat holds + vertical
-        // steps instead of diagonal slopes across sparse recorder data.
-        const bridgedHistory = bridgeGaps(rawHistory);
+        // steps instead of diagonal slopes across sparse recorder data. Skipped
+        // for the graph-endpoint series: it is evenly sampled by the backend
+        // (no gaps by construction), so bridging would only double the nodes.
+        const bridgedHistory = this.amountHistorySampled
+            ? rawHistory.map((p) => ({ timestamp: new Date(p.timestamp).getTime(), value: p.value }))
+            : bridgeGaps(rawHistory);
         // Find max value for Y-axis scaling
         const values = bridgedHistory.map((p) => p.value);
         const maxAmount = Math.max(...values, 1);
@@ -5394,6 +5404,9 @@ __decorate([
 __decorate([
     n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "amountHistory", void 0);
+__decorate([
+    n$1({ type: Boolean })
+], AxDoseGraphsPanel.prototype, "amountHistorySampled", void 0);
 __decorate([
     n$1({ attribute: false })
 ], AxDoseGraphsPanel.prototype, "doseHistory", void 0);
@@ -6734,6 +6747,10 @@ class AxDoseLoggerCard extends i$2 {
         this._activePane = 'daily';
         this._activeGraph = 0;
         this._amountHistory = [];
+        // True when _amountHistory came from the recorder-independent graph
+        // endpoint (evenly sampled PK curve — no gaps, so the panel must skip
+        // bridgeGaps()). False for the recorder fallback (sparse, needs bridging).
+        this._amountHistorySampled = false;
         this._doseHistory = [];
         this._showDeviceInfo = false;
         this._showRefillDialog = false;
@@ -8804,6 +8821,9 @@ class AxDoseLoggerCard extends i$2 {
     get amountHistory() {
         return this._amountHistory;
     }
+    get amountHistorySampled() {
+        return this._amountHistorySampled;
+    }
     get doseHistory() {
         return this._doseHistory;
     }
@@ -9571,14 +9591,44 @@ class AxDoseLoggerCard extends i$2 {
     async _fetchAmountHistory(entities) {
         if (!this.hass || !entities.amountInBody)
             return;
-        const entityId = entities.amountInBody;
-        const now = new Date();
-        const startTime = new Date(now.getTime() - this._getTimeframeHours() * 60 * 60 * 1000).toISOString();
-        const endTime = now.toISOString();
         // Race guard (#4): capture the token at entry; after `await`, discard the
         // result if a newer fetch (or disconnect) has bumped it. This ensures only
         // the latest timeframe/pane change's result is written to _amountHistory.
         const token = ++this._amountFetchToken;
+        // ── Primary path: recorder-independent graph endpoint ──
+        // The backend recomputes the PK curve from its own dose-history store
+        // (365-day default retention), so long timeframes are NOT truncated by
+        // the HA recorder's purge_keep_days default of 10 days. The series is
+        // evenly sampled (default 240 points) so no gap-bridging is needed.
+        const deviceId = this._effectiveDeviceId();
+        if (deviceId) {
+            try {
+                const hours = this._getTimeframeHours();
+                const data = await this.hass.callApi('GET', `ax_dose_logger/graph/${deviceId}?hours=${hours}&points=240`);
+                if (token !== this._amountFetchToken)
+                    return;
+                if (data && Array.isArray(data.amount)) {
+                    this._amountHistory = data.amount.map((p) => ({
+                        timestamp: p[0],
+                        value: parseFloat(String(p[1]))
+                    }));
+                    this._amountHistorySampled = true;
+                    return;
+                }
+            }
+            catch (e) {
+                // Older backends (pre graph endpoint) 404 — fall through to the
+                // recorder fetch below. Log for debuggability.
+                console.debug('[ax-dose-logger-card] graph endpoint unavailable, falling back to recorder:', e);
+            }
+        }
+        if (token !== this._amountFetchToken)
+            return;
+        // ── Fallback path: HA recorder history/period (≤ purge_keep_days) ──
+        const entityId = entities.amountInBody;
+        const now = new Date();
+        const startTime = new Date(now.getTime() - this._getTimeframeHours() * 60 * 60 * 1000).toISOString();
+        const endTime = now.toISOString();
         try {
             // Use HA's authenticated REST helper (#2) instead of raw fetch + manual
             // access-token extraction. Path is relative to /api/. minimal_response +
@@ -9602,6 +9652,7 @@ class AxDoseLoggerCard extends i$2 {
                 this._amountHistory = step > 1
                     ? filteredData.filter((_, index) => index % step === 0)
                     : filteredData;
+                this._amountHistorySampled = false;
             }
         }
         catch (e) {
@@ -9634,24 +9685,60 @@ class AxDoseLoggerCard extends i$2 {
             console.warn('[ax-dose-logger-card] dose history fetch failed:', e);
         }
     }
-    // Effectiveness history fetch — batched single call for ALL effectiveness
-    // entities of the device (comma-separated filter_entity_id), split per
-    // entity on the client. Effectiveness entities are daily-locked number
-    // entities (state changes only when the user logs a value), so the recorder
-    // is the source of multi-day history. unknown/unavailable states are
-    // dropped so the graph renders gaps on unlogged days instead of zeros.
-    // Mirrors _fetchAmountHistory's race-guard token + minimal_response +
-    // significant_changes_only optimizations, but covers N entities per call.
+    // Effectiveness history fetch — primary path is the recorder-independent
+    // graph endpoint (date-keyed values straight from the integration's
+    // metrics store, 365-day retention); fallback is the batched recorder
+    // history/period call for ALL effectiveness entities of the device
+    // (comma-separated filter_entity_id), split per entity on the client.
+    // Effectiveness entities are daily-locked number entities (state changes
+    // only when the user logs a value). unknown/unavailable states are dropped
+    // so the graph renders gaps on unlogged days instead of zeros. Mirrors
+    // _fetchAmountHistory's race-guard token pattern.
     async _fetchEffectivenessHistory(entities) {
         if (!this.hass || !entities.metrics.length)
             return;
-        const entityIds = entities.metrics.map((m) => m.entityId).join(',');
-        const now = new Date();
         const days = this._activeEffectivenessTimeframe === '30d' ? 30
             : this._activeEffectivenessTimeframe === '60d' ? 60 : 14;
+        const token = ++this._effectivenessFetchToken;
+        // ── Primary path: recorder-independent graph endpoint ──
+        const deviceId = this._effectiveDeviceId();
+        if (deviceId) {
+            try {
+                const data = await this.hass.callApi('GET', `ax_dose_logger/graph/${deviceId}?hours=${days * 24}&points=40`);
+                if (token !== this._effectivenessFetchToken)
+                    return;
+                if (data && data.metrics && typeof data.metrics === 'object') {
+                    // Convert the date-keyed map to the timestamp-point shape the
+                    // panel's _bucketByDay already consumes (noon UTC of each date so
+                    // the day-bucketing is unambiguous).
+                    const result = {};
+                    for (const metric of entities.metrics) {
+                        const dated = data.metrics[metric.metricKey];
+                        if (!dated || typeof dated !== 'object')
+                            continue;
+                        result[metric.metricKey] = Object.entries(dated)
+                            .map(([dateKey, value]) => ({
+                            timestamp: `${dateKey}T12:00:00.000Z`,
+                            value: parseFloat(String(value)),
+                        }))
+                            .filter((p) => !isNaN(p.value));
+                    }
+                    this._effectivenessHistory = result;
+                    this._initEffectivenessVisible(entities);
+                    return;
+                }
+            }
+            catch (e) {
+                console.debug('[ax-dose-logger-card] graph endpoint unavailable, falling back to recorder:', e);
+            }
+        }
+        if (token !== this._effectivenessFetchToken)
+            return;
+        // ── Fallback path: HA recorder history/period (≤ purge_keep_days) ──
+        const entityIds = entities.metrics.map((m) => m.entityId).join(',');
+        const now = new Date();
         const startTime = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
         const endTime = now.toISOString();
-        const token = ++this._effectivenessFetchToken;
         try {
             const data = await this.hass.callApi('GET', `history/period/${startTime}?filter_entity_id=${entityIds}&end_time=${endTime}&minimal_response&significant_changes_only=1`);
             if (token !== this._effectivenessFetchToken)
@@ -9673,18 +9760,21 @@ class AxDoseLoggerCard extends i$2 {
                 });
             }
             this._effectivenessHistory = result;
-            // Initialize the visible set to all metrics on first fetch (or when the
-            // metric set changed since last fetch, e.g. a custom metric was added
-            // in the options flow). We compare against the existing visible set so
-            // a user's per-tracker toggles survive timeframe changes.
-            const allKeys = entities.metrics.map((m) => m.metricKey);
-            const knownKeys = allKeys.filter((k) => this._effectivenessVisible.has(k));
-            if (knownKeys.length !== allKeys.length || knownKeys.length === 0) {
-                this._effectivenessVisible = new Set(allKeys);
-            }
+            this._initEffectivenessVisible(entities);
         }
         catch (e) {
             console.warn('[ax-dose-logger-card] effectiveness history fetch failed:', e);
+        }
+    }
+    // Initialize the visible set to all metrics on first fetch (or when the
+    // metric set changed since last fetch, e.g. a custom metric was added in
+    // the options flow). We compare against the existing visible set so a
+    // user's per-tracker toggles survive timeframe changes.
+    _initEffectivenessVisible(entities) {
+        const allKeys = entities.metrics.map((m) => m.metricKey);
+        const knownKeys = allKeys.filter((k) => this._effectivenessVisible.has(k));
+        if (knownKeys.length !== allKeys.length || knownKeys.length === 0) {
+            this._effectivenessVisible = new Set(allKeys);
         }
     }
     // Shared progressive-reveal resolver for avg/adherence boxes and stats rows.
@@ -10175,7 +10265,7 @@ class AxDoseLoggerCard extends i$2 {
         <div class="card-content">
           ${cardTitle}
           ${this._activePane === 'daily' ? b `<ax-dose-daily-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDailyButtonState(entities)} .ackActive=${this._dailyAckActive} .ackCount=${this._dailyAckCount}></ax-dose-daily-panel>` : A}
-          ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : A}
+          ${this._activePane === 'graphs' ? b `<ax-dose-graphs-panel .controller=${this} .entities=${entities} .hass=${this.hass} .amountHistory=${this._amountHistory} .amountHistorySampled=${this._amountHistorySampled} .doseHistory=${this._doseHistory} .activeGraph=${this._activeGraph} .activeTimeframe=${this._activeTimeframe} .activeBarTimeframe=${this._activeBarTimeframe} .activeEffectivenessTimeframe=${this._activeEffectivenessTimeframe} .activeEffectivenessView=${this._activeEffectivenessView} .effectivenessHistory=${this._effectivenessHistory} .effectivenessVisible=${this._effectivenessVisible}></ax-dose-graphs-panel>` : A}
           ${this._activePane === 'stats' ? b `<ax-dose-stats-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-stats-panel>` : A}
           ${this._activePane === 'drinks' ? b `<ax-dose-drinks-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick} .buttonState=${this._computeDrinksButtonState(entities)} .ackActive=${this._drinksAckActive} .ackCount=${this._drinksAckCount}></ax-dose-drinks-panel>` : A}
           ${this._activePane === 'inventory' ? b `<ax-dose-inventory-panel .controller=${this} .entities=${entities} .hass=${this.hass} .tick=${this._tick}></ax-dose-inventory-panel>` : A}
@@ -10929,6 +11019,9 @@ __decorate([
 __decorate([
     r$2()
 ], AxDoseLoggerCard.prototype, "_amountHistory", void 0);
+__decorate([
+    r$2()
+], AxDoseLoggerCard.prototype, "_amountHistorySampled", void 0);
 __decorate([
     r$2()
 ], AxDoseLoggerCard.prototype, "_doseHistory", void 0);

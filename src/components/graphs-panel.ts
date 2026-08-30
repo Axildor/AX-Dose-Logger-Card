@@ -33,6 +33,12 @@ export class AxDoseGraphsPanel extends LitElement {
   // panel re-render. Binding them here lets timeframe-chip clicks, carousel
   // nav, and async history-fetch completion re-render the panel immediately.
   @property({ attribute: false }) amountHistory: Array<{ timestamp: string; value: number }> = [];
+  // True when amountHistory came from the recorder-independent graph endpoint
+  // (evenly sampled PK curve — no gaps). The line graph then skips
+  // bridgeGaps(), which would double the node count with hold points that
+  // the sampling already makes unnecessary. False for the recorder fallback
+  // (sparse same-value-discarding samples — bridging still required).
+  @property({ type: Boolean }) amountHistorySampled: boolean = false;
   @property({ attribute: false }) doseHistory: Array<[string, number]> = [];
   @property({ type: Number }) activeGraph: number = 0;
   @property({ attribute: false }) activeTimeframe: string = '48h';
@@ -320,8 +326,12 @@ export class AxDoseGraphsPanel extends LitElement {
     const startTime = new Date(now.getTime() - timeframeHours * 60 * 60 * 1000);
 
     // Bridge gaps in history so the polyline renders flat holds + vertical
-    // steps instead of diagonal slopes across sparse recorder data.
-    const bridgedHistory = bridgeGaps(rawHistory);
+    // steps instead of diagonal slopes across sparse recorder data. Skipped
+    // for the graph-endpoint series: it is evenly sampled by the backend
+    // (no gaps by construction), so bridging would only double the nodes.
+    const bridgedHistory = this.amountHistorySampled
+      ? rawHistory.map((p) => ({ timestamp: new Date(p.timestamp).getTime(), value: p.value }))
+      : bridgeGaps(rawHistory);
 
     // Find max value for Y-axis scaling
     const values = bridgedHistory.map((p) => p.value);
