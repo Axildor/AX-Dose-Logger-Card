@@ -181,6 +181,7 @@ const translations: Record<string, Record<string, string>> = {
     'dialog.override.body_window': 'Your dose limit resets at {time}. Take a dose now anyway?',
     'dialog.override.body_24h_exceeded': 'You have already exceeded the 24h strength limit for this medication ({time}). Taking another dose increases the risk of adverse effects. Press Override to log the dose anyway.',
     'dialog.override.body_24h_would_exceed': 'Your next dose ({next} {unit}) would push the 24h total to {projected} {unit}, exceeding the {limit} {unit} limit (currently {current} {unit}). Press Override to log the dose anyway.',
+    'dialog.override.body_missed_midpoint': 'It is now closer to your next dose than to the missed one. General guidelines recommend waiting for the next dose instead of taking the missed one now. Check your medicine\u2019s instructions or follow your doctor\u2019s advice — some medications have different missed-dose rules. This is general information, not medical advice.',
     'dialog.override.confirm': 'Override',
     'dialog.device_info.button': 'To Device info',
     'dialog.device_info.aria': 'View device info',

@@ -583,6 +583,10 @@ export interface CardController {
   computeNextDose(entities: ResolvedEntities): string;
   computeOverTime(entities: ResolvedEntities): string | null;
   computeTimeSinceLastDose(entities: ResolvedEntities): string;
+  /** Single Take Pill sub-line segment (slot / Overdue / Next) with the
+   *  missed-dose midpoint swap — guarantees a 2-line button (never both
+   *  Overdue and Next at once). Null when no segment should render. */
+  computeSubLineSegment(entities: ResolvedEntities): { key: string; value: string } | null;
   bucketByDay(dayCount?: number): DayBucket[];
   daysSinceReveal(entities: ResolvedEntities): { hasDaysSensor: boolean; daysSince: number };
   // ── Master Tracker (Drinks) helpers ──

@@ -182,31 +182,13 @@ export class AxDoseDailyPanel extends LitElement {
     // resolved buttonState prop drives the Take Pill button styling.
     const safeState = c.getState(e.pillsSafeToTake);
     const timeSince = c.computeTimeSinceLastDose(e);
-    const nextDose = c.computeNextDose(e);
-    const overTime = c.computeOverTime(e);
     const chipEntities = c.getChipEntities();
-
-    // ── Multi-pill slot progress (backend pills_per_slot > 1) ──
-    // The dose_status enum sensor exposes `slot_remaining` (pills still owed
-    // in the most recently reached slot) only when pills_per_slot > 1; it is
-    // null for the single-pill model, Cyclic, and As-Needed, and absent on
-    // older backends — in every one of those cases the segment below simply
-    // never renders (full back-compat, no config migration).
-    // Tracking-type nuance: for Time of Day, next_dose stays pinned to the
-    // current uncovered slot (a past timestamp) until it is fully covered, so
-    // the Overdue segment shows mid-slot; for Regular Interval, next_dose
-    // advances to the next future chained deadline, so the Next countdown
-    // would show mid-slot. In both cases the slot-progress segment replaces
-    // the Next segment (Overdue, when present, keeps its place before it).
-    // Defensive parse: the attribute arrives as a number or numeric string;
-    // null/undefined/''/NaN → no segment.
-    const slotRemainingRaw = c.getAttr(e.doseStatus, 'slot_remaining');
-    const slotRemainingNum = typeof slotRemainingRaw === 'number'
-      ? slotRemainingRaw
-      : (slotRemainingRaw !== null && slotRemainingRaw !== undefined && slotRemainingRaw !== ''
-        ? parseFloat(String(slotRemainingRaw))
-        : NaN);
-    const slotRemaining = Number.isFinite(slotRemainingNum) && slotRemainingNum > 0 ? Math.floor(slotRemainingNum) : 0;
+    // Single-segment sub-line (controller-owned): slot progress OR Overdue
+    // OR Next — never two at once. The controller splits Overdue/Next at
+    // the missed-dose midpoint (skip-and-wait guidance past the halfway
+    // point) so the button stays 2 lines and the card height is stable
+    // (kiosk dashboards are sized for the 2-line layout).
+    const subSegment = c.computeSubLineSegment(e);
 
     // Display entity for the Pills Left box. Priority:
     //   1. pills_left_show_days_left === true → backend days_left sensor
@@ -309,13 +291,11 @@ export class AxDoseDailyPanel extends LitElement {
               : this.buttonState === 'limit_24h'
               ? localize(this._lang, 'daily.24h_limit_reached')
               : (c.config?.take_pill_label || localize(this._lang, 'daily.take_pill'))}</span>
-            <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${overTime
-              ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.overdue')}: ${overTime}</span>`
-              : nothing}${slotRemaining > 0
-              ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.slot_remaining', { count: String(slotRemaining) })}</span>`
-              : (nextDose !== 'Unavailable' && nextDose !== 'now'
-                ? html` \u2022 <span class="take-sub-segment">${localize(this._lang, 'daily.next')}: ${nextDose}</span>`
-                : nothing)}</span>
+            <span class="take-sub"><span class="take-sub-segment">${localize(this._lang, 'daily.last')}: ${timeSince}</span>${subSegment
+              ? html` \u2022 <span class="take-sub-segment">${subSegment.key === 'daily.slot_remaining'
+                ? localize(this._lang, 'daily.slot_remaining', { count: subSegment.value })
+                : localize(this._lang, subSegment.key as 'daily.overdue' | 'daily.next')}: ${subSegment.value}</span>`
+              : nothing}</span>
             ${this.ackActive ? keyed(this.ackCount, html`
               <div class="ack-flash ack-${this._ackLayout()}${this.ackCount >= 2 ? ' ack-repeat' : ''}">
                 <ha-icon icon="mdi:check-bold" class="ack-icon"></ha-icon>

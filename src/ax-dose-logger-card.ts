@@ -233,7 +233,8 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
     timeLabel: string;
     bodyKey: 'dialog.override.body_scheduled' | 'dialog.override.body_as_needed'
       | 'dialog.override.body_window'
-      | 'dialog.override.body_24h_exceeded' | 'dialog.override.body_24h_would_exceed';
+      | 'dialog.override.body_24h_exceeded' | 'dialog.override.body_24h_would_exceed'
+      | 'dialog.override.body_missed_midpoint';
     entities: ResolvedEntities;
   } | null = null;
   // Extra context for the 24h limit override dialog body placeholders
@@ -1625,6 +1626,98 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   }
 
   /**
+   * Missed-dose midpoint predicate (clinical "skip-and-wait" boundary).
+   * True when a scheduled dose is overdue AND the next scheduled dose is
+   * closer than the missed one — i.e. the user is past the halfway point
+   * between the missed slot and the next dose. This is the operational
+   * boundary for the standard missed-dose guideline ("take it now" before
+   * the midpoint, "skip and wait for the next dose" after it).
+   *
+   * Computed purely from existing sensors (no backend change):
+   *   - overdue sensor: seconds past the missed slot
+   *   - next_dose sensor: the next FUTURE chained deadline (Regular
+   *     Interval). Past-midpoint test: overdueSeconds >= (next_dose - now).
+   *   - Time of Day meds pin next_dose to the past slot, so no future
+   *     next exists -> never past midpoint (Overdue keeps showing).
+   *   - As Needed meds: overdue is undefined -> never past midpoint.
+   *
+   * Shared by the Take Pill sub-line segment resolver and the missed-dose
+   * advisory dialog so the button text and the popup can never disagree.
+   */
+  private _isPastMissedDoseMidpoint(entities: ResolvedEntities): boolean {
+    const trackingType = this._getAttr(entities.nextDose, 'tracking_type');
+    if (trackingType === 'As Needed') return false;
+
+    const overdueState = this._getState(entities.overdue);
+    if (overdueState === 'unavailable' || overdueState === 'unknown' || !overdueState) return false;
+    const overdueSeconds = parseFloat(overdueState);
+    if (isNaN(overdueSeconds) || overdueSeconds <= 0) return false;
+
+    const nextDoseState = this._getState(entities.nextDose);
+    if (!nextDoseState || nextDoseState === 'unavailable' || nextDoseState === 'unknown') return false;
+    const next = new Date(nextDoseState);
+    if (isNaN(next.getTime()) || next <= new Date()) return false;
+
+    return overdueSeconds >= (next.getTime() - Date.now()) / 1000;
+  }
+
+  /**
+   * Compute the SINGLE sub-line segment shown after "Last:" on the Take
+   * Pill button. Guarantees the button never grows past 2 text lines
+   * (kiosk dashboards are sized for the 2-line layout) and that Overdue
+   * and Next are never shown simultaneously (confusing dual clocks).
+   *
+   * Priority:
+   *   1. slot_remaining > 0 -> "{count} left this slot" (multi-pill slot
+   *      progress; implies the slot is due — the button color already
+   *      conveys lateness)
+   *   2. overdue > 0, before the missed-dose midpoint -> "Overdue: Xh"
+   *      (take-now guidance; matches the amber latency button color)
+   *   3. past the midpoint -> "Next: Xh" (skip-and-wait guidance; the
+   *      clinically correct message per standard missed-dose guidelines)
+   *   4. otherwise -> "Next: Xh" (normal countdown)
+   */
+  private _computeSubLineSegment(entities: ResolvedEntities): { key: 'daily.overdue' | 'daily.next' | 'daily.slot_remaining'; value: string } | null {
+    // 1. Multi-pill slot progress wins (implies the slot is due).
+    const slotRemainingRaw = this._getAttr(entities.doseStatus, 'slot_remaining');
+    const slotRemainingNum = typeof slotRemainingRaw === 'number'
+      ? slotRemainingRaw
+      : (slotRemainingRaw !== null && slotRemainingRaw !== undefined && slotRemainingRaw !== ''
+        ? parseFloat(String(slotRemainingRaw))
+        : NaN);
+    if (Number.isFinite(slotRemainingNum) && slotRemainingNum > 0) {
+      return { key: 'daily.slot_remaining', value: String(Math.floor(slotRemainingNum)) };
+    }
+
+    // 2/3. Overdue vs Next, split at the missed-dose midpoint.
+    const overTime = this._computeOverTime(entities);
+    if (overTime) {
+      if (this._isPastMissedDoseMidpoint(entities)) {
+        const nextDose = this._computeNextDose(entities);
+        if (nextDose !== 'Unavailable' && nextDose !== 'now') {
+          return { key: 'daily.next', value: nextDose };
+        }
+        // Defensive: the midpoint predicate already required a future
+        // next_dose, so this is unreachable in practice — show Overdue.
+        return { key: 'daily.overdue', value: overTime };
+      }
+      return { key: 'daily.overdue', value: overTime };
+    }
+
+    // 4. Normal countdown.
+    const nextDose = this._computeNextDose(entities);
+    if (nextDose !== 'Unavailable' && nextDose !== 'now') {
+      return { key: 'daily.next', value: nextDose };
+    }
+    return null;
+  }
+
+  /** Public accessor for the presentational panels. */
+  public computeSubLineSegment(entities: ResolvedEntities): { key: string; value: string } | null {
+    return this._computeSubLineSegment(entities);
+  }
+
+  /**
    * Compute a human-readable label for when the pill-limit rolling window
    * resets (i.e. when safe_to_take will increment). Reads the
    * `window_expires_at` attribute exposed by the Pills Safe to Take sensor.
@@ -1809,6 +1902,25 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       }
 
       this._overrideDialog = { timeLabel, bodyKey, entities };
+      return;
+    }
+
+    // Missed-dose midpoint advisory: when a scheduled dose is overdue and
+    // the user is PAST the halfway point between the missed slot and the
+    // next dose, standard missed-dose guidance (FDA/EMA leaflet norm) is to
+    // skip the missed dose and wait for the next one. Show a concise
+    // advisory popup (guideline + check-your-medicine + exceptions +
+    // not-medical-advice) with Cancel / Log Anyway. Non-blocking: the
+    // backend lockout/limit sensors remain the actual enforcement; this is
+    // guidance only. Fires AFTER the 24h-limit and pill-count lockout
+    // dialogs (safety dialogs win precedence). Time of Day meds (pinned
+    // past next_dose) and As-Needed meds never reach it (predicate false).
+    if (this._isPastMissedDoseMidpoint(entities)) {
+      this._overrideDialog = {
+        timeLabel: this._computeNextDose(entities),
+        bodyKey: 'dialog.override.body_missed_midpoint',
+        entities,
+      };
       return;
     }
 
