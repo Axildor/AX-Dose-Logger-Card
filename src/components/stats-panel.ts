@@ -93,15 +93,20 @@ export class AxDoseStatsPanel extends LitElement {
     if (e.pillsSafeToTake) {
       rows.push({ label: localize(this._lang, 'stats.safe_to_take'), value: c.formatInteger(c.getState(e.pillsSafeToTake)), icon: 'mdi:pill', entityId: e.pillsSafeToTake });
     }
-    // Next Dose + Overdue — the Daily tab's sub-line facts as standalone
-    // rows. computeNextDose/computeOverTime are the existing controller
-    // helpers (no new formatting logic).
-    if (e.nextDose) {
+    // Next Dose XOR Overdue — the Daily tab's sub-line facts as a standalone
+    // row, mirroring the sub-line's missed-dose midpoint rule so the two
+    // clocks are never shown simultaneously (confusing dual clocks):
+    //   - overdue active AND before the midpoint -> Overdue row only
+    //     (take-now guidance)
+    //   - overdue active AND past the midpoint -> Next row only (the next
+    //     scheduled dose is closer than the missed one — skip-and-wait)
+    //   - not overdue -> Next row only (normal countdown)
+    // Reuses the existing controller helpers (no new formatting logic).
+    const over = e.overdue ? c.computeOverTime(e) : null;
+    if (over && !c.isPastMissedDoseMidpoint(e)) {
+      rows.push({ label: localize(this._lang, 'stats.overdue'), value: over, icon: 'mdi:clock-alert', entityId: e.overdue });
+    } else if (e.nextDose) {
       rows.push({ label: localize(this._lang, 'stats.next_dose'), value: c.computeNextDose(e), icon: 'mdi:clock-plus', entityId: e.nextDose });
-    }
-    if (e.overdue) {
-      const over = c.computeOverTime(e);
-      rows.push({ label: localize(this._lang, 'stats.overdue'), value: over ?? '-', icon: 'mdi:clock-alert', entityId: e.overdue });
     }
     if (e.steadyState) {
       const ss = c.getState(e.steadyState);

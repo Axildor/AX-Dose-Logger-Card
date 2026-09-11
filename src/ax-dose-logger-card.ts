@@ -2615,6 +2615,10 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   public formatInteger(value: string): string { return this._formatInteger(value); }
   public computeNextDose(entities: ResolvedEntities): string { return this._computeNextDose(entities); }
   public computeOverTime(entities: ResolvedEntities): string | null { return this._computeOverTime(entities); }
+  /** Missed-dose midpoint predicate (next scheduled dose closer than the
+   *  missed one). Public accessor for the presentational panels so the
+   *  Stats grid can mirror the sub-line's Overdue-XOR-Next rule. */
+  public isPastMissedDoseMidpoint(entities: ResolvedEntities): boolean { return this._isPastMissedDoseMidpoint(entities); }
   public computeTimeSinceLastDose(entities: ResolvedEntities): string { return this._computeTimeSinceLastDose(entities); }
   /** Resolve the Daily (Take Pill) button state for the Button State Matrix.
    *  Delegates to the private resolver so the panel stays presentational. */
@@ -2756,7 +2760,14 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // ── Device Info Dialog ─────────────────────
 
   private _navigateToDevice(deviceId?: string) {
-    const target = deviceId ?? this._effectiveDeviceId();
+    // Multi-tracker mode: _effectiveDeviceId() returns '' (config.device_id is
+    // empty — trackers live in drink_tracker_devices), which made the
+    // null-target device-info dialog's "To Device Info" button a silent
+    // no-op (the `if (!target) return` guard fired). Fall back to the ACTIVE
+    // tracker's device so the substance title button (and the N=1 profile
+    // title button) navigate to the active profile's Master Tracker device.
+    // Parentheses are mandatory: TS forbids mixing ?? with || unparenthesized.
+    const target = deviceId ?? (this._effectiveDeviceId() || this._activeTracker()?.deviceId);
     if (!target) return;
     window.history.pushState(null, '', `/config/devices/device/${target}`);
     window.dispatchEvent(new CustomEvent('location-changed'));

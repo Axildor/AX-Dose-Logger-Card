@@ -582,6 +582,10 @@ export interface CardController {
   formatInteger(value: string): string;
   computeNextDose(entities: ResolvedEntities): string;
   computeOverTime(entities: ResolvedEntities): string | null;
+  /** True when a scheduled dose is overdue AND the next scheduled dose is
+   *  closer than the missed one (past the halfway point). Powers the
+   *  Overdue-XOR-Next exclusivity in the Stats grid. */
+  isPastMissedDoseMidpoint(entities: ResolvedEntities): boolean;
   computeTimeSinceLastDose(entities: ResolvedEntities): string;
   /** Single Take Pill sub-line segment (slot / Overdue / Next) with the
    *  missed-dose midpoint swap — guarantees a 2-line button (never both
