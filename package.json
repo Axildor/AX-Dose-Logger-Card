@@ -1,6 +1,6 @@
 {
   "name": "ax-dose-logger-card",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A custom Lovelace card for the AX Dose Logger Home Assistant integration",
   "main": "dist/ax-dose-logger-card.js",
   "type": "module",

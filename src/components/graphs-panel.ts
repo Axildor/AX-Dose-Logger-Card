@@ -784,6 +784,16 @@ export class AxDoseGraphsPanel extends LitElement {
         const label = (hasDaysSensor && daysSince < 365) ? localize(this._lang, 'averages.avg_running', { days: daysSince }) : localize(this._lang, 'averages.avg_year');
         items.push({ label, value: c.getState(entities.avgYearly) });
       }
+      // Day Coverage (PDC %) boxes — only when a DEDICATED coverage sensor
+      // exists (legacy backends alias dayCoverage* to the same entity as
+      // avg*, which would duplicate the boxes above).
+      if (entities.dayCoverage7Days && entities.dayCoverage7Days !== entities.avg7Days && (!hasDaysSensor || daysSince >= 7)) items.push({ label: localize(this._lang, 'averages.cov_7_day'), value: c.getState(entities.dayCoverage7Days) + '%' });
+      if (entities.dayCoverage14Days && entities.dayCoverage14Days !== entities.avg14Days && (!hasDaysSensor || daysSince >= 14)) items.push({ label: localize(this._lang, 'averages.cov_14_day'), value: c.getState(entities.dayCoverage14Days) + '%' });
+      if (entities.dayCoverage30Days && entities.dayCoverage30Days !== entities.avg30Days && (!hasDaysSensor || daysSince >= 30)) items.push({ label: localize(this._lang, 'averages.cov_30_day'), value: c.getState(entities.dayCoverage30Days) + '%' });
+      if (entities.dayCoverageYearly && entities.dayCoverageYearly !== entities.avgYearly && (!hasDaysSensor || daysSince > 0)) {
+        const label = (hasDaysSensor && daysSince < 365) ? localize(this._lang, 'averages.cov_running', { days: daysSince }) : localize(this._lang, 'averages.cov_year');
+        items.push({ label, value: c.getState(entities.dayCoverageYearly) + '%' });
+      }
     }
     if (this._config?.show_adherence_boxes !== false) {
       if (entities.adherence7Days && (!hasDaysSensor || daysSince >= 7)) items.push({ label: localize(this._lang, 'averages.adh_7_day'), value: c.getState(entities.adherence7Days) + '%' });

@@ -124,6 +124,16 @@ export class AxDoseStatsPanel extends LitElement {
       const label = (hasDays && days < 365) ? localize(this._lang, 'stats.avg_running', { days }) : localize(this._lang, 'stats.avg_yearly');
       rows.push({ label, value: c.getState(e.avgYearly), icon: 'mdi:chart-line', entityId: e.avgYearly });
     }
+    // Day Coverage (PDC %) rows — only when a DEDICATED coverage sensor
+    // exists. On legacy backends dayCoverage* aliases the same entity as
+    // avg* (single pre-split sensor), so the row would duplicate the avg row.
+    if (e.dayCoverage7Days && e.dayCoverage7Days !== e.avg7Days && (!hasDays || days >= 7)) rows.push({ label: localize(this._lang, 'stats.coverage_7_day'), value: c.getState(e.dayCoverage7Days) + '%', icon: 'mdi:calendar-check', entityId: e.dayCoverage7Days });
+    if (e.dayCoverage14Days && e.dayCoverage14Days !== e.avg14Days && (!hasDays || days >= 14)) rows.push({ label: localize(this._lang, 'stats.coverage_14_day'), value: c.getState(e.dayCoverage14Days) + '%', icon: 'mdi:calendar-check', entityId: e.dayCoverage14Days });
+    if (e.dayCoverage30Days && e.dayCoverage30Days !== e.avg30Days && (!hasDays || days >= 30)) rows.push({ label: localize(this._lang, 'stats.coverage_30_day'), value: c.getState(e.dayCoverage30Days) + '%', icon: 'mdi:calendar-check', entityId: e.dayCoverage30Days });
+    if (e.dayCoverageYearly && e.dayCoverageYearly !== e.avgYearly && (!hasDays || days > 0)) {
+      const label = (hasDays && days < 365) ? localize(this._lang, 'stats.coverage_running', { days }) : localize(this._lang, 'stats.coverage_yearly');
+      rows.push({ label, value: c.getState(e.dayCoverageYearly) + '%', icon: 'mdi:calendar-check', entityId: e.dayCoverageYearly });
+    }
     if (e.adherence7Days && (!hasDays || days >= 7)) rows.push({ label: localize(this._lang, 'stats.adherence_7_day'), value: c.getState(e.adherence7Days) + '%', icon: 'mdi:check-decagram', entityId: e.adherence7Days });
     if (e.adherence14Days && (!hasDays || days >= 14)) rows.push({ label: localize(this._lang, 'stats.adherence_14_day'), value: c.getState(e.adherence14Days) + '%', icon: 'mdi:check-decagram', entityId: e.adherence14Days });
     if (e.adherence30Days && (!hasDays || days >= 30)) rows.push({ label: localize(this._lang, 'stats.adherence_30_day'), value: c.getState(e.adherence30Days) + '%', icon: 'mdi:check-decagram', entityId: e.adherence30Days });

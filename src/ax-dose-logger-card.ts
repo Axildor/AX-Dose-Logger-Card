@@ -1309,10 +1309,40 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         else if (entityId.endsWith('_amount_in_body')) result.amountInBody = entityId;
         else if (entityId.endsWith('_next_dose')) result.nextDose = entityId;
         else if (entityId.endsWith('_overdue')) result.overdue = entityId;
-        else if (entityId.endsWith('_avg_daily_doses_7_days')) result.avg7Days = entityId;
-        else if (entityId.endsWith('_avg_daily_doses_14_days')) result.avg14Days = entityId;
-        else if (entityId.endsWith('_avg_daily_doses_30_days')) result.avg30Days = entityId;
-        else if (entityId.endsWith('_avg_daily_doses_365_days') || entityId.endsWith('_avg_daily_doses_yearly')) result.avgYearly = entityId;
+        // Avg Doses per Day (true count/days average) + Day Coverage (PDC %).
+        // New backends expose both; legacy backends only had the single
+        // "_avg_daily_doses_N_days" PDC sensor, which is assigned to BOTH
+        // field sets so the card shows it under either label.
+        else if (entityId.endsWith('_avg_doses_per_day_7_days')) result.avg7Days = entityId;
+        else if (entityId.endsWith('_avg_doses_per_day_14_days')) result.avg14Days = entityId;
+        else if (entityId.endsWith('_avg_doses_per_day_30_days')) result.avg30Days = entityId;
+        else if (entityId.endsWith('_avg_doses_per_day_365_days') || entityId.endsWith('_avg_doses_per_day_yearly')) result.avgYearly = entityId;
+        else if (entityId.endsWith('_day_coverage_7_days')) result.dayCoverage7Days = entityId;
+        else if (entityId.endsWith('_day_coverage_14_days')) result.dayCoverage14Days = entityId;
+        else if (entityId.endsWith('_day_coverage_30_days')) result.dayCoverage30Days = entityId;
+        else if (entityId.endsWith('_day_coverage_365_days') || entityId.endsWith('_day_coverage_yearly')) result.dayCoverageYearly = entityId;
+        else if (entityId.endsWith('_avg_daily_doses_7_days')) {
+          // Legacy PDC entity_id — HA does NOT re-slug entity_id when the
+          // friendly name changes, so the Day Coverage sensor keeps this
+          // suffix after the rename. It IS the coverage sensor; borrow it
+          // as the doses-per-day fallback ONLY when no dedicated
+          // _avg_doses_per_day sensor exists (??= guards against iteration
+          // order clobbering the real sensor assignment).
+          result.dayCoverage7Days = entityId;
+          result.avg7Days ??= entityId;
+        }
+        else if (entityId.endsWith('_avg_daily_doses_14_days')) {
+          result.dayCoverage14Days = entityId;
+          result.avg14Days ??= entityId;
+        }
+        else if (entityId.endsWith('_avg_daily_doses_30_days')) {
+          result.dayCoverage30Days = entityId;
+          result.avg30Days ??= entityId;
+        }
+        else if (entityId.endsWith('_avg_daily_doses_365_days') || entityId.endsWith('_avg_daily_doses_yearly')) {
+          result.dayCoverageYearly = entityId;
+          result.avgYearly ??= entityId;
+        }
         else if (entityId.endsWith('_adherence_7_days')) result.adherence7Days = entityId;
         else if (entityId.endsWith('_adherence_14_days')) result.adherence14Days = entityId;
         else if (entityId.endsWith('_adherence_30_days')) result.adherence30Days = entityId;
@@ -1346,6 +1376,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
           const sensorRole = this._getAttr(entityId, 'role');
           if (sensorRole === 'daily_amount') result.amountLast24h = entityId;
           else if (sensorRole === 'daily_remaining') result.dailyRemaining = entityId;
+          else if (sensorRole === 'day_coverage' || sensorRole === 'avg_doses_per_day') {
+            // Rename-safe fallback: route by backend `role` + `window_days`
+            // state attributes (entity_id suffixes drift when HA re-slugs
+            // after a friendly-name change; roles never do).
+            const w = parseInt(this._getAttr(entityId, 'window_days') || '', 10);
+            const cov = sensorRole === 'day_coverage';
+            if (w === 7) { cov ? (result.dayCoverage7Days = entityId) : (result.avg7Days = entityId); }
+            else if (w === 14) { cov ? (result.dayCoverage14Days = entityId) : (result.avg14Days = entityId); }
+            else if (w === 30) { cov ? (result.dayCoverage30Days = entityId) : (result.avg30Days = entityId); }
+            else if (w === 365) { cov ? (result.dayCoverageYearly = entityId) : (result.avgYearly = entityId); }
+          }
         }
       } else if (entityId.startsWith('button.')) {
         if (entityId.endsWith('_take')) result.takeButton = entityId;
@@ -2553,7 +2594,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   // can't clobber the current dialog.
   private async _fetchDrinkLowPredictions(substance: 'caffeine' | 'alcohol'): Promise<void> {
     if (!this.hass) return;
-    const drinks = this._getDrinksOfSubstance(substance);
+    // Skip out-of-stock drinks — they're hidden from the picker grid, so
+    // fetching their Low prediction would be a wasted REST call.
+    const drinks = this._getDrinksOfSubstance(substance).filter((d) => !this._isDrinkOutOfStock(d));
     const token = ++this._predictLowToken;
     // Reset so a freshly-opened dialog shows "—" placeholders until the
     // predictions resolve, rather than the previous substance's values.
@@ -2855,7 +2898,17 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
   private _renderLogDrinkDialog() {
     const substance = this._logDrinkSubstance;
     if (!substance) return nothing;
-    const drinks = this._getDrinksOfSubstance(substance);
+    const allDrinks = this._getDrinksOfSubstance(substance);
+    // Out-of-stock drinks are hidden completely from the picker (user
+    // request): the popup answers "what can I drink right now", and with
+    // per-variant drinks (e.g. 33cl can / 25cl bottle / 50cl bottle of the
+    // same brand) the grid would bloat if empty entries stayed visible.
+    // The Inventory panel remains the place to see + refill a 0-stock drink.
+    // Fail-open: a drink with no stock entity (or an unavailable/non-numeric
+    // state) stays visible so backends predating the stock entity and
+    // transient `unavailable` states never hide a loggable drink.
+    const drinks = allDrinks.filter((d) => !this._isDrinkOutOfStock(d));
+    const allOutOfStock = allDrinks.length > 0 && drinks.length === 0;
     // Phase 2: the active tracker is the one-tap default for any drink the
     // active profile is allowed to log. N=1 cards never show a sub-list
     // (one-tap, always the sole profile). N>1 cards show a profile sub-list
@@ -2961,7 +3014,9 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
       >
         <div slot="header" class="dialog-header">${localize(this._lang, 'dialog.log_drink.title')}</div>
         <div class="dialog-body">
-          ${drinks.length === 0
+          ${allOutOfStock
+            ? html`<div class="tools-dialog-descriptor">${localize(this._lang, 'dialog.log_drink.out_of_stock')}</div>`
+            : drinks.length === 0
             ? html`<div class="tools-dialog-descriptor">${localize(this._lang, 'dialog.log_drink.empty')}</div>`
             : html`<div class="log-drink-grid">
                 ${drinks.map((d) => {
@@ -3017,6 +3072,22 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         </div>
       </ha-dialog>
     `;
+  }
+
+  // True when the drink's inventory is exhausted (stock state parses to a
+  // number <= 0). Used to hide out-of-stock drinks from the Log Drink popup
+  // grid. Fail-open: missing stock entity, `unavailable`/`unknown` state, or
+  // a non-numeric state all return false (drink stays visible) — the stock
+  // entity is optional on older backends and a transient state must never
+  // hide a loggable drink. The backend clamps stock at 0 (native_min_value
+  // = 0.0 + guarded decrement), so <= 0 is the reliable empty signal.
+  private _isDrinkOutOfStock(d: DrinkInfo): boolean {
+    if (!d.stockEntityId) return false;
+    const state = this._getState(d.stockEntityId);
+    if (!state) return false;
+    const stock = parseFloat(state);
+    if (isNaN(stock)) return false;
+    return stock <= 0;
   }
 
   // Pill-limit override warning dialog (#6). Rendered when _overrideDialog is
@@ -4374,6 +4445,16 @@ export class AxDoseLoggerCard extends LitElement implements LovelaceCard, CardCo
         if (d.avg7EntityId) watchedIds.push(d.avg7EntityId);
         if (d.avg365EntityId) watchedIds.push(d.avg365EntityId);
         if (d.daysLeftEntityId) watchedIds.push(d.daysLeftEntityId);
+      }
+    }
+    // The Log Drink popup filters out-of-stock drinks from its grid, so a
+    // stock change (refill from another dashboard, or a log that empties the
+    // last unit) must re-render while the dialog is open — otherwise a
+    // refilled drink stays hidden (or an emptied one stays visible) until
+    // the dialog is reopened.
+    if (this._showLogDrinkDialog && this._logDrinkSubstance) {
+      for (const d of this._getDrinksOfSubstance(this._logDrinkSubstance)) {
+        if (d.stockEntityId) watchedIds.push(d.stockEntityId);
       }
     }
     const cur = this.hass.states;

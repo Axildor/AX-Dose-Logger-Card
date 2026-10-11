@@ -351,10 +351,23 @@ export interface ResolvedEntities {
   pillsSafeToTake?: string;
   amountInBody?: string;
   nextDose?: string;
+  /** Avg Doses per Day sensors (true count/days average, mirrors the drink
+   *  path). Resolved via entity_id suffix `_avg_doses_per_day_N_days`, with
+   *  the legacy `_avg_daily_doses_N_days` suffix as fallback for backends
+   *  that predate the Day Coverage / Doses-per-Day split. */
   avg7Days?: string;
   avg14Days?: string;
   avg30Days?: string;
   avgYearly?: string;
+  /** Day Coverage (PDC) sensors — percentage of scheduled days with ≥1 dose.
+   *  Resolved via entity_id suffix `_day_coverage_N_days`, with the legacy
+   *  `_avg_daily_doses_N_days` suffix as fallback (shared with avg above —
+   *  legacy backends only have the one sensor, which the card then shows
+   *  under both labels). */
+  dayCoverage7Days?: string;
+  dayCoverage14Days?: string;
+  dayCoverage30Days?: string;
+  dayCoverageYearly?: string;
   adherence7Days?: string;
   adherence14Days?: string;
   adherence30Days?: string;
